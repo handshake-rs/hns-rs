@@ -1,0 +1,21 @@
+[package]
+name = "hns-transaction"
+description = "Canonical Handshake transaction and witness encoding"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+blake2.workspace = true
+hns-covenants = { path = "../hns-covenants" }
+hns-encoding = { path = "../hns-encoding" }
+hns-primitives = { path = "../hns-primitives" }
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true

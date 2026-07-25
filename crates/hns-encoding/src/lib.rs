@@ -52,6 +52,70 @@ impl<'input> Decoder<'input> {
         Ok(u64::from_le_bytes(self.read_array()?))
     }
 
+    pub fn read_compact_size(&mut self) -> Result<u64, DecodeError> {
+        match self.read_u8()? {
+            value @ 0x00..=0xfc => Ok(u64::from(value)),
+            0xfd => {
+                let value = u64::from(self.read_u16_le()?);
+                if value < 0xfd {
+                    return Err(DecodeError::InvalidValue {
+                        field: "compact size",
+                        reason: "noncanonical u16 encoding",
+                    });
+                }
+                Ok(value)
+            }
+            0xfe => {
+                let value = u64::from(self.read_u32_le()?);
+                if value <= u64::from(u16::MAX) {
+                    return Err(DecodeError::InvalidValue {
+                        field: "compact size",
+                        reason: "noncanonical u32 encoding",
+                    });
+                }
+                Ok(value)
+            }
+            0xff => {
+                let value = self.read_u64_le()?;
+                if value <= u64::from(u32::MAX) {
+                    return Err(DecodeError::InvalidValue {
+                        field: "compact size",
+                        reason: "noncanonical u64 encoding",
+                    });
+                }
+                Ok(value)
+            }
+        }
+    }
+
+    pub fn read_compact_usize(
+        &mut self,
+        maximum: usize,
+        _field: &'static str,
+    ) -> Result<usize, DecodeError> {
+        let value = self.read_compact_size()?;
+        let value = usize::try_from(value).map_err(|_| DecodeError::LengthExceedsBound {
+            actual: usize::MAX,
+            maximum,
+        })?;
+        if value > maximum {
+            return Err(DecodeError::LengthExceedsBound {
+                actual: value,
+                maximum,
+            });
+        }
+        Ok(value)
+    }
+
+    pub fn read_varbytes(
+        &mut self,
+        maximum: usize,
+        field: &'static str,
+    ) -> Result<Vec<u8>, DecodeError> {
+        let length = self.read_compact_usize(maximum, field)?;
+        self.read_bounded_vec(length, maximum)
+    }
+
     pub fn read_array<const LENGTH: usize>(&mut self) -> Result<[u8; LENGTH], DecodeError> {
         let bytes = self.read_slice(LENGTH)?;
         let mut output = [0_u8; LENGTH];
@@ -135,6 +199,29 @@ impl Encoder {
         self.bytes.extend_from_slice(&value.to_le_bytes());
     }
 
+    pub fn put_compact_size(&mut self, value: u64) {
+        match value {
+            0x00..=0xfc => self.put_u8(value as u8),
+            0xfd..=0xffff => {
+                self.put_u8(0xfd);
+                self.put_u16_le(value as u16);
+            }
+            0x1_0000..=0xffff_ffff => {
+                self.put_u8(0xfe);
+                self.put_u32_le(value as u32);
+            }
+            _ => {
+                self.put_u8(0xff);
+                self.put_u64_le(value);
+            }
+        }
+    }
+
+    pub fn put_varbytes(&mut self, value: &[u8]) {
+        self.put_compact_size(value.len() as u64);
+        self.put_bytes(value);
+    }
+
     pub fn put_bytes(&mut self, value: &[u8]) {
         self.bytes.extend_from_slice(value);
     }
@@ -191,5 +278,28 @@ mod tests {
             })
         );
         assert_eq!(bounded.position(), 0);
+    }
+
+    #[test]
+    fn compact_sizes_are_minimal_and_bounded() {
+        for value in [
+            0,
+            0xfc,
+            0xfd,
+            u64::from(u16::MAX),
+            u64::from(u16::MAX) + 1,
+            u64::from(u32::MAX),
+            u64::from(u32::MAX) + 1,
+            u64::MAX,
+        ] {
+            let mut encoder = Encoder::new();
+            encoder.put_compact_size(value);
+            let bytes = encoder.into_bytes();
+            let mut decoder = Decoder::new(&bytes);
+            assert_eq!(decoder.read_compact_size(), Ok(value));
+            assert_eq!(decoder.finish(), Ok(()));
+        }
+        assert!(Decoder::new(&[0xfd, 0xfc, 0]).read_compact_size().is_err());
+        assert!(Decoder::new(&[4]).read_compact_usize(3, "items").is_err());
     }
 }

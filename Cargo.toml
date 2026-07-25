@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/hns-covenants",
     "crates/hns-dns-relay-protocol",
     "crates/hns-encoding",
     "crates/hns-header-consensus",
@@ -7,6 +8,7 @@ members = [
     "crates/hns-odoh-protocol",
     "crates/hns-p2p-experimental",
     "crates/hns-primitives",
+    "crates/hns-transaction",
     "generators/hns-registry-gen",
 ]
 resolver = "3"

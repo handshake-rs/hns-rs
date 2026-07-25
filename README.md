@@ -7,13 +7,19 @@ browser shells, and mining applications. Experimental peer-to-peer assignments a
 identified as **Denuo Experimental V1 — not an official Handshake protocol
 assignment**.
 
-The initial implemented layer contains:
+The implemented protocol layer contains:
 
 - semantic Handshake value types;
-- allocation-bounded binary encoding and decoding;
+- allocation-bounded binary encoding, canonical compact sizes, and varbytes;
+- 236-byte headers, PoW/share hashing, compact targets, chainwork, retargeting,
+  network parameters, and genesis vectors;
+- canonical transactions, witness hashing, addresses, outputs, and coins;
+- all assigned name-covenant wire tags, HNS name hashing, blind bids, resource
+  bounds, and non-coinbase covenant-link validation;
 - the canonical Denuo Experimental Handshake P2P Registry v1;
 - semantic wire-assignment profiles;
-- the versioned Denuo extension envelope and registry negotiation messages.
+- the versioned Denuo extension envelope and registry negotiation messages;
+- HIP #76 DNS relay, HIP #77 ODoH/HPKE, and HIP #78 HNSR protocol values.
 
-See `docs/experimental-p2p-registry.md` for assignment status and governance.
-
+See `docs/protocol-authority.md` for fixture provenance and
+`docs/experimental-p2p-registry.md` for assignment status and governance.

@@ -459,6 +459,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hns-covenants"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "hex",
+ "hns-encoding",
+ "hns-primitives",
+ "sha3",
+ "thiserror",
+]
+
+[[package]]
 name = "hns-dns-relay-protocol"
 version = "0.1.0"
 dependencies = [
@@ -539,6 +551,18 @@ name = "hns-registry-gen"
 version = "0.1.0"
 dependencies = [
  "hns-p2p-experimental",
+]
+
+[[package]]
+name = "hns-transaction"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "hex",
+ "hns-covenants",
+ "hns-encoding",
+ "hns-primitives",
+ "thiserror",
 ]
 
 [[package]]
