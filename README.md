@@ -18,10 +18,12 @@ The implemented protocol layer contains:
   bounds, and non-coinbase covenant-link validation;
 - HSD-compatible signature hashing and absolute/relative lock predicates;
 - HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives;
+- bounded HSD-compatible Urkel inclusion and non-inclusion proofs;
+- runtime-independent standard HSD framing and all standard packet IDs;
 - the canonical Denuo Experimental Handshake P2P Registry v1;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, and HIP #78 HNSR protocol values.
 
-See `docs/protocol-authority.md` for fixture provenance and
-`docs/experimental-p2p-registry.md` for assignment status and governance.
+See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
+and `docs/experimental-p2p-registry.md` for assignment status and governance.

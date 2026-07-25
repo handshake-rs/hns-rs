@@ -7,10 +7,12 @@ members = [
     "crates/hns-hnsr-protocol",
     "crates/hns-odoh-protocol",
     "crates/hns-p2p-experimental",
+    "crates/hns-p2p-wire",
     "crates/hns-primitives",
     "crates/hns-script",
     "crates/hns-swap",
     "crates/hns-transaction",
+    "crates/hns-urkel-proof",
     "generators/hns-registry-gen",
 ]
 resolver = "3"

@@ -1,0 +1,19 @@
+[package]
+name = "hns-urkel-proof"
+description = "Bounded HSD-compatible Handshake Urkel proof parsing and verification"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+blake2.workspace = true
+hns-primitives = { path = "../hns-primitives" }
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true

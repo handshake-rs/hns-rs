@@ -539,6 +539,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hns-p2p-wire"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "hns-encoding",
+ "hns-header-consensus",
+ "hns-primitives",
+ "hns-transaction",
+ "hns-urkel-proof",
+ "thiserror",
+]
+
+[[package]]
 name = "hns-primitives"
 version = "0.1.0"
 dependencies = [
@@ -588,6 +601,16 @@ dependencies = [
  "hex",
  "hns-covenants",
  "hns-encoding",
+ "hns-primitives",
+ "thiserror",
+]
+
+[[package]]
+name = "hns-urkel-proof"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "hex",
  "hns-primitives",
  "thiserror",
 ]
