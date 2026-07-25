@@ -1,0 +1,25 @@
+[package]
+name = "hns-odoh-protocol"
+description = "RFC 9230 ODoH records and draft Handshake P2P ODoH wire protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aes-gcm.workspace = true
+blake2.workspace = true
+hkdf.workspace = true
+hns-encoding = { path = "../hns-encoding" }
+hpke.workspace = true
+k256.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true

@@ -2,6 +2,7 @@
 members = [
     "crates/hns-dns-relay-protocol",
     "crates/hns-encoding",
+    "crates/hns-odoh-protocol",
     "crates/hns-p2p-experimental",
     "crates/hns-primitives",
     "generators/hns-registry-gen",
@@ -16,11 +17,17 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/denuoweb/hns-rs"
 
 [workspace.dependencies]
+aes-gcm = "0.10.3"
+blake2 = "0.10.6"
 hex = "0.4.3"
+hkdf = "0.12.4"
+hpke = { version = "0.14.0", default-features = false, features = ["alloc", "aes", "getrandom", "x25519"] }
+k256 = { version = "0.13.4", default-features = false, features = ["ecdsa", "std"] }
 serde = { version = "1.0.219", features = ["derive"] }
 sha2 = "0.10.9"
 thiserror = "2.0.12"
 toml = "0.8.22"
+zeroize = "1.8.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
