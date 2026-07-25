@@ -1,0 +1,25 @@
+[package]
+name = "hns-swap"
+description = "HIP-0001 and Shakedex-compatible atomic name-swap primitives"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+blake2.workspace = true
+hns-covenants = { path = "../hns-covenants" }
+hns-encoding = { path = "../hns-encoding" }
+hns-primitives = { path = "../hns-primitives" }
+hns-script = { path = "../hns-script" }
+hns-transaction = { path = "../hns-transaction" }
+k256.workspace = true
+sha3.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true

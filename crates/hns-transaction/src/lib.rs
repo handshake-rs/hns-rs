@@ -32,6 +32,15 @@ impl Outpoint {
         self.index == u32::MAX && self.transaction_hash.into_bytes() == [0; 32]
     }
 
+    pub fn encode(self) -> [u8; 36] {
+        let mut encoder = Encoder::with_capacity(36);
+        self.encode_to(&mut encoder);
+        encoder
+            .into_bytes()
+            .try_into()
+            .expect("outpoint encoding has a fixed length")
+    }
+
     fn encode_to(self, encoder: &mut Encoder) {
         encoder.put_bytes(self.transaction_hash.as_bytes());
         encoder.put_u32_le(self.index);
@@ -163,6 +172,12 @@ pub struct Output {
 impl Output {
     pub fn is_unspendable(&self) -> bool {
         self.address.is_null_data() || self.covenant.kind.is_unspendable()
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>, TransactionError> {
+        let mut encoder = Encoder::new();
+        self.encode_to(&mut encoder)?;
+        Ok(encoder.into_bytes())
     }
 
     fn encode_to(&self, encoder: &mut Encoder) -> Result<(), TransactionError> {

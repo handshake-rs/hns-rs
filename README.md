@@ -16,6 +16,8 @@ The implemented protocol layer contains:
 - canonical transactions, witness hashing, addresses, outputs, and coins;
 - all assigned name-covenant wire tags, HNS name hashing, blind bids, resource
   bounds, and non-coinbase covenant-link validation;
+- HSD-compatible signature hashing and absolute/relative lock predicates;
+- HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives;
 - the canonical Denuo Experimental Handshake P2P Registry v1;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;

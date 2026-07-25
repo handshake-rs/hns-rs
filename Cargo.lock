@@ -554,6 +554,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "hns-script"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "hex",
+ "hns-encoding",
+ "hns-transaction",
+ "thiserror",
+]
+
+[[package]]
+name = "hns-swap"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "hex",
+ "hns-covenants",
+ "hns-encoding",
+ "hns-primitives",
+ "hns-script",
+ "hns-transaction",
+ "k256",
+ "sha3",
+ "thiserror",
+]
+
+[[package]]
 name = "hns-transaction"
 version = "0.1.0"
 dependencies = [

@@ -8,6 +8,8 @@ members = [
     "crates/hns-odoh-protocol",
     "crates/hns-p2p-experimental",
     "crates/hns-primitives",
+    "crates/hns-script",
+    "crates/hns-swap",
     "crates/hns-transaction",
     "generators/hns-registry-gen",
 ]
