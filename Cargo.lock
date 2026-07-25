@@ -475,6 +475,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hns-hnsr-protocol"
+version = "0.1.0"
+dependencies = [
+ "blake2",
+ "hex",
+ "hns-encoding",
+ "k256",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "hns-odoh-protocol"
 version = "0.1.0"
 dependencies = [
