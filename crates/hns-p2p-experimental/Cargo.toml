@@ -1,0 +1,21 @@
+[package]
+name = "hns-p2p-experimental"
+description = "Denuo Experimental V1 assignments, negotiation, and bounded envelopes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hex.workspace = true
+hns-encoding = { path = "../hns-encoding" }
+hns-primitives = { path = "../hns-primitives" }
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true
+
