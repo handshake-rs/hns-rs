@@ -12,6 +12,8 @@ use hns_primitives::{Dollarydoos, Height, TransactionHash};
 use thiserror::Error;
 
 pub const MAX_TRANSACTION_SIZE: usize = 1_000_000;
+pub const MAX_TRANSACTION_RAW_SIZE: usize = 4_000_000;
+pub const MAX_TRANSACTION_WEIGHT: usize = 4_000_000;
 pub const MAX_WITNESS_ITEMS: usize = 1000;
 pub const MAX_ADDRESS_HASH_SIZE: usize = 40;
 pub const MIN_ADDRESS_HASH_SIZE: usize = 2;
@@ -61,30 +63,58 @@ pub struct Witness {
 
 impl Witness {
     fn encode_to(&self, encoder: &mut Encoder) -> Result<(), TransactionError> {
+        self.encoded_size()?;
+        encoder.put_compact_size(self.items.len() as u64);
+        for item in &self.items {
+            encoder.put_varbytes(item);
+        }
+        Ok(())
+    }
+
+    fn encoded_size(&self) -> Result<usize, TransactionError> {
         if self.items.len() > MAX_WITNESS_ITEMS {
             return Err(TransactionError::TooLarge {
                 actual: self.items.len(),
                 maximum: MAX_WITNESS_ITEMS,
             });
         }
-        encoder.put_compact_size(self.items.len() as u64);
+        let mut size = compact_size_len(self.items.len() as u64);
         for item in &self.items {
-            if item.len() > MAX_TRANSACTION_SIZE {
+            if item.len() > MAX_TRANSACTION_RAW_SIZE {
                 return Err(TransactionError::TooLarge {
                     actual: item.len(),
-                    maximum: MAX_TRANSACTION_SIZE,
+                    maximum: MAX_TRANSACTION_RAW_SIZE,
                 });
             }
-            encoder.put_varbytes(item);
+            size = size
+                .checked_add(compact_size_len(item.len() as u64))
+                .and_then(|size| size.checked_add(item.len()))
+                .ok_or(TransactionError::ArithmeticOverflow)?;
+            if size > MAX_TRANSACTION_RAW_SIZE {
+                return Err(TransactionError::TooLarge {
+                    actual: size,
+                    maximum: MAX_TRANSACTION_RAW_SIZE,
+                });
+            }
         }
-        Ok(())
+        Ok(size)
     }
 
-    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, TransactionError> {
+    fn decode_from(
+        decoder: &mut Decoder<'_>,
+        transaction_start: usize,
+        maximum_transaction_size: usize,
+    ) -> Result<Self, TransactionError> {
         let count = decoder.read_compact_usize(MAX_WITNESS_ITEMS, "witness items")?;
-        let mut items = Vec::with_capacity(count);
+        remaining_decode_budget(decoder, transaction_start, maximum_transaction_size)?;
+        let mut items = Vec::with_capacity(count.min(64));
         for _ in 0..count {
-            items.push(decoder.read_varbytes(MAX_TRANSACTION_SIZE, "witness item")?);
+            items.push(read_transaction_varbytes(
+                decoder,
+                transaction_start,
+                maximum_transaction_size,
+                "witness item",
+            )?);
         }
         Ok(Self { items })
     }
@@ -187,11 +217,21 @@ impl Output {
         Ok(())
     }
 
-    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, TransactionError> {
+    fn decode_from(
+        decoder: &mut Decoder<'_>,
+        transaction_start: usize,
+        maximum_transaction_size: usize,
+    ) -> Result<Self, TransactionError> {
+        let value = Dollarydoos::new(decoder.read_u64_le()?);
+        let address = Address::decode_from(decoder)?;
+        let remaining =
+            remaining_decode_budget(decoder, transaction_start, maximum_transaction_size)?;
+        let covenant = Covenant::decode_from_with_limit(decoder, remaining)?;
+        remaining_decode_budget(decoder, transaction_start, maximum_transaction_size)?;
         Ok(Self {
-            value: Dollarydoos::new(decoder.read_u64_le()?),
-            address: Address::decode_from(decoder)?,
-            covenant: Covenant::decode_from(decoder)?,
+            value,
+            address,
+            covenant,
         })
     }
 }
@@ -206,15 +246,14 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn encode(&self) -> Result<Vec<u8>, TransactionError> {
+        let (base_size, witness_size) = self.encoded_sizes()?;
         let base = self.base_encode()?;
         let witness = self.witness_encode()?;
-        let size = base.len().saturating_add(witness.len());
-        if size > MAX_TRANSACTION_SIZE {
-            return Err(TransactionError::TooLarge {
-                actual: size,
-                maximum: MAX_TRANSACTION_SIZE,
-            });
-        }
+        debug_assert_eq!(base.len(), base_size);
+        debug_assert_eq!(witness.len(), witness_size);
+        let size = base_size
+            .checked_add(witness_size)
+            .ok_or(TransactionError::ArithmeticOverflow)?;
         let mut output = Vec::with_capacity(size);
         output.extend(base);
         output.extend(witness);
@@ -222,49 +261,73 @@ impl Transaction {
     }
 
     pub fn decode(input: &[u8]) -> Result<Self, TransactionError> {
-        if input.len() > MAX_TRANSACTION_SIZE {
+        if input.len() > MAX_TRANSACTION_RAW_SIZE {
             return Err(TransactionError::TooLarge {
                 actual: input.len(),
-                maximum: MAX_TRANSACTION_SIZE,
+                maximum: MAX_TRANSACTION_RAW_SIZE,
             });
         }
         let mut decoder = Decoder::new(input);
+        let transaction = Self::decode_from(&mut decoder)?;
+        decoder.finish()?;
+        Ok(transaction)
+    }
+
+    pub fn decode_prefix(input: &[u8]) -> Result<(Self, usize), TransactionError> {
+        let mut decoder = Decoder::new(input);
+        let transaction = Self::decode_from(&mut decoder)?;
+        Ok((transaction, decoder.position()))
+    }
+
+    pub fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, TransactionError> {
+        let start = decoder.position();
         let version = decoder.read_u32_le()?;
         let input_count =
             decoder.read_compact_usize(MAX_TRANSACTION_SIZE / 40, "transaction inputs")?;
-        let mut inputs = Vec::with_capacity(input_count);
+        remaining_decode_budget(decoder, start, MAX_TRANSACTION_SIZE)?;
+        let mut inputs = Vec::with_capacity(input_count.min(1024));
         for _ in 0..input_count {
-            inputs.push(Input::decode_base_from(&mut decoder)?);
+            inputs.push(Input::decode_base_from(decoder)?);
+            remaining_decode_budget(decoder, start, MAX_TRANSACTION_SIZE)?;
         }
         let output_count =
             decoder.read_compact_usize(MAX_TRANSACTION_SIZE / 12, "transaction outputs")?;
-        let mut outputs = Vec::with_capacity(output_count);
+        remaining_decode_budget(decoder, start, MAX_TRANSACTION_SIZE)?;
+        let mut outputs = Vec::with_capacity(output_count.min(1024));
         for _ in 0..output_count {
-            outputs.push(Output::decode_from(&mut decoder)?);
+            outputs.push(Output::decode_from(decoder, start, MAX_TRANSACTION_SIZE)?);
         }
         let locktime = decoder.read_u32_le()?;
+        let base_size = decoder.position().saturating_sub(start);
+        remaining_decode_budget(decoder, start, MAX_TRANSACTION_SIZE)?;
+        let base_weight = base_size
+            .checked_mul(4)
+            .ok_or(TransactionError::ArithmeticOverflow)?;
+        let maximum_transaction_size = base_size
+            .checked_add(MAX_TRANSACTION_WEIGHT.checked_sub(base_weight).ok_or(
+                TransactionError::TooLarge {
+                    actual: base_weight,
+                    maximum: MAX_TRANSACTION_WEIGHT,
+                },
+            )?)
+            .ok_or(TransactionError::ArithmeticOverflow)?
+            .min(MAX_TRANSACTION_RAW_SIZE);
         for input in &mut inputs {
-            input.witness = Witness::decode_from(&mut decoder)?;
+            input.witness = Witness::decode_from(decoder, start, maximum_transaction_size)?;
         }
-        decoder.finish()?;
-        Ok(Self {
+        let transaction = Self {
             version,
             inputs,
             outputs,
             locktime,
-        })
+        };
+        remaining_decode_budget(decoder, start, maximum_transaction_size)?;
+        Ok(transaction)
     }
 
     pub fn base_encode(&self) -> Result<Vec<u8>, TransactionError> {
-        if self.inputs.len() > MAX_TRANSACTION_SIZE / 40
-            || self.outputs.len() > MAX_TRANSACTION_SIZE / 12
-        {
-            return Err(TransactionError::TooLarge {
-                actual: self.inputs.len().max(self.outputs.len()),
-                maximum: MAX_TRANSACTION_SIZE / 12,
-            });
-        }
-        let mut encoder = Encoder::new();
+        let base_size = self.base_encoded_size()?;
+        let mut encoder = Encoder::with_capacity(base_size);
         encoder.put_u32_le(self.version);
         encoder.put_compact_size(self.inputs.len() as u64);
         for input in &self.inputs {
@@ -275,18 +338,12 @@ impl Transaction {
             output.encode_to(&mut encoder)?;
         }
         encoder.put_u32_le(self.locktime);
-        let output = encoder.into_bytes();
-        if output.len() > MAX_TRANSACTION_SIZE {
-            return Err(TransactionError::TooLarge {
-                actual: output.len(),
-                maximum: MAX_TRANSACTION_SIZE,
-            });
-        }
-        Ok(output)
+        Ok(encoder.into_bytes())
     }
 
     pub fn witness_encode(&self) -> Result<Vec<u8>, TransactionError> {
-        let mut encoder = Encoder::new();
+        let witness_size = self.witness_encoded_size()?;
+        let mut encoder = Encoder::with_capacity(witness_size);
         for input in &self.inputs {
             input.witness.encode_to(&mut encoder)?;
         }
@@ -307,23 +364,94 @@ impl Transaction {
     }
 
     pub fn base_size(&self) -> Result<usize, TransactionError> {
-        Ok(self.base_encode()?.len())
+        self.base_encoded_size()
     }
 
     pub fn size(&self) -> Result<usize, TransactionError> {
-        Ok(self.encode()?.len())
-    }
-
-    pub fn weight(&self) -> Result<usize, TransactionError> {
-        let base = self.base_size()?;
-        let witness = self.witness_encode()?.len();
-        base.checked_mul(4)
-            .and_then(|weight| weight.checked_add(witness))
+        let (base, witness) = self.encoded_sizes()?;
+        base.checked_add(witness)
             .ok_or(TransactionError::ArithmeticOverflow)
     }
 
+    pub fn weight(&self) -> Result<usize, TransactionError> {
+        let (base, witness) = self.encoded_sizes()?;
+        transaction_weight(base, witness)
+    }
+
     pub fn is_coinbase(&self) -> bool {
-        self.inputs.len() == 1 && self.inputs[0].previous_output.is_null()
+        self.inputs
+            .first()
+            .is_some_and(|input| input.previous_output.is_null())
+    }
+
+    fn base_encoded_size(&self) -> Result<usize, TransactionError> {
+        if self.inputs.len() > MAX_TRANSACTION_SIZE / 40
+            || self.outputs.len() > MAX_TRANSACTION_SIZE / 12
+        {
+            return Err(TransactionError::TooLarge {
+                actual: self.inputs.len().max(self.outputs.len()),
+                maximum: MAX_TRANSACTION_SIZE / 12,
+            });
+        }
+        let input_bytes = self
+            .inputs
+            .len()
+            .checked_mul(40)
+            .ok_or(TransactionError::ArithmeticOverflow)?;
+        let mut size = 4_usize
+            .checked_add(compact_size_len(self.inputs.len() as u64))
+            .and_then(|size| size.checked_add(input_bytes))
+            .and_then(|size| size.checked_add(compact_size_len(self.outputs.len() as u64)))
+            .ok_or(TransactionError::ArithmeticOverflow)?;
+        for output in &self.outputs {
+            output.address.validate()?;
+            let covenant_size = output.covenant.encoded_size()?;
+            size = size
+                .checked_add(8)
+                .and_then(|size| size.checked_add(2))
+                .and_then(|size| size.checked_add(output.address.hash.len()))
+                .and_then(|size| size.checked_add(covenant_size))
+                .ok_or(TransactionError::ArithmeticOverflow)?;
+            if size > MAX_TRANSACTION_SIZE {
+                return Err(TransactionError::TooLarge {
+                    actual: size,
+                    maximum: MAX_TRANSACTION_SIZE,
+                });
+            }
+        }
+        size = size
+            .checked_add(4)
+            .ok_or(TransactionError::ArithmeticOverflow)?;
+        if size > MAX_TRANSACTION_SIZE {
+            return Err(TransactionError::TooLarge {
+                actual: size,
+                maximum: MAX_TRANSACTION_SIZE,
+            });
+        }
+        Ok(size)
+    }
+
+    fn witness_encoded_size(&self) -> Result<usize, TransactionError> {
+        let mut size = 0_usize;
+        for input in &self.inputs {
+            size = size
+                .checked_add(input.witness.encoded_size()?)
+                .ok_or(TransactionError::ArithmeticOverflow)?;
+            if size > MAX_TRANSACTION_RAW_SIZE {
+                return Err(TransactionError::TooLarge {
+                    actual: size,
+                    maximum: MAX_TRANSACTION_RAW_SIZE,
+                });
+            }
+        }
+        Ok(size)
+    }
+
+    fn encoded_sizes(&self) -> Result<(usize, usize), TransactionError> {
+        let base = self.base_encoded_size()?;
+        let witness = self.witness_encoded_size()?;
+        transaction_weight(base, witness)?;
+        Ok((base, witness))
     }
 }
 
@@ -355,6 +483,64 @@ fn blake2b_256(input: &[u8]) -> [u8; 32] {
     blake2b_256_many(&[input])
 }
 
+fn remaining_decode_budget(
+    decoder: &Decoder<'_>,
+    start: usize,
+    maximum: usize,
+) -> Result<usize, TransactionError> {
+    let consumed = decoder.position().saturating_sub(start);
+    if consumed > maximum {
+        return Err(TransactionError::TooLarge {
+            actual: consumed,
+            maximum,
+        });
+    }
+    Ok(maximum - consumed)
+}
+
+fn read_transaction_varbytes(
+    decoder: &mut Decoder<'_>,
+    transaction_start: usize,
+    maximum_transaction_size: usize,
+    field: &'static str,
+) -> Result<Vec<u8>, TransactionError> {
+    let length = decoder.read_compact_usize(MAX_TRANSACTION_RAW_SIZE, field)?;
+    let remaining = remaining_decode_budget(decoder, transaction_start, maximum_transaction_size)?;
+    if length > remaining {
+        return Err(TransactionError::TooLarge {
+            actual: decoder
+                .position()
+                .saturating_sub(transaction_start)
+                .saturating_add(length),
+            maximum: maximum_transaction_size,
+        });
+    }
+    Ok(decoder.read_bounded_vec(length, remaining)?)
+}
+
+fn transaction_weight(base: usize, witness: usize) -> Result<usize, TransactionError> {
+    let weight = base
+        .checked_mul(4)
+        .and_then(|weight| weight.checked_add(witness))
+        .ok_or(TransactionError::ArithmeticOverflow)?;
+    if weight > MAX_TRANSACTION_WEIGHT {
+        return Err(TransactionError::TooLarge {
+            actual: weight,
+            maximum: MAX_TRANSACTION_WEIGHT,
+        });
+    }
+    Ok(weight)
+}
+
+fn compact_size_len(value: u64) -> usize {
+    match value {
+        0..=0xfc => 1,
+        0xfd..=0xffff => 3,
+        0x1_0000..=0xffff_ffff => 5,
+        _ => 9,
+    }
+}
+
 fn blake2b_256_many(parts: &[&[u8]]) -> [u8; 32] {
     let mut hasher = Blake2bVar::new(32).expect("valid BLAKE2b output length");
     for part in parts {
@@ -380,6 +566,11 @@ mod tests {
         )
         .expect("hex");
         let transaction = Transaction::decode(&raw).expect("valid");
+        let mut doubled = raw.clone();
+        doubled.extend_from_slice(&raw);
+        let (prefix, consumed) = Transaction::decode_prefix(&doubled).expect("valid prefix");
+        assert_eq!(prefix, transaction);
+        assert_eq!(consumed, raw.len());
         assert_eq!(transaction.encode().expect("valid"), raw);
         assert_eq!(transaction.base_size().expect("valid"), 86);
         assert_eq!(transaction.size().expect("valid"), 94);
@@ -428,5 +619,54 @@ mod tests {
         let mut encoded = transaction.encode().expect("valid");
         encoded.push(0);
         assert!(Transaction::decode(&encoded).is_err());
+    }
+
+    #[test]
+    fn prefix_decode_rejects_oversized_witness_before_allocation() {
+        let mut encoder = Encoder::new();
+        encoder.put_u32_le(1);
+        encoder.put_compact_size(1);
+        encoder.put_bytes(&[0; 32]);
+        encoder.put_u32_le(u32::MAX);
+        encoder.put_u32_le(0);
+        encoder.put_compact_size(0);
+        encoder.put_u32_le(0);
+        encoder.put_compact_size(1);
+        encoder.put_compact_size(MAX_TRANSACTION_RAW_SIZE as u64);
+        assert!(matches!(
+            Transaction::decode_prefix(&encoder.into_bytes()),
+            Err(TransactionError::TooLarge {
+                actual: 4_000_056,
+                maximum: 3_999_850
+            })
+        ));
+    }
+
+    #[test]
+    fn witness_serialization_obeys_weight_not_base_size_limit() {
+        let mut transaction = Transaction {
+            version: 1,
+            inputs: vec![Input {
+                previous_output: Outpoint::NULL,
+                sequence: 0,
+                witness: Witness {
+                    items: vec![vec![7; 1_100_000]],
+                },
+            }],
+            outputs: Vec::new(),
+            locktime: 0,
+        };
+        let encoded = transaction.encode().expect("under HSD weight limit");
+        assert!(encoded.len() > MAX_TRANSACTION_SIZE);
+        assert_eq!(Transaction::decode(&encoded).expect("valid"), transaction);
+
+        transaction.inputs[0].witness.items[0] = vec![0; MAX_TRANSACTION_WEIGHT];
+        assert!(matches!(
+            transaction.encode(),
+            Err(TransactionError::TooLarge {
+                maximum: MAX_TRANSACTION_WEIGHT,
+                ..
+            })
+        ));
     }
 }

@@ -17,9 +17,14 @@ The implemented protocol layer contains:
 - all assigned name-covenant wire tags, HNS name hashing, blind bids, resource
   bounds, and non-coinbase covenant-link validation;
 - HSD-compatible signature hashing and absolute/relative lock predicates;
+- a production script interpreter differentially matched to all 876 pinned HSD
+  script vectors, including Handshake `OP_TYPE`;
 - HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives;
 - bounded HSD-compatible Urkel inclusion and non-inclusion proofs;
 - runtime-independent standard HSD framing and all standard packet IDs;
+- HSD-compatible block commitments, subsidy/coinbase vectors, and immutable
+  opened-mask mining jobs;
+- a bounded cross-protocol production-parser mutation and libFuzzer harness;
 - the canonical Denuo Experimental Handshake P2P Registry v1;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;

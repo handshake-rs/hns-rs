@@ -1,6 +1,6 @@
 [package]
-name = "hns-script"
-description = "Handshake signature hashing, lock predicates, and script primitives"
+name = "hns-mining"
+description = "Runtime-independent Handshake block commitments and immutable mining jobs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,18 +9,15 @@ repository.workspace = true
 
 [dependencies]
 blake2.workspace = true
+hns-covenants = { path = "../hns-covenants" }
 hns-encoding = { path = "../hns-encoding" }
+hns-header-consensus = { path = "../hns-header-consensus" }
+hns-primitives = { path = "../hns-primitives" }
 hns-transaction = { path = "../hns-transaction" }
-k256.workspace = true
-ripemd = "0.1.3"
-sha1 = "0.10.6"
-sha2.workspace = true
-sha3.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
 hex.workspace = true
-hns-covenants = { path = "../hns-covenants" }
 
 [lints]
 workspace = true

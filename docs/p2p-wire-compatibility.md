@@ -19,22 +19,26 @@ The crate pins:
 - complete-input parsing, canonical compact sizes, bounded item counts, an
   8,000,000-byte payload ceiling, and a bounded incremental decoder.
 
-Transactions use `hns-transaction`; headers use `hns-header-consensus`; proof
-responses use `hns-urkel-proof`. Packets whose nested primitive is outside the
-canonical workspace today (blocks, Bloom/merkle data, compact-block bodies,
-claims, and airdrops) retain an allocation-bounded byte payload without
-rewriting it. The extracted full-node implementation supplies those complete
-nested codecs.
+Transactions use `hns-transaction`; headers use `hns-header-consensus`; blocks
+use the bounded syntactic codec in `hns-mining`; proof responses use
+`hns-urkel-proof`. Compact blocks use structured HSD/BIP152 codecs, collision
+handling, bounded missing-transaction recovery, and a final commitment/body
+check before reconstruction succeeds. Packets whose nested primitive is
+outside the canonical workspace today (Bloom/merkle data, claims, and
+airdrops) retain an allocation-bounded byte payload without rewriting it. The
+extracted full-node implementation supplies those complete nested codecs.
 
 The standard packet layer deliberately contains no socket, Tokio, Brontide,
 peer manager, database, wallet, or MeshMine dependency. Brontide session
 establishment and peer policy belong to the full node.
 
 Tests pin exact HSD frames for all four networks and exact HSD payloads for
-version, address, inventory, locator, headers, reject, fee-filter, and compact
-negotiation packets. Negative coverage includes wrong magic, incomplete and
-oversized frames, noncanonical counts, trailing packet data, unsupported
-address normalization, and noncanonical proofs.
+version, address, inventory, locator, headers, reject, fee-filter, compact
+negotiation, compact-block, missing-transaction request, and response packets.
+Negative coverage includes wrong magic, incomplete and oversized frames,
+noncanonical counts, trailing packet data, short-ID collisions, mismatched
+reconstructed commitments, unsupported address normalization, and
+noncanonical proofs.
 
 Run:
 

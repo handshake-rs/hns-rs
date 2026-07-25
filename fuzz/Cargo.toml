@@ -1,0 +1,22 @@
+[package]
+name = "hns-rs-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+hns-conformance = { path = "../crates/hns-conformance" }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "production_parsers"
+path = "fuzz_targets/production_parsers.rs"
+test = false
+doc = false
+bench = false

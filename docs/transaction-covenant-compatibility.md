@@ -9,6 +9,11 @@ The implementation is allocation-bounded and rejects non-minimal compact sizes,
 truncation, trailing bytes, oversized witnesses, oversized covenant items, and
 invalid address programs. It computes transaction IDs from the base encoding and
 witness hashes from `BLAKE2b-256(txid || BLAKE2b-256(witnesses))`.
+The codec distinguishes HSD's 1,000,000-byte base-size ceiling from its
+4,000,000-unit weight and raw protocol bounds, so a witness-heavy transaction
+that is larger than one megabyte remains valid when its exact weight is within
+consensus limits. Claimed stream lengths are checked against the remaining
+weight-derived budget before copying.
 
 Non-coinbase covenant validation preserves the consensus-visible input/output
 index linkage used by HSD. It covers BID-to-REVEAL blind commitments, locked

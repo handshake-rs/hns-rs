@@ -1,10 +1,12 @@
 [workspace]
 members = [
+    "crates/hns-conformance",
     "crates/hns-covenants",
     "crates/hns-dns-relay-protocol",
     "crates/hns-encoding",
     "crates/hns-header-consensus",
     "crates/hns-hnsr-protocol",
+    "crates/hns-mining",
     "crates/hns-odoh-protocol",
     "crates/hns-p2p-experimental",
     "crates/hns-p2p-wire",

@@ -1,9 +1,13 @@
 #![doc = "Bounded, runtime-independent codecs for standard Handshake P2P traffic."]
 
+use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use blake2::Blake2bVar;
+use blake2::digest::{Update, VariableOutput};
 use hns_encoding::{DecodeError, Decoder, Encoder};
 use hns_header_consensus::{HEADER_SIZE, Header};
+use hns_mining::{Block, validate_block_body};
 use hns_primitives::{BlockHash, NameHash, TreeRoot};
 use hns_transaction::Transaction;
 use hns_urkel_proof::{HsdUrkelProof, UrkelError};
@@ -21,6 +25,7 @@ pub const MAX_HEADERS: usize = 2_000;
 pub const MAX_ADDR_ITEMS: usize = 1_000;
 pub const MAX_USER_AGENT_SIZE: usize = u8::MAX as usize;
 pub const MAX_REJECT_REASON_SIZE: usize = u8::MAX as usize;
+pub const MAX_COMPACT_BLOCK_TRANSACTIONS: usize = 16_662;
 pub const NET_ADDRESS_SIZE: usize = 88;
 pub const MAX_STREAM_BUFFER_SIZE: usize = 2 * (FRAME_HEADER_SIZE + MAX_FRAME_PAYLOAD_SIZE);
 
@@ -49,6 +54,8 @@ pub enum WireError {
     InvalidTransaction(String),
     #[error(transparent)]
     Urkel(#[from] UrkelError),
+    #[error(transparent)]
+    CompactBlock(#[from] CompactBlockError),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -358,9 +365,514 @@ pub struct ProofPacket {
     pub proof: HsdUrkelProof,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrefilledTransaction {
+    /// Differential index, matching HSD/BIP152 wire encoding.
+    pub index: usize,
+    pub transaction: Transaction,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CompactBlock {
+    pub header: Header,
+    pub key_nonce: [u8; 8],
+    pub short_ids: Vec<u64>,
+    pub prefilled: Vec<PrefilledTransaction>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CompactBlockRequest {
+    pub block_hash: BlockHash,
+    /// Absolute transaction indexes. The wire codec converts them to and from
+    /// HSD/BIP152 differential indexes.
+    pub indexes: Vec<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CompactBlockResponse {
+    pub block_hash: BlockHash,
+    pub transactions: Vec<Transaction>,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompactBlockReconstruction {
+    header: Header,
+    available: Vec<Option<usize>>,
+    transactions: Vec<Option<Transaction>>,
+    short_id_indexes: HashMap<u64, usize>,
+    filled: usize,
+}
+
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum CompactBlockError {
+    #[error("malformed compact block: {0}")]
+    Malformed(String),
+    #[error("compact block short-id collision: {0:#014x}")]
+    ShortIdCollision(u64),
+    #[error("compact block response hash does not match the pending block")]
+    ResponseHashMismatch,
+    #[error("compact block response has {actual} transactions; expected {expected}")]
+    ResponseCountMismatch { expected: usize, actual: usize },
+    #[error("compact block reconstruction is incomplete")]
+    Incomplete,
+    #[error("compact block transaction is malformed")]
+    InvalidTransaction,
+    #[error("compact block body does not match its committed roots or consensus shape")]
+    InvalidBlockBody,
+}
+
 impl ProofPacket {
     pub fn verify(&self) -> Result<Option<Vec<u8>>, UrkelError> {
         self.proof.verify(self.root, self.key)
+    }
+}
+
+impl CompactBlock {
+    pub fn from_block_with_nonce(
+        block: &Block,
+        key_nonce: [u8; 8],
+    ) -> Result<Self, CompactBlockError> {
+        validate_block_body(block).map_err(|_| CompactBlockError::InvalidBlockBody)?;
+        let mut compact = Self {
+            header: block.header.clone(),
+            key_nonce,
+            short_ids: Vec::with_capacity(block.transactions.len().saturating_sub(1)),
+            prefilled: Vec::with_capacity(usize::from(!block.transactions.is_empty())),
+        };
+        let siphash_key = compact.siphash_key();
+        compact.short_ids = block
+            .transactions
+            .iter()
+            .skip(1)
+            .map(|transaction| {
+                transaction
+                    .witness_hash()
+                    .map(|hash| Self::short_id_with_key(&hash, &siphash_key))
+                    .map_err(|_| CompactBlockError::InvalidTransaction)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if let Some(coinbase) = block.transactions.first() {
+            compact.prefilled.push(PrefilledTransaction {
+                index: 0,
+                transaction: coinbase.clone(),
+            });
+        }
+        compact.validate_layout()?;
+        Ok(compact)
+    }
+
+    pub fn hash(&self) -> BlockHash {
+        self.header.block_hash()
+    }
+
+    pub fn total_transactions(&self) -> usize {
+        self.short_ids.len().saturating_add(self.prefilled.len())
+    }
+
+    pub fn short_id(&self, witness_hash: &[u8; 32]) -> u64 {
+        Self::short_id_with_key(witness_hash, &self.siphash_key())
+    }
+
+    pub fn reconstruct(
+        &self,
+        mempool: &[Transaction],
+    ) -> Result<CompactBlockReconstruction, CompactBlockError> {
+        let total = self.validate_layout()?;
+        let mut reconstruction = CompactBlockReconstruction {
+            header: self.header.clone(),
+            available: vec![None; total],
+            transactions: Vec::with_capacity(total),
+            short_id_indexes: HashMap::with_capacity(self.short_ids.len()),
+            filled: 0,
+        };
+
+        let mut previous = None;
+        for prefilled in &self.prefilled {
+            let index = absolute_prefilled_index(previous, prefilled.index)?;
+            previous = Some(index);
+            reconstruction.insert(index, prefilled.transaction.clone())?;
+        }
+
+        let mut offset = 0_usize;
+        for (relative, short_id) in self.short_ids.iter().copied().enumerate() {
+            while reconstruction
+                .available
+                .get(relative.saturating_add(offset))
+                .is_some_and(Option::is_some)
+            {
+                offset = offset.saturating_add(1);
+            }
+            let index = relative.checked_add(offset).ok_or_else(|| {
+                CompactBlockError::Malformed("short-id index overflow".to_owned())
+            })?;
+            if index >= total {
+                return Err(CompactBlockError::Malformed(
+                    "short-id layout exceeds transaction count".to_owned(),
+                ));
+            }
+            if reconstruction
+                .short_id_indexes
+                .insert(short_id, index)
+                .is_some()
+            {
+                return Err(CompactBlockError::ShortIdCollision(short_id));
+            }
+        }
+        reconstruction.fill_mempool(self, mempool)?;
+        Ok(reconstruction)
+    }
+
+    fn siphash_key(&self) -> [u8; 16] {
+        let header = self.header.encode();
+        let hash = blake2b_256_many(&[header.as_slice(), self.key_nonce.as_slice()]);
+        let mut key = [0_u8; 16];
+        key.copy_from_slice(&hash[..16]);
+        key
+    }
+
+    fn short_id_with_key(witness_hash: &[u8; 32], key: &[u8; 16]) -> u64 {
+        siphash24(witness_hash, key) & 0x0000_ffff_ffff_ffff
+    }
+
+    fn validate_layout(&self) -> Result<usize, CompactBlockError> {
+        let total = self.total_transactions();
+        if total == 0 {
+            return Err(CompactBlockError::Malformed(
+                "empty short-id and prefilled vectors".to_owned(),
+            ));
+        }
+        if total > MAX_COMPACT_BLOCK_TRANSACTIONS {
+            return Err(CompactBlockError::Malformed(format!(
+                "transaction count {total} exceeds {MAX_COMPACT_BLOCK_TRANSACTIONS}"
+            )));
+        }
+        if self
+            .short_ids
+            .iter()
+            .any(|short_id| *short_id > 0x0000_ffff_ffff_ffff)
+        {
+            return Err(CompactBlockError::Malformed(
+                "short ID exceeds 48 bits".to_owned(),
+            ));
+        }
+
+        let mut previous = None;
+        for prefilled in &self.prefilled {
+            let index = absolute_prefilled_index(previous, prefilled.index)?;
+            if index >= total {
+                return Err(CompactBlockError::Malformed(format!(
+                    "prefilled index {index} exceeds transaction count {total}"
+                )));
+            }
+            previous = Some(index);
+        }
+        Ok(total)
+    }
+
+    fn encode_to(&self, encoder: &mut Encoder) -> Result<(), WireError> {
+        self.validate_layout()?;
+        encoder.put_bytes(&self.header.encode());
+        encoder.put_bytes(&self.key_nonce);
+        encoder.put_compact_size(self.short_ids.len() as u64);
+        for short_id in &self.short_ids {
+            encoder.put_u32_le(*short_id as u32);
+            encoder.put_u16_le((*short_id >> 32) as u16);
+        }
+        encoder.put_compact_size(self.prefilled.len() as u64);
+        for prefilled in &self.prefilled {
+            encoder.put_compact_size(prefilled.index as u64);
+            encoder.put_bytes(
+                &prefilled
+                    .transaction
+                    .encode()
+                    .map_err(|error| WireError::InvalidTransaction(error.to_string()))?,
+            );
+        }
+        Ok(())
+    }
+
+    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, WireError> {
+        let header = Header::decode(decoder.read_slice(HEADER_SIZE)?).map_err(|_| {
+            WireError::InvalidPacket {
+                context: "compact block",
+                reason: "the nested header is malformed",
+            }
+        })?;
+        let key_nonce = decoder.read_array()?;
+        let short_id_count = read_count(
+            decoder,
+            "compact-block short IDs",
+            MAX_COMPACT_BLOCK_TRANSACTIONS,
+        )?;
+        let mut short_ids = Vec::with_capacity(short_id_count);
+        for _ in 0..short_id_count {
+            let low = u64::from(decoder.read_u32_le()?);
+            let high = u64::from(decoder.read_u16_le()?);
+            short_ids.push((high << 32) | low);
+        }
+        let maximum_prefilled = MAX_COMPACT_BLOCK_TRANSACTIONS.saturating_sub(short_id_count);
+        let prefilled_count = read_count(
+            decoder,
+            "compact-block prefilled transactions",
+            maximum_prefilled,
+        )?;
+        let total = short_id_count.saturating_add(prefilled_count);
+        let mut prefilled = Vec::with_capacity(prefilled_count);
+        let mut previous = None;
+        for _ in 0..prefilled_count {
+            let index = read_bounded_index(decoder, "compact-block prefilled index")?;
+            let absolute = absolute_prefilled_index(previous, index)?;
+            if absolute >= total {
+                return Err(CompactBlockError::Malformed(format!(
+                    "prefilled index {absolute} exceeds transaction count {total}"
+                ))
+                .into());
+            }
+            previous = Some(absolute);
+            prefilled.push(PrefilledTransaction {
+                index,
+                transaction: Transaction::decode_from(decoder)
+                    .map_err(|error| WireError::InvalidTransaction(error.to_string()))?,
+            });
+        }
+        let compact = Self {
+            header,
+            key_nonce,
+            short_ids,
+            prefilled,
+        };
+        compact.validate_layout()?;
+        Ok(compact)
+    }
+}
+
+impl CompactBlockReconstruction {
+    pub fn is_complete(&self) -> bool {
+        self.filled == self.available.len()
+    }
+
+    pub fn missing_request(&self) -> CompactBlockRequest {
+        CompactBlockRequest {
+            block_hash: self.header.block_hash(),
+            indexes: self
+                .available
+                .iter()
+                .enumerate()
+                .filter_map(|(index, transaction)| transaction.is_none().then_some(index))
+                .collect(),
+        }
+    }
+
+    pub fn fill_missing(
+        &mut self,
+        response: CompactBlockResponse,
+    ) -> Result<(), CompactBlockError> {
+        if response.block_hash != self.header.block_hash() {
+            return Err(CompactBlockError::ResponseHashMismatch);
+        }
+        let missing = self.available.iter().filter(|item| item.is_none()).count();
+        if response.transactions.len() != missing {
+            return Err(CompactBlockError::ResponseCountMismatch {
+                expected: missing,
+                actual: response.transactions.len(),
+            });
+        }
+        let indexes = self
+            .available
+            .iter()
+            .enumerate()
+            .filter_map(|(index, item)| item.is_none().then_some(index))
+            .collect::<Vec<_>>();
+        for (index, transaction) in indexes.into_iter().zip(response.transactions) {
+            self.insert(index, transaction)?;
+        }
+        Ok(())
+    }
+
+    pub fn into_block(self) -> Result<Block, CompactBlockError> {
+        if !self.is_complete() {
+            return Err(CompactBlockError::Incomplete);
+        }
+        let mut resolved = self.transactions;
+        let mut transactions = Vec::with_capacity(self.available.len());
+        for item in self.available {
+            let index = item.ok_or(CompactBlockError::Incomplete)?;
+            let transaction = resolved
+                .get_mut(index)
+                .and_then(Option::take)
+                .ok_or_else(|| {
+                    CompactBlockError::Malformed(
+                        "multiple compact-block slots reference one transaction".to_owned(),
+                    )
+                })?;
+            transactions.push(transaction);
+        }
+        let block = Block {
+            header: self.header,
+            transactions,
+        };
+        validate_block_body(&block).map_err(|_| CompactBlockError::InvalidBlockBody)?;
+        Ok(block)
+    }
+
+    fn fill_mempool(
+        &mut self,
+        compact: &CompactBlock,
+        mempool: &[Transaction],
+    ) -> Result<(), CompactBlockError> {
+        if self.is_complete() {
+            return Ok(());
+        }
+        let mut matched = HashSet::new();
+        let siphash_key = compact.siphash_key();
+        for transaction in mempool {
+            let witness_hash = transaction
+                .witness_hash()
+                .map_err(|_| CompactBlockError::InvalidTransaction)?;
+            let short_id = CompactBlock::short_id_with_key(&witness_hash, &siphash_key);
+            let Some(index) = self.short_id_indexes.get(&short_id).copied() else {
+                continue;
+            };
+            if !matched.insert(index) {
+                if self.available[index].take().is_some() {
+                    self.filled = self.filled.saturating_sub(1);
+                }
+                continue;
+            }
+            if self.available[index].is_none() {
+                self.insert(index, transaction.clone())?;
+            }
+            if self.is_complete() {
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
+
+    fn insert(&mut self, index: usize, transaction: Transaction) -> Result<(), CompactBlockError> {
+        let slot = self.available.get_mut(index).ok_or_else(|| {
+            CompactBlockError::Malformed(format!("transaction index {index} is out of bounds"))
+        })?;
+        if slot.is_some() {
+            return Err(CompactBlockError::Malformed(format!(
+                "transaction index {index} is filled more than once"
+            )));
+        }
+        let resolved = self.transactions.len();
+        self.transactions.push(Some(transaction));
+        *slot = Some(resolved);
+        self.filled = self.filled.saturating_add(1);
+        Ok(())
+    }
+}
+
+impl CompactBlockRequest {
+    pub fn from_block(block: &Block, indexes: Vec<usize>) -> Self {
+        Self {
+            block_hash: block.header.block_hash(),
+            indexes,
+        }
+    }
+
+    fn encode_to(&self, encoder: &mut Encoder) -> Result<(), WireError> {
+        validate_absolute_indexes(&self.indexes)?;
+        encoder.put_bytes(self.block_hash.as_bytes());
+        encoder.put_compact_size(self.indexes.len() as u64);
+        for (position, index) in self.indexes.iter().copied().enumerate() {
+            let differential = if position == 0 {
+                index
+            } else {
+                index - self.indexes[position - 1] - 1
+            };
+            encoder.put_compact_size(differential as u64);
+        }
+        Ok(())
+    }
+
+    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, WireError> {
+        let block_hash = BlockHash::new(decoder.read_array()?);
+        let count = read_count(
+            decoder,
+            "compact-block requested indexes",
+            MAX_COMPACT_BLOCK_TRANSACTIONS,
+        )?;
+        let mut indexes = Vec::with_capacity(count);
+        let mut previous = None;
+        for _ in 0..count {
+            let differential = read_bounded_index(decoder, "compact-block requested index")?;
+            let absolute = absolute_prefilled_index(previous, differential)?;
+            indexes.push(absolute);
+            previous = Some(absolute);
+        }
+        Ok(Self {
+            block_hash,
+            indexes,
+        })
+    }
+}
+
+impl CompactBlockResponse {
+    pub fn from_block(
+        block: &Block,
+        request: &CompactBlockRequest,
+    ) -> Result<Self, CompactBlockError> {
+        validate_absolute_indexes(&request.indexes)?;
+        if request.block_hash != block.header.block_hash() {
+            return Err(CompactBlockError::ResponseHashMismatch);
+        }
+        let transactions = request
+            .indexes
+            .iter()
+            .map(|index| {
+                block.transactions.get(*index).cloned().ok_or_else(|| {
+                    CompactBlockError::Malformed(format!(
+                        "requested transaction index {index} is out of bounds"
+                    ))
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            block_hash: request.block_hash,
+            transactions,
+        })
+    }
+
+    fn encode_to(&self, encoder: &mut Encoder) -> Result<(), WireError> {
+        check_count(
+            "compact-block response transactions",
+            self.transactions.len(),
+            MAX_COMPACT_BLOCK_TRANSACTIONS,
+        )?;
+        encoder.put_bytes(self.block_hash.as_bytes());
+        encoder.put_compact_size(self.transactions.len() as u64);
+        for transaction in &self.transactions {
+            encoder.put_bytes(
+                &transaction
+                    .encode()
+                    .map_err(|error| WireError::InvalidTransaction(error.to_string()))?,
+            );
+        }
+        Ok(())
+    }
+
+    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, WireError> {
+        let block_hash = BlockHash::new(decoder.read_array()?);
+        let count = read_count(
+            decoder,
+            "compact-block response transactions",
+            MAX_COMPACT_BLOCK_TRANSACTIONS,
+        )?;
+        let mut transactions = Vec::with_capacity(count);
+        for _ in 0..count {
+            transactions.push(
+                Transaction::decode_from(decoder)
+                    .map_err(|error| WireError::InvalidTransaction(error.to_string()))?,
+            );
+        }
+        Ok(Self {
+            block_hash,
+            transactions,
+        })
     }
 }
 
@@ -379,7 +891,7 @@ pub enum Packet {
     GetHeaders(LocatorPacket),
     Headers(Vec<Header>),
     SendHeaders,
-    Block(Vec<u8>),
+    Block(Block),
     Tx(Transaction),
     Reject(RejectPacket),
     Mempool,
@@ -389,9 +901,9 @@ pub enum Packet {
     MerkleBlock(Vec<u8>),
     FeeFilter(i64),
     SendCmpct { mode: u8, version: u64 },
-    CmpctBlock(Vec<u8>),
-    GetBlockTxn(Vec<u8>),
-    BlockTxn(Vec<u8>),
+    CmpctBlock(CompactBlock),
+    GetBlockTxn(CompactBlockRequest),
+    BlockTxn(CompactBlockResponse),
     GetProof(GetProofPacket),
     Proof(ProofPacket),
     Claim(Vec<u8>),
@@ -491,13 +1003,18 @@ impl Packet {
                 encoder.put_bytes(packet.key.as_bytes());
                 encoder.put_bytes(&packet.proof.encode()?);
             }
-            Self::Block(payload)
-            | Self::FilterLoad(payload)
+            Self::Block(block) => {
+                encoder.put_bytes(&block.encode().map_err(|_| WireError::InvalidPacket {
+                    context: "block",
+                    reason: "the nested block is malformed",
+                })?)
+            }
+            Self::CmpctBlock(block) => block.encode_to(&mut encoder)?,
+            Self::GetBlockTxn(request) => request.encode_to(&mut encoder)?,
+            Self::BlockTxn(response) => response.encode_to(&mut encoder)?,
+            Self::FilterLoad(payload)
             | Self::FilterAdd(payload)
             | Self::MerkleBlock(payload)
-            | Self::CmpctBlock(payload)
-            | Self::GetBlockTxn(payload)
-            | Self::BlockTxn(payload)
             | Self::Claim(payload)
             | Self::Airdrop(payload)
             | Self::Unknown { payload, .. } => encoder.put_bytes(payload),
@@ -563,7 +1080,14 @@ impl Packet {
                 Self::Headers(headers)
             }
             PacketType::SendHeaders => Self::SendHeaders,
-            PacketType::Block => Self::Block(take_remaining(&mut decoder)?),
+            PacketType::Block => {
+                return Block::decode(payload).map(Self::Block).map_err(|_| {
+                    WireError::InvalidPacket {
+                        context: "block",
+                        reason: "the nested block is malformed",
+                    }
+                });
+            }
             PacketType::Tx => {
                 let transaction = Transaction::decode(payload)
                     .map_err(|error| WireError::InvalidTransaction(error.to_string()))?;
@@ -580,9 +1104,13 @@ impl Packet {
                 mode: decoder.read_u8()?,
                 version: decoder.read_u64_le()?,
             },
-            PacketType::CmpctBlock => Self::CmpctBlock(take_remaining(&mut decoder)?),
-            PacketType::GetBlockTxn => Self::GetBlockTxn(take_remaining(&mut decoder)?),
-            PacketType::BlockTxn => Self::BlockTxn(take_remaining(&mut decoder)?),
+            PacketType::CmpctBlock => Self::CmpctBlock(CompactBlock::decode_from(&mut decoder)?),
+            PacketType::GetBlockTxn => {
+                Self::GetBlockTxn(CompactBlockRequest::decode_from(&mut decoder)?)
+            }
+            PacketType::BlockTxn => {
+                Self::BlockTxn(CompactBlockResponse::decode_from(&mut decoder)?)
+            }
             PacketType::GetProof => Self::GetProof(GetProofPacket {
                 root: TreeRoot::new(decoder.read_array()?),
                 key: NameHash::new(decoder.read_array()?),
@@ -854,6 +1382,57 @@ fn read_count(
     Ok(actual)
 }
 
+fn read_bounded_index(
+    decoder: &mut Decoder<'_>,
+    context: &'static str,
+) -> Result<usize, WireError> {
+    let value = decoder.read_compact_size()?;
+    let actual = usize::try_from(value).unwrap_or(usize::MAX);
+    check_count(context, actual, u16::MAX as usize)?;
+    Ok(actual)
+}
+
+fn absolute_prefilled_index(
+    previous: Option<usize>,
+    differential: usize,
+) -> Result<usize, CompactBlockError> {
+    match previous {
+        Some(previous) => previous
+            .checked_add(differential)
+            .and_then(|index| index.checked_add(1))
+            .filter(|index| *index <= u16::MAX as usize)
+            .ok_or_else(|| CompactBlockError::Malformed("differential index overflow".to_owned())),
+        None if differential <= u16::MAX as usize => Ok(differential),
+        None => Err(CompactBlockError::Malformed(
+            "first differential index exceeds u16".to_owned(),
+        )),
+    }
+}
+
+fn validate_absolute_indexes(indexes: &[usize]) -> Result<(), CompactBlockError> {
+    if indexes.len() > MAX_COMPACT_BLOCK_TRANSACTIONS {
+        return Err(CompactBlockError::Malformed(format!(
+            "index count {} exceeds {MAX_COMPACT_BLOCK_TRANSACTIONS}",
+            indexes.len()
+        )));
+    }
+    let mut previous = None;
+    for index in indexes.iter().copied() {
+        if index > u16::MAX as usize {
+            return Err(CompactBlockError::Malformed(format!(
+                "transaction index {index} exceeds u16"
+            )));
+        }
+        if previous.is_some_and(|previous| previous >= index) {
+            return Err(CompactBlockError::Malformed(
+                "absolute transaction indexes are not strictly increasing".to_owned(),
+            ));
+        }
+        previous = Some(index);
+    }
+    Ok(())
+}
+
 fn check_count(context: &'static str, actual: usize, maximum: usize) -> Result<(), WireError> {
     if actual > maximum {
         return Err(WireError::CountTooLarge {
@@ -900,6 +1479,69 @@ fn take_remaining(decoder: &mut Decoder<'_>) -> Result<Vec<u8>, WireError> {
     Ok(decoder.read_slice(decoder.remaining())?.to_vec())
 }
 
+fn blake2b_256_many(parts: &[&[u8]]) -> [u8; 32] {
+    let mut hasher = Blake2bVar::new(32).expect("valid BLAKE2b output size");
+    for part in parts {
+        hasher.update(part);
+    }
+    let mut output = [0_u8; 32];
+    hasher
+        .finalize_variable(&mut output)
+        .expect("output buffer has the requested size");
+    output
+}
+
+fn siphash24(input: &[u8], key: &[u8; 16]) -> u64 {
+    let key0 = u64::from_le_bytes(key[..8].try_into().expect("eight-byte key half"));
+    let key1 = u64::from_le_bytes(key[8..].try_into().expect("eight-byte key half"));
+    let mut state = [
+        key0 ^ 0x736f_6d65_7073_6575,
+        key1 ^ 0x646f_7261_6e64_6f6d,
+        key0 ^ 0x6c79_6765_6e65_7261,
+        key1 ^ 0x7465_6462_7974_6573,
+    ];
+
+    let mut chunks = input.chunks_exact(8);
+    for chunk in &mut chunks {
+        let message = u64::from_le_bytes(chunk.try_into().expect("eight-byte chunk"));
+        state[3] ^= message;
+        siphash_round(&mut state);
+        siphash_round(&mut state);
+        state[0] ^= message;
+    }
+
+    let mut tail = (input.len() as u64) << 56;
+    for (offset, byte) in chunks.remainder().iter().copied().enumerate() {
+        tail |= u64::from(byte) << (8 * offset);
+    }
+    state[3] ^= tail;
+    siphash_round(&mut state);
+    siphash_round(&mut state);
+    state[0] ^= tail;
+    state[2] ^= 0xff;
+    for _ in 0..4 {
+        siphash_round(&mut state);
+    }
+    state[0] ^ state[1] ^ state[2] ^ state[3]
+}
+
+fn siphash_round(state: &mut [u64; 4]) {
+    state[0] = state[0].wrapping_add(state[1]);
+    state[1] = state[1].rotate_left(13);
+    state[1] ^= state[0];
+    state[0] = state[0].rotate_left(32);
+    state[2] = state[2].wrapping_add(state[3]);
+    state[3] = state[3].rotate_left(16);
+    state[3] ^= state[2];
+    state[0] = state[0].wrapping_add(state[3]);
+    state[3] = state[3].rotate_left(21);
+    state[3] ^= state[0];
+    state[2] = state[2].wrapping_add(state[1]);
+    state[1] = state[1].rotate_left(17);
+    state[1] ^= state[2];
+    state[2] = state[2].rotate_left(32);
+}
+
 fn bytes_needed_for_frame(input: &[u8]) -> usize {
     if input.len() < FRAME_HEADER_SIZE {
         return FRAME_HEADER_SIZE - input.len();
@@ -913,14 +1555,69 @@ fn bytes_needed_for_frame(input: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use hns_transaction::{Address, Input, Outpoint, Output, Witness};
+
     use super::*;
 
     const VERSION_PAYLOAD: &str = "03000000010000000000000006050403020100000403020100000000efcdab89000000000000000000000000000000ffff000000000000000000000000000000000000000000000000d6360211111111111111111111111111111111111111111111111111111111111111110102030405060708132f687372642d6f7261636c653a302e312e302f40e2010001";
     const VERSION_FRAME: &str = "d3f26e5b008d00000003000000010000000000000006050403020100000403020100000000efcdab89000000000000000000000000000000ffff000000000000000000000000000000000000000000000000d6360211111111111111111111111111111111111111111111111111111111111111110102030405060708132f687372642d6f7261636c653a302e312e302f40e2010001";
     const HEADER_PAYLOAD: &str = "017856341206050403020100000101010101010101010101010101010101010101010101010101010101010101040404040404040404040404040404040404040404040404040404040404040406060606060606060606060606060606060606060606060605050505050505050505050505050505050505050505050505050505050505050303030303030303030303030303030303030303030303030303030303030303020202020202020202020202020202020202020202020202020202020202020207000000ffff001d0707070707070707070707070707070707070707070707070707070707070707";
+    const CMPCTBLOCK_PAYLOAD: &str = "7856341206050403020100000101010101010101010101010101010101010101010101010101010101010101040404040404040404040404040404040404040404040404040404040404040406060606060606060606060606060606060606060606060605050505050505050505050505050505050505050505050505050505050505050303030303030303030303030303030303030303030303030303030303030303020202020202020202020202020202020202020202020202020202020202020207000000ffff001d0707070707070707070707070707070707070707070707070707070707070707010203040506070802d8451ace6e01662b3c2ef01b0100010000000101010101010101010101010101010101010101010101010101010101010101010100000001ffffff01e9030000000000000014000000000000000000000000000000000000000000000100000001020102";
+    const GETBLOCKTXN_PAYLOAD: &str =
+        "e6c0e40f86adaaa4c2cf6e1be9525a8bb440fd5d4caad2e28f0cec6368d5a879020100";
+    const BLOCKTXN_PAYLOAD: &str = "e6c0e40f86adaaa4c2cf6e1be9525a8bb440fd5d4caad2e28f0cec6368d5a87902020000000102020202020202020202020202020202020202020202020202020202020202020200000002ffffff01ea030000000000000014000000000000000000000000000000000000000000000200000001020203030000000103030303030303030303030303030303030303030303030303030303030303030300000003ffffff01eb030000000000000014000000000000000000000000000000000000000000000300000001020304";
 
     fn decode_hex(value: &str) -> Vec<u8> {
         hex::decode(value).expect("valid fixture hex")
+    }
+
+    fn valid_compact_source() -> Block {
+        let coinbase = Transaction {
+            version: 0,
+            inputs: vec![Input {
+                previous_output: Outpoint::NULL,
+                sequence: 1,
+                witness: Witness {
+                    items: vec![b"hns-rs".to_vec(), vec![0; 8], vec![0; 8]],
+                },
+            }],
+            outputs: vec![Output {
+                value: 1_000_u64.into(),
+                address: Address::new(0, vec![1; 20]).unwrap(),
+                covenant: Default::default(),
+            }],
+            locktime: 1,
+        };
+        let coinbase_hash = coinbase.transaction_hash().unwrap();
+        let spend = |index: u32| Transaction {
+            version: 0,
+            inputs: vec![Input {
+                previous_output: Outpoint {
+                    transaction_hash: coinbase_hash,
+                    index,
+                },
+                sequence: u32::MAX,
+                witness: Witness::default(),
+            }],
+            outputs: vec![Output {
+                value: u64::from(900 - index).into(),
+                address: Address::new(0, vec![index as u8 + 2; 20]).unwrap(),
+                covenant: Default::default(),
+            }],
+            locktime: 0,
+        };
+        let transactions = vec![coinbase, spend(0), spend(1)];
+        let header = Header {
+            merkle_root: hns_mining::block_merkle_root(&transactions).unwrap(),
+            witness_root: hns_mining::block_witness_root(&transactions).unwrap(),
+            ..Header::default()
+        };
+        let block = Block {
+            header,
+            transactions,
+        };
+        validate_block_body(&block).unwrap();
+        block
     }
 
     #[test]
@@ -1100,6 +1797,139 @@ mod tests {
                 .unwrap(),
             compact
         );
+    }
+
+    #[test]
+    fn syntactic_block_packet_matches_hsd_fixture() {
+        let payload = vec![0; HEADER_SIZE + 1];
+        let packet = Packet::decode(PacketType::Block, &payload).unwrap();
+        assert_eq!(packet.encode_payload().unwrap(), payload);
+        let Packet::Block(block) = packet else {
+            panic!("expected block packet");
+        };
+        assert!(block.transactions.is_empty());
+    }
+
+    #[test]
+    fn compact_block_packets_match_hsd_and_reconstruct() {
+        let compact_payload = decode_hex(CMPCTBLOCK_PAYLOAD);
+        let Packet::CmpctBlock(compact) =
+            Packet::decode(PacketType::CmpctBlock, &compact_payload).unwrap()
+        else {
+            panic!("expected compact block");
+        };
+        assert_eq!(compact.total_transactions(), 3);
+        assert_eq!(
+            Packet::CmpctBlock(compact.clone())
+                .encode_payload()
+                .unwrap(),
+            compact_payload
+        );
+
+        let request_payload = decode_hex(GETBLOCKTXN_PAYLOAD);
+        let Packet::GetBlockTxn(request) =
+            Packet::decode(PacketType::GetBlockTxn, &request_payload).unwrap()
+        else {
+            panic!("expected compact-block request");
+        };
+        assert_eq!(request.block_hash, compact.hash());
+        assert_eq!(request.indexes, [1, 2]);
+        assert_eq!(
+            Packet::GetBlockTxn(request.clone())
+                .encode_payload()
+                .unwrap(),
+            request_payload
+        );
+
+        let response_payload = decode_hex(BLOCKTXN_PAYLOAD);
+        let Packet::BlockTxn(response) =
+            Packet::decode(PacketType::BlockTxn, &response_payload).unwrap()
+        else {
+            panic!("expected compact-block response");
+        };
+        assert_eq!(response.block_hash, compact.hash());
+        assert_eq!(response.transactions.len(), 2);
+        assert_eq!(
+            Packet::BlockTxn(response.clone()).encode_payload().unwrap(),
+            response_payload
+        );
+
+        let mut reconstruction = compact.reconstruct(&[]).unwrap();
+        assert!(!reconstruction.is_complete());
+        assert_eq!(reconstruction.missing_request(), request);
+        reconstruction.fill_missing(response).unwrap();
+        assert!(reconstruction.is_complete());
+        assert!(matches!(
+            reconstruction.into_block(),
+            Err(CompactBlockError::InvalidBlockBody)
+        ));
+    }
+
+    #[test]
+    fn compact_block_codecs_reject_ambiguous_or_malformed_data() {
+        let Packet::CmpctBlock(mut compact) =
+            Packet::decode(PacketType::CmpctBlock, &decode_hex(CMPCTBLOCK_PAYLOAD)).unwrap()
+        else {
+            panic!("expected compact block");
+        };
+        compact.short_ids[1] = compact.short_ids[0];
+        assert!(matches!(
+            compact.reconstruct(&[]),
+            Err(CompactBlockError::ShortIdCollision(_))
+        ));
+
+        let request = CompactBlockRequest {
+            block_hash: compact.hash(),
+            indexes: vec![2, 2],
+        };
+        assert!(matches!(
+            Packet::GetBlockTxn(request).encode_payload(),
+            Err(WireError::CompactBlock(CompactBlockError::Malformed(_)))
+        ));
+
+        let block = valid_compact_source();
+        let valid_compact =
+            CompactBlock::from_block_with_nonce(&block, [1, 2, 3, 4, 5, 6, 7, 8]).unwrap();
+        let mut reconstruction = valid_compact.reconstruct(&[]).unwrap();
+        let request = reconstruction.missing_request();
+        let mut response = CompactBlockResponse::from_block(&block, &request).unwrap();
+        response.transactions[0].outputs[0].value = 0_u64.into();
+        reconstruction.fill_missing(response).unwrap();
+        assert!(matches!(
+            reconstruction.into_block(),
+            Err(CompactBlockError::InvalidBlockBody)
+        ));
+
+        let mut wrong_request = request;
+        wrong_request.block_hash = BlockHash::new([0xff; 32]);
+        assert!(matches!(
+            CompactBlockResponse::from_block(&block, &wrong_request),
+            Err(CompactBlockError::ResponseHashMismatch)
+        ));
+
+        let mut trailing = decode_hex(GETBLOCKTXN_PAYLOAD);
+        trailing.push(0);
+        assert!(matches!(
+            Packet::decode(PacketType::GetBlockTxn, &trailing),
+            Err(WireError::Decode(DecodeError::TrailingBytes {
+                remaining: 1
+            }))
+        ));
+    }
+
+    #[test]
+    fn compact_block_reconstruction_validates_the_final_body() {
+        let block = valid_compact_source();
+        let compact =
+            CompactBlock::from_block_with_nonce(&block, [8, 7, 6, 5, 4, 3, 2, 1]).unwrap();
+        let mut reconstruction = compact
+            .reconstruct(std::slice::from_ref(&block.transactions[1]))
+            .unwrap();
+        assert_eq!(reconstruction.missing_request().indexes, [2]);
+        let response =
+            CompactBlockResponse::from_block(&block, &reconstruction.missing_request()).unwrap();
+        reconstruction.fill_missing(response).unwrap();
+        assert_eq!(reconstruction.into_block().unwrap(), block);
     }
 
     #[test]

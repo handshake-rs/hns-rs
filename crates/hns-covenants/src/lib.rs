@@ -9,6 +9,7 @@ use thiserror::Error;
 
 pub const MAX_COVENANT_ITEMS: usize = 1000;
 pub const MAX_COVENANT_ITEM_SIZE: usize = 1_000_000;
+pub const MAX_COVENANT_ENCODED_SIZE: usize = MAX_COVENANT_ITEM_SIZE + 9;
 pub const MAX_NAME_SIZE: usize = 63;
 pub const MAX_RESOURCE_SIZE: usize = 512;
 
@@ -97,8 +98,8 @@ pub struct Covenant {
 
 impl Covenant {
     pub fn encode(&self) -> Result<Vec<u8>, CovenantError> {
-        self.validate_bounds()?;
-        let mut encoder = Encoder::new();
+        let encoded_size = self.encoded_size()?;
+        let mut encoder = Encoder::with_capacity(encoded_size);
         encoder.put_u8(self.kind.as_u8());
         encoder.put_compact_size(self.items.len() as u64);
         for item in &self.items {
@@ -107,11 +108,48 @@ impl Covenant {
         Ok(encoder.into_bytes())
     }
 
+    pub fn encoded_size(&self) -> Result<usize, CovenantError> {
+        if self.items.len() > MAX_COVENANT_ITEMS {
+            return Err(CovenantError::TooLarge {
+                actual: self.items.len(),
+                maximum: MAX_COVENANT_ITEMS,
+            });
+        }
+        let mut encoded_size = 1_usize
+            .checked_add(compact_size_len(self.items.len() as u64))
+            .ok_or(CovenantError::TooLarge {
+                actual: usize::MAX,
+                maximum: MAX_COVENANT_ENCODED_SIZE,
+            })?;
+        for item in &self.items {
+            if item.len() > MAX_COVENANT_ITEM_SIZE {
+                return Err(CovenantError::TooLarge {
+                    actual: item.len(),
+                    maximum: MAX_COVENANT_ITEM_SIZE,
+                });
+            }
+            encoded_size = encoded_size
+                .checked_add(compact_size_len(item.len() as u64))
+                .and_then(|size| size.checked_add(item.len()))
+                .ok_or(CovenantError::TooLarge {
+                    actual: usize::MAX,
+                    maximum: MAX_COVENANT_ENCODED_SIZE,
+                })?;
+            if encoded_size > MAX_COVENANT_ENCODED_SIZE {
+                return Err(CovenantError::TooLarge {
+                    actual: encoded_size,
+                    maximum: MAX_COVENANT_ENCODED_SIZE,
+                });
+            }
+        }
+        Ok(encoded_size)
+    }
+
     pub fn decode(input: &[u8]) -> Result<Self, CovenantError> {
-        if input.len() > MAX_COVENANT_ITEM_SIZE + 9 {
+        if input.len() > MAX_COVENANT_ENCODED_SIZE {
             return Err(CovenantError::TooLarge {
                 actual: input.len(),
-                maximum: MAX_COVENANT_ITEM_SIZE + 9,
+                maximum: MAX_COVENANT_ENCODED_SIZE,
             });
         }
         let mut decoder = Decoder::new(input);
@@ -121,11 +159,38 @@ impl Covenant {
     }
 
     pub fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, CovenantError> {
+        Self::decode_from_with_limit(decoder, MAX_COVENANT_ENCODED_SIZE)
+    }
+
+    pub fn decode_from_with_limit(
+        decoder: &mut Decoder<'_>,
+        maximum_encoded_size: usize,
+    ) -> Result<Self, CovenantError> {
+        let maximum_encoded_size = maximum_encoded_size.min(MAX_COVENANT_ENCODED_SIZE);
+        if maximum_encoded_size < 2 {
+            return Err(CovenantError::TooLarge {
+                actual: 2,
+                maximum: maximum_encoded_size,
+            });
+        }
+        let start = decoder.position();
         let kind = CovenantKind::from_u8(decoder.read_u8()?);
         let count = decoder.read_compact_usize(MAX_COVENANT_ITEMS, "covenant items")?;
-        let mut items = Vec::with_capacity(count);
+        ensure_decode_budget(decoder, start, maximum_encoded_size)?;
+        let mut items = Vec::with_capacity(count.min(64));
         for _ in 0..count {
-            items.push(decoder.read_varbytes(MAX_COVENANT_ITEM_SIZE, "covenant item")?);
+            let length = decoder.read_compact_usize(MAX_COVENANT_ITEM_SIZE, "covenant item")?;
+            let remaining = ensure_decode_budget(decoder, start, maximum_encoded_size)?;
+            if length > remaining {
+                return Err(CovenantError::TooLarge {
+                    actual: decoder
+                        .position()
+                        .saturating_sub(start)
+                        .saturating_add(length),
+                    maximum: maximum_encoded_size,
+                });
+            }
+            items.push(decoder.read_bounded_vec(length, remaining)?);
         }
         Ok(Self { kind, items })
     }
@@ -162,23 +227,32 @@ impl Covenant {
     }
 
     fn validate_bounds(&self) -> Result<(), CovenantError> {
-        if self.items.len() > MAX_COVENANT_ITEMS {
-            return Err(CovenantError::TooLarge {
-                actual: self.items.len(),
-                maximum: MAX_COVENANT_ITEMS,
-            });
-        }
-        if let Some(item) = self
-            .items
-            .iter()
-            .find(|item| item.len() > MAX_COVENANT_ITEM_SIZE)
-        {
-            return Err(CovenantError::TooLarge {
-                actual: item.len(),
-                maximum: MAX_COVENANT_ITEM_SIZE,
-            });
-        }
+        self.encoded_size()?;
         Ok(())
+    }
+}
+
+fn ensure_decode_budget(
+    decoder: &Decoder<'_>,
+    start: usize,
+    maximum: usize,
+) -> Result<usize, CovenantError> {
+    let consumed = decoder.position().saturating_sub(start);
+    if consumed > maximum {
+        return Err(CovenantError::TooLarge {
+            actual: consumed,
+            maximum,
+        });
+    }
+    Ok(maximum - consumed)
+}
+
+fn compact_size_len(value: u64) -> usize {
+    match value {
+        0..=0xfc => 1,
+        0xfd..=0xffff => 3,
+        0x1_0000..=0xffff_ffff => 5,
+        _ => 9,
     }
 }
 
@@ -333,5 +407,18 @@ mod tests {
             .is_err()
         );
         assert!(Resource::new(Vec::new()).is_err());
+    }
+
+    #[test]
+    fn bounded_stream_decode_rejects_claimed_item_before_copying() {
+        let encoded = [0, 1, 0xfd, 0xfd, 0];
+        let mut decoder = Decoder::new(&encoded);
+        assert!(matches!(
+            Covenant::decode_from_with_limit(&mut decoder, 10),
+            Err(CovenantError::TooLarge {
+                actual: 258,
+                maximum: 10
+            })
+        ));
     }
 }

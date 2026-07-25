@@ -1,10 +1,13 @@
 #![doc = "Consensus-visible Handshake script and signature-hash primitives."]
 
+mod interpreter;
+
+pub use interpreter::*;
+
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
 use hns_encoding::Encoder;
 use hns_transaction::{Outpoint, Transaction};
-use thiserror::Error;
 
 pub const SIGHASH_ALL: u32 = 1;
 pub const SIGHASH_NONE: u32 = 2;
@@ -23,17 +26,6 @@ pub const SEQUENCE_DISABLE_FLAG: u32 = 1 << 31;
 pub const SEQUENCE_TYPE_FLAG: u32 = 1 << 22;
 pub const SEQUENCE_GRANULARITY: u32 = 9;
 pub const SEQUENCE_MASK: u32 = 0x0000_ffff;
-
-pub const OP_0: u8 = 0x00;
-pub const OP_1: u8 = 0x51;
-pub const OP_9: u8 = 0x59;
-pub const OP_10: u8 = 0x5a;
-pub const OP_IF: u8 = 0x63;
-pub const OP_ELSE: u8 = 0x67;
-pub const OP_ENDIF: u8 = 0x68;
-pub const OP_EQUAL: u8 = 0x87;
-pub const OP_CHECKSIG: u8 = 0xac;
-pub const OP_TYPE: u8 = 0xd0;
 
 pub const fn is_valid_signature_hash_type(hash_type: u8) -> bool {
     let normalized = (hash_type as u32) & !(SIGHASH_NOINPUT | SIGHASH_ANYONE_CAN_PAY);
@@ -169,16 +161,6 @@ fn blake2b_256(input: &[u8]) -> [u8; 32] {
         .finalize_variable(&mut output)
         .expect("valid BLAKE2b output buffer");
     output
-}
-
-#[derive(Debug, Error)]
-pub enum ScriptError {
-    #[error("signature input {requested} is outside {inputs} inputs")]
-    InputIndex { requested: usize, inputs: usize },
-    #[error("invalid signature hash type 0x{0:08x}")]
-    InvalidSignatureHashType(u32),
-    #[error(transparent)]
-    Transaction(#[from] hns_transaction::TransactionError),
 }
 
 #[cfg(test)]

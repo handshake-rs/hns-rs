@@ -1,18 +1,23 @@
 [package]
-name = "hns-p2p-wire"
-description = "Runtime-independent standard Handshake P2P framing and packet codecs"
+name = "hns-conformance"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+publish = false
 
 [dependencies]
-blake2.workspace = true
-hns-encoding = { path = "../hns-encoding" }
+hns-covenants = { path = "../hns-covenants" }
+hns-dns-relay-protocol = { path = "../hns-dns-relay-protocol" }
 hns-header-consensus = { path = "../hns-header-consensus" }
+hns-hnsr-protocol = { path = "../hns-hnsr-protocol" }
 hns-mining = { path = "../hns-mining" }
-hns-primitives = { path = "../hns-primitives" }
+hns-odoh-protocol = { path = "../hns-odoh-protocol" }
+hns-p2p-experimental = { path = "../hns-p2p-experimental" }
+hns-p2p-wire = { path = "../hns-p2p-wire" }
+hns-script = { path = "../hns-script" }
+hns-swap = { path = "../hns-swap" }
 hns-transaction = { path = "../hns-transaction" }
 hns-urkel-proof = { path = "../hns-urkel-proof" }
 thiserror.workspace = true
