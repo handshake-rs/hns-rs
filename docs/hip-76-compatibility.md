@@ -1,0 +1,24 @@
+# Draft HIP #76 compatibility
+
+Status: **Denuo Experimental V1 — Not an official Handshake protocol
+assignment**.
+
+`hns-dns-relay-protocol` implements the bounded request and response payloads
+represented by draft HIP pull request 76 and HSD pull request 958:
+
+- service bit `0x40000000`;
+- request packet `0xf0`, encoded as nonzero `u64` request ID, `u16` DNS length,
+  and at most 4096 DNS bytes;
+- response packet `0xf1`, encoded as the correlated ID, one defined status,
+  `u16` DNS length, and at most 65535 DNS bytes;
+- little-endian packet integers and ordinary DNS network byte order;
+- complete-input consumption before a message is admitted.
+
+Successful responses require a DNS body. Error responses prohibit one. The wire
+transport is untrusted: callers must correlate the DNS message and locally
+validate authenticated HNS state, DNSSEC, TLSA, and DANE while ignoring the
+relay's AD bit.
+
+Requester support defaults to `Auto`; a persistent opt-out revokes in-flight
+generations. Serving relay capacity is a separate operator opt-in.
+

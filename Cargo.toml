@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/hns-dns-relay-protocol",
     "crates/hns-encoding",
     "crates/hns-p2p-experimental",
     "crates/hns-primitives",

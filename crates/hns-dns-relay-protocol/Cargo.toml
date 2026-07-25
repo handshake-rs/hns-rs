@@ -1,0 +1,19 @@
+[package]
+name = "hns-dns-relay-protocol"
+description = "Bounded wire types compatible with the draft Handshake P2P DNS relay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hns-encoding = { path = "../hns-encoding" }
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true
+

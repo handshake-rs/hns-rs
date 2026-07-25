@@ -75,6 +75,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hns-dns-relay-protocol"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "hns-encoding",
+ "thiserror",
+]
+
+[[package]]
 name = "hns-encoding"
 version = "0.1.0"
 dependencies = [
