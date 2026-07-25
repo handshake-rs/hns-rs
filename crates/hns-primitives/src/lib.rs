@@ -1,6 +1,6 @@
 #![doc = "Strongly typed, allocation-free Handshake protocol values."]
 
-use core::fmt;
+use core::{cmp::Ordering, fmt};
 
 use thiserror::Error;
 
@@ -8,6 +8,12 @@ macro_rules! semantic_bytes {
     ($name:ident, $size:expr) => {
         #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
         pub struct $name([u8; $size]);
+
+        impl Default for $name {
+            fn default() -> Self {
+                Self([0; $size])
+            }
+        }
 
         impl $name {
             pub const LENGTH: usize = $size;
@@ -88,6 +94,10 @@ semantic_bytes!(NameHash, 32);
 semantic_bytes!(TreeRoot, 32);
 semantic_bytes!(MerkleRoot, 32);
 semantic_bytes!(WitnessRoot, 32);
+semantic_bytes!(ReservedRoot, 32);
+semantic_bytes!(PowMask, 32);
+semantic_bytes!(ShareHash, 32);
+semantic_bytes!(PowHash, 32);
 semantic_bytes!(ScriptHash, 32);
 semantic_bytes!(OfferId, 32);
 semantic_bytes!(PeerIdentity, 33);
@@ -132,7 +142,7 @@ impl Dollarydoos {
 }
 
 /// Unsigned 256-bit chainwork in little-endian 64-bit limbs.
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Chainwork([u64; 4]);
 
 impl Chainwork {
@@ -144,6 +154,28 @@ impl Chainwork {
 
     pub const fn limbs_le(self) -> [u64; 4] {
         self.0
+    }
+
+    pub fn from_be_bytes(bytes: [u8; 32]) -> Self {
+        let mut limbs = [0_u64; 4];
+        for (index, limb) in limbs.iter_mut().rev().enumerate() {
+            let start = index * 8;
+            *limb = u64::from_be_bytes(
+                bytes[start..start + 8]
+                    .try_into()
+                    .expect("eight-byte chunk"),
+            );
+        }
+        Self(limbs)
+    }
+
+    pub fn to_be_bytes(self) -> [u8; 32] {
+        let mut bytes = [0_u8; 32];
+        for (index, limb) in self.0.iter().rev().enumerate() {
+            let start = index * 8;
+            bytes[start..start + 8].copy_from_slice(&limb.to_be_bytes());
+        }
+        bytes
     }
 
     pub fn checked_add(self, other: Self) -> Result<Self, ArithmeticError> {
@@ -160,6 +192,69 @@ impl Chainwork {
         } else {
             Ok(Self(output))
         }
+    }
+
+    pub fn checked_sub(self, other: Self) -> Result<Self, ArithmeticError> {
+        if self < other {
+            return Err(ArithmeticError::Underflow);
+        }
+        let mut output = [0_u64; 4];
+        let mut borrow = false;
+        for (index, output_limb) in output.iter_mut().enumerate() {
+            let (difference, first_borrow) = self.0[index].overflowing_sub(other.0[index]);
+            let (difference, second_borrow) = difference.overflowing_sub(u64::from(borrow));
+            *output_limb = difference;
+            borrow = first_borrow || second_borrow;
+        }
+        debug_assert!(!borrow);
+        Ok(Self(output))
+    }
+
+    pub fn checked_mul_u64(self, multiplier: u64) -> Result<Self, ArithmeticError> {
+        let mut output = [0_u64; 4];
+        let mut carry = 0_u128;
+        for (index, output_limb) in output.iter_mut().enumerate() {
+            let product = u128::from(self.0[index]) * u128::from(multiplier) + carry;
+            *output_limb = product as u64;
+            carry = product >> 64;
+        }
+        if carry == 0 {
+            Ok(Self(output))
+        } else {
+            Err(ArithmeticError::Overflow)
+        }
+    }
+
+    pub fn checked_div_u64(self, divisor: u64) -> Result<Self, ArithmeticError> {
+        if divisor == 0 {
+            return Err(ArithmeticError::Underflow);
+        }
+        let mut output = [0_u64; 4];
+        let mut remainder = 0_u128;
+        for index in (0..4).rev() {
+            let dividend = (remainder << 64) | u128::from(self.0[index]);
+            output[index] = (dividend / u128::from(divisor)) as u64;
+            remainder = dividend % u128::from(divisor);
+        }
+        Ok(Self(output))
+    }
+}
+
+impl Ord for Chainwork {
+    fn cmp(&self, other: &Self) -> Ordering {
+        for index in (0..4).rev() {
+            match self.0[index].cmp(&other.0[index]) {
+                Ordering::Equal => {}
+                ordering => return ordering,
+            }
+        }
+        Ordering::Equal
+    }
+}
+
+impl PartialOrd for Chainwork {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -187,6 +282,33 @@ mod tests {
             Chainwork::from_limbs_le([u64::MAX; 4]).checked_add(right),
             Err(ArithmeticError::Overflow)
         );
+    }
+
+    #[test]
+    fn chainwork_numeric_order_and_checked_operations_are_256_bit() {
+        let lower = Chainwork::from_limbs_le([u64::MAX, 0, 0, 0]);
+        let higher = Chainwork::from_limbs_le([0, 1, 0, 0]);
+        assert!(higher > lower);
+        assert_eq!(
+            higher.checked_sub(lower).expect("fits").limbs_le(),
+            [1, 0, 0, 0]
+        );
+        assert_eq!(
+            Chainwork::from_limbs_le([u64::MAX, 0, 0, 0])
+                .checked_mul_u64(2)
+                .expect("fits")
+                .limbs_le(),
+            [u64::MAX - 1, 1, 0, 0]
+        );
+        assert_eq!(
+            Chainwork::from_limbs_le([0, 1, 0, 0])
+                .checked_div_u64(2)
+                .expect("fits")
+                .limbs_le(),
+            [1_u64 << 63, 0, 0, 0]
+        );
+        let bytes = [0x5a; 32];
+        assert_eq!(Chainwork::from_be_bytes(bytes).to_be_bytes(), bytes);
     }
 
     #[test]
