@@ -22,4 +22,6 @@ validate authenticated HNS state, DNSSEC, TLSA, and DANE while ignoring the
 relay's AD bit.
 
 Requester support defaults to `Auto`; a persistent opt-out revokes in-flight
-generations. Serving relay capacity is a separate operator opt-in.
+generations. A HIP-76 server sees the plaintext qname and performs the outbound
+DNS lookup, so it is an output role rather than an opaque intermediary.
+Serving that capacity remains a separate operator opt-in.

@@ -17,41 +17,104 @@ pub enum ObliviousDnsPolicy {
     Disabled,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum HnsrPolicy {
-    #[default]
-    Disabled,
-    Client,
-    Endpoint,
-    Relay,
-    Rendezvous,
-    EndpointAndClient,
-    Full,
+/// Independent HNSR participation roles.
+///
+/// Opaque relay participation defaults on and remains independently
+/// opt-out. Endpoint/output, requester, and rendezvous roles require separate
+/// explicit enablement, so one role can never grant another implicitly.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HnsrPolicy {
+    client: bool,
+    endpoint: bool,
+    relay: bool,
+    rendezvous: bool,
 }
 
 impl HnsrPolicy {
+    /// Disable every HNSR role.
+    pub const fn disabled() -> Self {
+        Self {
+            client: false,
+            endpoint: false,
+            relay: false,
+            rendezvous: false,
+        }
+    }
+
+    /// Default to opaque relay participation only.
+    pub const fn relay_default() -> Self {
+        Self {
+            relay: true,
+            ..Self::disabled()
+        }
+    }
+
+    /// Set requester/client participation independently.
+    pub const fn with_client(mut self, enabled: bool) -> Self {
+        self.client = enabled;
+        self
+    }
+
+    /// Set endpoint/output-node participation independently.
+    pub const fn with_endpoint(mut self, enabled: bool) -> Self {
+        self.endpoint = enabled;
+        self
+    }
+
+    /// Set opaque relay participation independently.
+    pub const fn with_relay(mut self, enabled: bool) -> Self {
+        self.relay = enabled;
+        self
+    }
+
+    /// Set rendezvous-directory participation independently.
+    pub const fn with_rendezvous(mut self, enabled: bool) -> Self {
+        self.rendezvous = enabled;
+        self
+    }
+
+    /// Whether requester/client activity is enabled.
     pub const fn has_client(self) -> bool {
-        matches!(self, Self::Client | Self::EndpointAndClient | Self::Full)
+        self.client
     }
 
+    /// Whether endpoint/output-node activity is enabled.
     pub const fn has_endpoint(self) -> bool {
-        matches!(self, Self::Endpoint | Self::EndpointAndClient | Self::Full)
+        self.endpoint
     }
 
+    /// Whether opaque relay activity is enabled.
     pub const fn has_relay(self) -> bool {
-        matches!(self, Self::Relay | Self::Full)
+        self.relay
     }
 
+    /// Whether rendezvous-directory activity is enabled.
     pub const fn has_rendezvous(self) -> bool {
-        matches!(self, Self::Rendezvous | Self::Full)
+        self.rendezvous
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+impl Default for HnsrPolicy {
+    fn default() -> Self {
+        Self::relay_default()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProviderRoles {
     pub dns_relay: bool,
     pub odoh_proxy: bool,
     pub odoh_target: bool,
+}
+
+impl Default for ProviderRoles {
+    fn default() -> Self {
+        Self {
+            dns_relay: false,
+            odoh_proxy: true,
+            odoh_target: false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -70,7 +133,7 @@ impl Default for TransportPolicy {
             dns_relay_requester: DnsRelayRequesterPolicy::Auto,
             oblivious_dns: ObliviousDnsPolicy::Preferred,
             allow_direct_relay_fallback: true,
-            hnsr: HnsrPolicy::Disabled,
+            hnsr: HnsrPolicy::default(),
             providers: ProviderRoles::default(),
             wire_profile: ExperimentalWireProfile::DenuoV1,
         }
@@ -200,12 +263,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn requester_defaults_and_provider_opt_in_match_policy() {
+    fn relay_defaults_and_output_roles_require_opt_in() {
         let policy = TransportPolicy::default();
         assert_eq!(policy.dns_relay_requester, DnsRelayRequesterPolicy::Auto);
         assert_eq!(policy.oblivious_dns, ObliviousDnsPolicy::Preferred);
-        assert_eq!(policy.hnsr, HnsrPolicy::Disabled);
-        assert_eq!(policy.providers, ProviderRoles::default());
+        assert!(!policy.hnsr.has_client());
+        assert!(policy.hnsr.has_relay());
+        assert!(!policy.hnsr.has_endpoint());
+        assert!(!policy.hnsr.has_rendezvous());
+        assert!(!policy.providers.dns_relay);
+        assert!(policy.providers.odoh_proxy);
+        assert!(!policy.providers.odoh_target);
+    }
+
+    #[test]
+    fn hnsr_roles_never_imply_output_node_consent() {
+        let relay_only = HnsrPolicy::default();
+        assert!(relay_only.has_relay());
+        assert!(!relay_only.has_endpoint());
+
+        let output_and_relay = relay_only.with_endpoint(true);
+        assert!(output_and_relay.has_relay());
+        assert!(output_and_relay.has_endpoint());
+        assert!(!output_and_relay.has_client());
+
+        let output_only = output_and_relay.with_relay(false);
+        assert!(!output_only.has_relay());
+        assert!(output_only.has_endpoint());
+        assert!(!output_only.has_rendezvous());
     }
 
     #[test]

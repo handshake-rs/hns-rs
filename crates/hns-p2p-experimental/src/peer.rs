@@ -110,12 +110,20 @@ impl ExperimentalPeerState {
             self.disabled.insert(protocol);
             return Err(PeerProtocolError::ConnectionNotEstablished);
         }
-        let required_service = required_service_for_packet(packet, protocol);
-        if !self.services.contains(required_service) {
+        let admits_service = if packet == HNSR_PACKET {
+            self.services.contains(HNSR_RENDEZVOUS_SERVICE)
+                || self.services.contains(HNSR_RELAY_SERVICE)
+        } else {
+            self.services.contains(protocol.required_service())
+        };
+        if !admits_service {
             self.disabled.insert(protocol);
+            if packet == HNSR_PACKET {
+                return Err(PeerProtocolError::HnsrPacketWithoutService);
+            }
             return Err(PeerProtocolError::PacketWithoutService {
                 protocol,
-                required_service,
+                required_service: protocol.required_service(),
             });
         }
 
@@ -176,14 +184,6 @@ fn protocol_for_packet(packet: PacketType) -> Option<PeerProtocol> {
     }
 }
 
-fn required_service_for_packet(packet: PacketType, protocol: PeerProtocol) -> ServiceBit {
-    if packet == HNSR_PACKET {
-        HNSR_RENDEZVOUS_SERVICE
-    } else {
-        protocol.required_service()
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub enum PeerProtocolError {
     #[error("peer connection is not fully established")]
@@ -195,6 +195,8 @@ pub enum PeerProtocolError {
         protocol: PeerProtocol,
         required_service: ServiceBit,
     },
+    #[error("HNSR packet arrived without a rendezvous or relay service")]
+    HnsrPacketWithoutService,
     #[error("peer advertises {0:?} without the Denuo extension service")]
     MissingDenuoExtensionService(PeerProtocol),
     #[error("peer advertises a private service without registry negotiation support")]
@@ -287,6 +289,31 @@ mod tests {
             peer.admit_packet(PacketType::new(1)),
             Ok(ExperimentalAdmission::OrdinaryHandshake)
         );
+    }
+
+    #[test]
+    fn hnsr_packet_accepts_either_negotiated_wire_role() {
+        for service in [HNSR_RENDEZVOUS_SERVICE, HNSR_RELAY_SERVICE] {
+            let services = ServiceMask::default()
+                .with(DENUO_EXTENSION_SERVICE)
+                .with(service);
+            let mut peer = state(services);
+            peer.mark_established();
+            peer.install_negotiation(negotiated()).expect("matches");
+            assert_eq!(
+                peer.admit_packet(HNSR_PACKET),
+                Ok(ExperimentalAdmission::Experimental(PeerProtocol::Hnsr))
+            );
+        }
+
+        let mut peer = state(ServiceMask::default().with(DENUO_EXTENSION_SERVICE));
+        peer.mark_established();
+        peer.install_negotiation(negotiated()).expect("matches");
+        assert_eq!(
+            peer.admit_packet(HNSR_PACKET),
+            Err(PeerProtocolError::HnsrPacketWithoutService)
+        );
+        assert!(peer.is_disabled(PeerProtocol::Hnsr));
     }
 
     #[test]

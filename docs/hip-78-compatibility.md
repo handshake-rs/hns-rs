@@ -56,8 +56,11 @@ replication, reservations bound to live peers, disconnect revocation, circuit
 queues, directional credit, rate limits, deadlines, inner Brontide, and
 priority below direct blockchain traffic.
 
-All endpoint, relay, and rendezvous roles are opt-in and must not advertise
-while disabled.
+Opaque relay participation defaults on and has an independent persistent
+opt-out. Endpoint/output-node and rendezvous-directory participation default
+off and require explicit opt-in. Requester/client activity is independent.
+Relay consent never enables an endpoint, output, requester, or rendezvous role,
+and disabled roles must not advertise.
 
 ## Verification
 

@@ -50,6 +50,11 @@ An HNSR target locator is only accepted after HIP #78 is enabled and
 authenticated. It belongs to the shared HNSR transport layer rather than being
 silently interpreted as a direct locator here.
 
+Opaque ODoH proxy participation defaults on and has an independent persistent
+opt-out. Target/output-node participation defaults off and requires explicit
+opt-in. Proxy consent never enables the target role, and the target never
+inherits requester settings.
+
 `OBLIVIOUS_REQUIRED` must never fall back to direct relay. The shared policy
 types express that distinction; consuming runtimes must persist and enforce
 the selected mode.
