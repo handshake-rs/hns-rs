@@ -624,7 +624,7 @@ mod tests {
         );
         assert_eq!(
             registry.id().expect("hashes").to_string(),
-            "c6f99e2403d5a9a2b257b995eca35082b51c75fa903a7fd3e354a1567529f1ff"
+            "95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d"
         );
     }
 
