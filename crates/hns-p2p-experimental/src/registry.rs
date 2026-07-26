@@ -9,6 +9,19 @@ use thiserror::Error;
 
 use crate::assignment::Network;
 
+pub const DENUO_V1_REGISTRY_NAME: &str = "Denuo Experimental Handshake P2P Registry";
+pub const DENUO_V1_REGISTRY_VERSION: u16 = 1;
+pub const DENUO_V1_REGISTRY_PROTOCOL_VERSION: u16 = 1;
+pub const DENUO_V1_WIRE_PROFILE: &str = "denuo-v1";
+const DENUO_V1_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
+    0x95, 0x77, 0x4d, 0xb0, 0x8c, 0x56, 0x9b, 0x36, 0xfa, 0x7b, 0x7e, 0x4a, 0x07, 0x19, 0x30, 0xf5,
+    0x63, 0xb7, 0x25, 0x1f, 0xc3, 0x09, 0x34, 0xba, 0x98, 0x67, 0x32, 0x37, 0x9a, 0x6e, 0x54, 0x2d,
+];
+pub const DENUO_V1_REGISTRY_ID: ExperimentalRegistryId =
+    ExperimentalRegistryId::new(DENUO_V1_REGISTRY_FINGERPRINT_BYTES);
+pub const DENUO_V1_REGISTRY_FINGERPRINT: RegistryFingerprint =
+    RegistryFingerprint::new(DENUO_V1_REGISTRY_FINGERPRINT_BYTES);
+
 const REGISTRY_MAGIC: [u8; 4] = *b"DNR1";
 const CANONICAL_FORMAT_VERSION: u16 = 1;
 const MAX_REGISTRY_TEXT: usize = 256 * 1024;
@@ -308,7 +321,9 @@ impl RegistryMetadata {
         validate_field("registry.name", &self.name)?;
         validate_field("registry.owner", &self.owner)?;
         validate_field("registry.wire_profile", &self.wire_profile)?;
-        if self.version != 1 || self.protocol_version != 1 {
+        if self.version != DENUO_V1_REGISTRY_VERSION
+            || self.protocol_version != DENUO_V1_REGISTRY_PROTOCOL_VERSION
+        {
             return Err(RegistryError::UnsupportedRegistryVersion {
                 registry: self.version,
                 protocol: self.protocol_version,
@@ -317,7 +332,7 @@ impl RegistryMetadata {
         if self.status != AssignmentStatus::StableExperimental {
             return Err(RegistryError::InvalidRegistryStatus(self.status));
         }
-        if self.wire_profile != "denuo-v1" {
+        if self.wire_profile != DENUO_V1_WIRE_PROFILE {
             return Err(RegistryError::InvalidWireProfile(self.wire_profile.clone()));
         }
         Ok(())
@@ -609,14 +624,20 @@ fn read_optional_string(decoder: &mut Decoder<'_>) -> Result<Option<String>, Reg
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::envelope::DENUO_EXTENSION_MAX_PACKET_PAYLOAD;
+    use crate::negotiation::REGISTRY_NEGOTIATION_MAX_PAYLOAD;
 
     const REGISTRY_TOML: &str = include_str!("../../../registry/denuo-experimental-v1.toml");
+    const REGISTRY_BINARY: &[u8] = include_bytes!("../../../registry/denuo-experimental-v1.bin");
+    const REGISTRY_SHA256: &str = include_str!("../../../registry/denuo-experimental-v1.sha256");
 
     #[test]
-    fn canonical_registry_round_trips_and_has_stable_identity() {
+    fn canonical_registry_artifacts_and_exports_have_one_stable_identity() {
         let registry = RegistryDocument::from_toml(REGISTRY_TOML).expect("valid registry");
         let binary = registry.canonical_bytes().expect("encodes");
-        let decoded = RegistryDocument::from_canonical_bytes(&binary).expect("decodes");
+        assert_eq!(binary, REGISTRY_BINARY);
+
+        let decoded = RegistryDocument::from_canonical_bytes(REGISTRY_BINARY).expect("decodes");
         assert_eq!(decoded, registry);
         assert_eq!(
             registry.id().expect("hashes"),
@@ -625,6 +646,38 @@ mod tests {
         assert_eq!(
             registry.id().expect("hashes").to_string(),
             "95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d"
+        );
+        assert_eq!(registry.id().expect("hashes"), DENUO_V1_REGISTRY_ID);
+        assert_eq!(
+            RegistryFingerprint::from(registry.id().expect("hashes")),
+            DENUO_V1_REGISTRY_FINGERPRINT
+        );
+        assert_eq!(registry.registry.name, DENUO_V1_REGISTRY_NAME);
+        assert_eq!(registry.registry.version, DENUO_V1_REGISTRY_VERSION);
+        assert_eq!(
+            registry.registry.protocol_version,
+            DENUO_V1_REGISTRY_PROTOCOL_VERSION
+        );
+        assert_eq!(registry.registry.wire_profile, DENUO_V1_WIRE_PROFILE);
+        assert_eq!(
+            REGISTRY_SHA256,
+            format!("{DENUO_V1_REGISTRY_ID}  denuo-experimental-v1.bin\n")
+        );
+        let maximum_payload = |semantic_name: &str| {
+            registry
+                .assignments
+                .iter()
+                .find(|assignment| assignment.semantic_name == semantic_name)
+                .map(|assignment| assignment.maximum_payload as usize)
+                .expect("canonical assignment")
+        };
+        assert_eq!(
+            maximum_payload("denuo-ext"),
+            DENUO_EXTENSION_MAX_PACKET_PAYLOAD
+        );
+        assert_eq!(
+            maximum_payload("registry-negotiation"),
+            REGISTRY_NEGOTIATION_MAX_PAYLOAD
         );
     }
 

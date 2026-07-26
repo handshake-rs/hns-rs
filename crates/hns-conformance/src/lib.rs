@@ -23,7 +23,6 @@ pub const MAX_MUTATION_SEED_SIZE: usize = 64 * 1024;
 pub const MAX_MUTATION_CASES: usize = 64;
 /// Aggregate mutation bytes retained from one seed.
 pub const MAX_MUTATION_CORPUS_BYTES: usize = 4 * 1024 * 1024;
-const MAX_DENUO_PAYLOAD: usize = 1024 * 1024;
 
 /// Bitset reporting which production parsers accepted an input.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -88,7 +87,7 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     );
     accepted.record(
         AcceptanceMask::DENUO_ENVELOPE,
-        DenuoExtensionEnvelope::decode(input, MAX_DENUO_PAYLOAD).is_ok(),
+        DenuoExtensionEnvelope::decode_canonical(input).is_ok(),
     );
     accepted.record(
         AcceptanceMask::HIP76_REQUEST,

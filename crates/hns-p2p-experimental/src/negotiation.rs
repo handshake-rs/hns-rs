@@ -5,11 +5,18 @@ use hns_primitives::RegistryFingerprint;
 use thiserror::Error;
 
 use crate::assignment::Network;
+use crate::registry::{
+    DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_PROTOCOL_VERSION, DENUO_V1_REGISTRY_VERSION,
+};
 
 const HELLO_MAGIC: [u8; 4] = *b"DNRN";
 const HELLO_FORMAT_VERSION: u16 = 1;
 const MAX_REGISTRY_VERSIONS: usize = 16;
 const MAX_PROTOCOL_RANGES: usize = 64;
+
+pub const REGISTRY_NEGOTIATION_PROTOCOL_ID: u16 = 0x0000;
+pub const REGISTRY_NEGOTIATION_PROTOCOL_VERSION: u16 = DENUO_V1_REGISTRY_PROTOCOL_VERSION;
+pub const REGISTRY_NEGOTIATION_MAX_PAYLOAD: usize = 16_384;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ProtocolRange {
@@ -40,6 +47,39 @@ pub struct RegistryHello {
 }
 
 impl RegistryHello {
+    pub fn denuo_v1(
+        network: Network,
+        genesis_hash: [u8; 32],
+        mut protocols: Vec<ProtocolRange>,
+        maximum_receive_size: u32,
+        maximum_live_requests: u16,
+        feature_flags: u64,
+    ) -> Result<Self, NegotiationError> {
+        if protocols
+            .iter()
+            .any(|protocol| protocol.protocol_id == REGISTRY_NEGOTIATION_PROTOCOL_ID)
+        {
+            return Err(NegotiationError::ManagedRegistryProtocol);
+        }
+        protocols.push(ProtocolRange {
+            protocol_id: REGISTRY_NEGOTIATION_PROTOCOL_ID,
+            minimum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
+            maximum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
+        });
+        let hello = Self {
+            fingerprint: DENUO_V1_REGISTRY_FINGERPRINT,
+            registry_versions: vec![DENUO_V1_REGISTRY_VERSION],
+            protocols,
+            maximum_receive_size,
+            maximum_live_requests,
+            network,
+            genesis_hash,
+            feature_flags,
+        };
+        hello.validate()?;
+        Ok(hello)
+    }
+
     pub fn validate(&self) -> Result<(), NegotiationError> {
         if self.registry_versions.is_empty() || self.registry_versions.len() > MAX_REGISTRY_VERSIONS
         {
@@ -68,6 +108,20 @@ impl RegistryHello {
         }
         for protocol in &self.protocols {
             protocol.validate()?;
+        }
+        let Some(registry_protocol) = self
+            .protocols
+            .iter()
+            .find(|protocol| protocol.protocol_id == REGISTRY_NEGOTIATION_PROTOCOL_ID)
+        else {
+            return Err(NegotiationError::MissingRegistryProtocol);
+        };
+        if registry_protocol.minimum_version > REGISTRY_NEGOTIATION_PROTOCOL_VERSION
+            || registry_protocol.maximum_version < REGISTRY_NEGOTIATION_PROTOCOL_VERSION
+        {
+            return Err(NegotiationError::UnsupportedRegistryProtocolRange(
+                *registry_protocol,
+            ));
         }
         Ok(())
     }
@@ -214,11 +268,23 @@ impl NegotiatedRegistry {
                     .maximum_version
                     .min(remote_protocol.maximum_version);
                 if minimum <= maximum {
-                    protocols.push((local_protocol.protocol_id, maximum));
+                    let version = if local_protocol.protocol_id == REGISTRY_NEGOTIATION_PROTOCOL_ID
+                    {
+                        REGISTRY_NEGOTIATION_PROTOCOL_VERSION
+                    } else {
+                        maximum
+                    };
+                    protocols.push((local_protocol.protocol_id, version));
                 }
             }
         }
         protocols.sort_unstable();
+        if !protocols.contains(&(
+            REGISTRY_NEGOTIATION_PROTOCOL_ID,
+            REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
+        )) {
+            return Err(NegotiationError::RegistryProtocolNotNegotiated);
+        }
 
         Ok(Self {
             fingerprint: local.fingerprint,
@@ -255,6 +321,14 @@ pub enum NegotiationError {
     DuplicateOrZeroRegistryVersion,
     #[error("protocol identifiers contain a duplicate")]
     DuplicateProtocol,
+    #[error("the canonical constructor manages registry negotiation protocol 0x0000")]
+    ManagedRegistryProtocol,
+    #[error("registry negotiation protocol 0x0000 version 1 is required")]
+    MissingRegistryProtocol,
+    #[error("registry negotiation protocol 0x0000 must include version 1, got {0:?}")]
+    UnsupportedRegistryProtocolRange(ProtocolRange),
+    #[error("registry negotiation protocol 0x0000 version 1 was not negotiated")]
+    RegistryProtocolNotNegotiated,
     #[error("invalid protocol version range {0:?}")]
     InvalidProtocolRange(ProtocolRange),
     #[error("maximum receive size and live request count must be nonzero")]
@@ -315,6 +389,83 @@ mod tests {
             canonical.protocols.sort_unstable();
             canonical
         });
+    }
+
+    #[test]
+    fn canonical_constructor_owns_registry_identity_and_protocol() {
+        let market = ProtocolRange {
+            protocol_id: 1,
+            minimum_version: 1,
+            maximum_version: 1,
+        };
+        let hello = RegistryHello::denuo_v1(Network::Regtest, [8; 32], vec![market], 4096, 4, 3)
+            .expect("canonical hello");
+        assert_eq!(hello.fingerprint, DENUO_V1_REGISTRY_FINGERPRINT);
+        assert_eq!(hello.registry_versions, vec![DENUO_V1_REGISTRY_VERSION]);
+        assert!(hello.protocols.contains(&ProtocolRange {
+            protocol_id: REGISTRY_NEGOTIATION_PROTOCOL_ID,
+            minimum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
+            maximum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
+        }));
+        assert_eq!(
+            RegistryHello::denuo_v1(
+                Network::Regtest,
+                [8; 32],
+                vec![ProtocolRange {
+                    protocol_id: REGISTRY_NEGOTIATION_PROTOCOL_ID,
+                    minimum_version: 1,
+                    maximum_version: 1,
+                }],
+                4096,
+                4,
+                0,
+            ),
+            Err(NegotiationError::ManagedRegistryProtocol)
+        );
+    }
+
+    #[test]
+    fn registry_protocol_zero_version_one_is_mandatory() {
+        let mut missing = hello();
+        missing
+            .protocols
+            .retain(|protocol| protocol.protocol_id != REGISTRY_NEGOTIATION_PROTOCOL_ID);
+        assert_eq!(
+            missing.validate(),
+            Err(NegotiationError::MissingRegistryProtocol)
+        );
+
+        let mut wrong_version = hello();
+        let protocol = wrong_version
+            .protocols
+            .iter_mut()
+            .find(|protocol| protocol.protocol_id == REGISTRY_NEGOTIATION_PROTOCOL_ID)
+            .expect("fixture includes registry protocol");
+        protocol.minimum_version = 2;
+        protocol.maximum_version = 2;
+        let unsupported = *protocol;
+        assert_eq!(
+            wrong_version.validate(),
+            Err(NegotiationError::UnsupportedRegistryProtocolRange(
+                unsupported
+            ))
+        );
+
+        let local = hello();
+        let mut forward_compatible = hello();
+        let protocol = forward_compatible
+            .protocols
+            .iter_mut()
+            .find(|protocol| protocol.protocol_id == REGISTRY_NEGOTIATION_PROTOCOL_ID)
+            .expect("fixture includes registry protocol");
+        protocol.maximum_version = 2;
+        forward_compatible.validate().expect("v1 remains supported");
+        let negotiated =
+            NegotiatedRegistry::negotiate(&local, &forward_compatible).expect("selects v1");
+        assert!(negotiated.supports(
+            REGISTRY_NEGOTIATION_PROTOCOL_ID,
+            REGISTRY_NEGOTIATION_PROTOCOL_VERSION
+        ));
     }
 
     #[test]

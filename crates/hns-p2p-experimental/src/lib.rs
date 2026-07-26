@@ -15,8 +15,11 @@ pub use assignment::{
     ServiceBit, ServiceMask, WireAssignments,
 };
 pub use envelope::{
-    DENUO_ENVELOPE_MAGIC, DENUO_ENVELOPE_OVERHEAD, DenuoExtensionEnvelope, EnvelopeError,
-    KnownMessage, ProtocolDisposition,
+    ATOMIC_MARKET_MAX_PAYLOAD, ATOMIC_MARKET_PROTOCOL_ID, DEFAULT_MAX_DENUO_PAYLOAD,
+    DENUO_ENVELOPE_MAGIC, DENUO_ENVELOPE_OVERHEAD, DENUO_EXTENSION_MAX_NESTED_PAYLOAD,
+    DENUO_EXTENSION_MAX_PACKET_PAYLOAD, DenuoExtensionEnvelope, EnvelopeError, KnownMessage,
+    ProtocolDisposition, REGISTRY_NEGOTIATION_MAX_PAYLOAD, REGISTRY_NEGOTIATION_PROTOCOL_ID,
+    REGISTRY_NEGOTIATION_PROTOCOL_VERSION, RegistryEnvelopeError,
 };
 pub use negotiation::{NegotiatedRegistry, NegotiationError, ProtocolRange, RegistryHello};
 pub use peer::{ExperimentalAdmission, ExperimentalPeerState, PeerProtocol, PeerProtocolError};
@@ -25,7 +28,9 @@ pub use policy::{
     PolicyTransition, ProviderRoles, TransportPolicy,
 };
 pub use registry::{
-    AssignmentKind, AssignmentStatus, ExperimentalRegistryId, RegistryAssignment, RegistryDocument,
+    AssignmentKind, AssignmentStatus, DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_ID,
+    DENUO_V1_REGISTRY_NAME, DENUO_V1_REGISTRY_PROTOCOL_VERSION, DENUO_V1_REGISTRY_VERSION,
+    DENUO_V1_WIRE_PROFILE, ExperimentalRegistryId, RegistryAssignment, RegistryDocument,
     RegistryError, RegistryMetadata,
 };
 pub use request::{RequestTracker, RequestTrackerError};
