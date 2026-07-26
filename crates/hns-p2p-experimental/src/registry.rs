@@ -12,6 +12,8 @@ use crate::assignment::Network;
 pub const DENUO_V1_REGISTRY_NAME: &str = "Denuo Experimental Handshake P2P Registry";
 pub const DENUO_V1_REGISTRY_VERSION: u16 = 1;
 pub const DENUO_V1_REGISTRY_PROTOCOL_VERSION: u16 = 1;
+/// Semantic version assigned to HIP-76 by the canonical Denuo V1 registry.
+pub const HIP_76_PROTOCOL_VERSION: u16 = 1;
 pub const DENUO_V1_WIRE_PROFILE: &str = "denuo-v1";
 const DENUO_V1_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
     0x95, 0x77, 0x4d, 0xb0, 0x8c, 0x56, 0x9b, 0x36, 0xfa, 0x7b, 0x7e, 0x4a, 0x07, 0x19, 0x30, 0xf5,
@@ -626,6 +628,10 @@ mod tests {
     use super::*;
     use crate::envelope::DENUO_EXTENSION_MAX_PACKET_PAYLOAD;
     use crate::negotiation::REGISTRY_NEGOTIATION_MAX_PAYLOAD;
+    use hns_dns_relay_protocol::{
+        MAX_DNS_RELAY_QUERY_BODY_SIZE, MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE,
+        MAX_DNS_RELAY_RESPONSE_BODY_SIZE, MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE,
+    };
 
     const REGISTRY_TOML: &str = include_str!("../../../registry/denuo-experimental-v1.toml");
     const REGISTRY_BINARY: &[u8] = include_bytes!("../../../registry/denuo-experimental-v1.bin");
@@ -679,6 +685,24 @@ mod tests {
             maximum_payload("registry-negotiation"),
             REGISTRY_NEGOTIATION_MAX_PAYLOAD
         );
+        assert_eq!(
+            maximum_payload("getdnsrelay"),
+            MAX_DNS_RELAY_QUERY_BODY_SIZE
+        );
+        assert_eq!(
+            maximum_payload("dnsrelay"),
+            MAX_DNS_RELAY_RESPONSE_BODY_SIZE
+        );
+        assert_eq!(MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE, 4_106);
+        assert_eq!(MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE, 65_546);
+        for semantic_name in ["getdnsrelay", "dnsrelay"] {
+            let assignment = registry
+                .assignments
+                .iter()
+                .find(|assignment| assignment.semantic_name == semantic_name)
+                .expect("canonical HIP-76 assignment");
+            assert_eq!(assignment.protocol_version, HIP_76_PROTOCOL_VERSION);
+        }
     }
 
     #[test]

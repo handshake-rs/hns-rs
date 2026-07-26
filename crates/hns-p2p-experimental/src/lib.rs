@@ -23,15 +23,17 @@ pub use envelope::{
 };
 pub use negotiation::{NegotiatedRegistry, NegotiationError, ProtocolRange, RegistryHello};
 pub use peer::{ExperimentalAdmission, ExperimentalPeerState, PeerProtocol, PeerProtocolError};
+#[allow(deprecated)]
 pub use policy::{
-    DnsRelayRequesterPolicy, HnsrPolicy, ObliviousDnsPolicy, PolicyAction, PolicyController,
-    PolicyTransition, ProviderRoles, TransportPolicy,
+    DnsRelayOutputPolicy, DnsRelayRequesterPolicy, HnsrPolicy, ObliviousDnsPolicy,
+    OpaqueRelayRoles, OutputRoles, PolicyAction, PolicyController, PolicyTransition, ProviderRoles,
+    TransportPolicy,
 };
 pub use registry::{
     AssignmentKind, AssignmentStatus, DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_ID,
     DENUO_V1_REGISTRY_NAME, DENUO_V1_REGISTRY_PROTOCOL_VERSION, DENUO_V1_REGISTRY_VERSION,
-    DENUO_V1_WIRE_PROFILE, ExperimentalRegistryId, RegistryAssignment, RegistryDocument,
-    RegistryError, RegistryMetadata,
+    DENUO_V1_WIRE_PROFILE, ExperimentalRegistryId, HIP_76_PROTOCOL_VERSION, RegistryAssignment,
+    RegistryDocument, RegistryError, RegistryMetadata,
 };
 pub use request::{RequestTracker, RequestTrackerError};
 

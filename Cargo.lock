@@ -564,6 +564,7 @@ name = "hns-p2p-experimental"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "hns-dns-relay-protocol",
  "hns-encoding",
  "hns-primitives",
  "serde",

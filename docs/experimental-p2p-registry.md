@@ -42,6 +42,12 @@ The canonical full `DENUO_EXT` packet payload limit is 1,048,576 bytes. Its
 26-byte envelope leaves at most 1,048,550 bytes for a nested payload, and a
 registry-negotiation payload is further limited to 16,384 bytes.
 
+The HIP-76 assignment rows retain the draft's DNS-body limits: 4,096 bytes for
+`getdnsrelay` and 65,535 bytes for `dnsrelay`. Their complete message payloads,
+including request ID, status, and length fields, are 4,106 and 65,546 bytes
+respectively. Code that bounds complete packet payloads must use the complete
+payload constants from `hns-dns-relay-protocol`, not the registry body fields.
+
 The pre-organization-migration checkpoint used fingerprint
 `c6f99e2403d5a9a2b257b995eca35082b51c75fa903a7fd3e354a1567529f1ff`.
 The fingerprint changed because canonical source URLs are encoded registry

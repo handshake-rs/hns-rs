@@ -10,6 +10,7 @@ use crate::assignment::{
     ServiceBit, ServiceMask,
 };
 use crate::negotiation::NegotiatedRegistry;
+use crate::policy::{DnsRelayOutputPolicy, DnsRelayRequesterPolicy};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum PeerProtocol {
@@ -93,23 +94,79 @@ impl ExperimentalPeerState {
         Ok(())
     }
 
+    /// Admit a real outbound HIP-76 requester operation.
+    ///
+    /// `Auto` remains eligible only when a caller actually requests DNS work;
+    /// this method never initiates work itself. The remote peer must advertise
+    /// the HIP-76 output service and complete the selected registry handshake.
+    pub fn admit_outbound_dns_relay_request(
+        &mut self,
+        requester_policy: DnsRelayRequesterPolicy,
+    ) -> Result<ExperimentalAdmission, PeerProtocolError> {
+        if requester_policy == DnsRelayRequesterPolicy::Disabled {
+            return Err(PeerProtocolError::DnsRelayRequesterDisabled);
+        }
+        self.admit_remote_dns_relay_provider()
+    }
+
+    /// Admit an inbound HIP-76 request to a local DNS output backend.
+    ///
+    /// A requester does not advertise the provider service. Admission instead
+    /// requires independent local provider opt-in, the corresponding local
+    /// service advertisement, backend readiness, and canonical registry
+    /// negotiation with the requester.
+    pub fn admit_inbound_dns_relay_request(
+        &mut self,
+        local_services: ServiceMask,
+        output_policy: DnsRelayOutputPolicy,
+        backend_ready: bool,
+    ) -> Result<ExperimentalAdmission, PeerProtocolError> {
+        let protocol = PeerProtocol::DnsRelay;
+        self.ensure_active_and_established(protocol)?;
+
+        if !output_policy.is_enabled() {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::LocalDnsRelayProviderDisabled);
+        }
+        if !local_services.contains(DNS_RELAY_SERVICE) {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::LocalDnsRelayServiceNotAdvertised);
+        }
+        if !backend_ready {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::LocalDnsRelayBackendNotReady);
+        }
+        if self.requires_registry() && !local_services.contains(DENUO_EXTENSION_SERVICE) {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::LocalDnsRelayRegistryNotAdvertised);
+        }
+
+        self.ensure_registry_negotiated(protocol)?;
+        Ok(ExperimentalAdmission::Experimental(protocol))
+    }
+
+    /// Compatibility admission for callers that predate direction-aware APIs.
+    ///
+    /// For HIP-76 only, this method interprets `getdnsrelay` as an outbound
+    /// request and `dnsrelay` as an inbound response, matching its historical
+    /// remote-provider check. Inbound requests must use
+    /// [`Self::admit_inbound_dns_relay_request`]. Response correlation, request
+    /// generation, and session direction remain the caller's responsibility.
     pub fn admit_packet(
         &mut self,
         packet: PacketType,
     ) -> Result<ExperimentalAdmission, PeerProtocolError> {
+        if matches!(packet, DNS_RELAY_REQUEST_PACKET | DNS_RELAY_RESPONSE_PACKET) {
+            return self.admit_remote_dns_relay_provider();
+        }
+
         let Some(protocol) = protocol_for_packet(packet) else {
             if packet.value() >= 0xf5 {
                 return Ok(ExperimentalAdmission::ReservedPrivatePacket);
             }
             return Ok(ExperimentalAdmission::OrdinaryHandshake);
         };
-        if self.disabled.contains(&protocol) {
-            return Err(PeerProtocolError::ProtocolDisabled(protocol));
-        }
-        if !self.established {
-            self.disabled.insert(protocol);
-            return Err(PeerProtocolError::ConnectionNotEstablished);
-        }
+        self.ensure_active_and_established(protocol)?;
         let admits_service = if packet == HNSR_PACKET {
             self.services.contains(HNSR_RENDEZVOUS_SERVICE)
                 || self.services.contains(HNSR_RELAY_SERVICE)
@@ -127,24 +184,7 @@ impl ExperimentalPeerState {
             });
         }
 
-        let requires_registry = matches!(
-            self.profile,
-            ExperimentalWireProfile::DenuoV1 | ExperimentalWireProfile::Auto
-        );
-        if requires_registry && protocol != PeerProtocol::DenuoExtension {
-            if !self.services.contains(DENUO_EXTENSION_SERVICE) {
-                self.disabled.insert(protocol);
-                return Err(PeerProtocolError::MissingDenuoExtensionService(protocol));
-            }
-            let Some(negotiated) = &self.negotiated else {
-                self.disabled.insert(protocol);
-                return Err(PeerProtocolError::RegistryNotNegotiated(protocol));
-            };
-            if negotiated.fingerprint != self.expected_fingerprint {
-                self.disabled.insert(protocol);
-                return Err(PeerProtocolError::WrongFingerprint);
-            }
-        }
+        self.ensure_registry_negotiated(protocol)?;
         Ok(ExperimentalAdmission::Experimental(protocol))
     }
 
@@ -171,6 +211,65 @@ impl ExperimentalPeerState {
 
     pub const fn ordinary_handshake_remains_available(&self) -> bool {
         true
+    }
+
+    fn admit_remote_dns_relay_provider(
+        &mut self,
+    ) -> Result<ExperimentalAdmission, PeerProtocolError> {
+        let protocol = PeerProtocol::DnsRelay;
+        self.ensure_active_and_established(protocol)?;
+        if !self.services.contains(DNS_RELAY_SERVICE) {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::PacketWithoutService {
+                protocol,
+                required_service: DNS_RELAY_SERVICE,
+            });
+        }
+        self.ensure_registry_negotiated(protocol)?;
+        Ok(ExperimentalAdmission::Experimental(protocol))
+    }
+
+    fn ensure_active_and_established(
+        &mut self,
+        protocol: PeerProtocol,
+    ) -> Result<(), PeerProtocolError> {
+        if self.disabled.contains(&protocol) {
+            return Err(PeerProtocolError::ProtocolDisabled(protocol));
+        }
+        if !self.established {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::ConnectionNotEstablished);
+        }
+        Ok(())
+    }
+
+    fn ensure_registry_negotiated(
+        &mut self,
+        protocol: PeerProtocol,
+    ) -> Result<(), PeerProtocolError> {
+        if !self.requires_registry() || protocol == PeerProtocol::DenuoExtension {
+            return Ok(());
+        }
+        if !self.services.contains(DENUO_EXTENSION_SERVICE) {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::MissingDenuoExtensionService(protocol));
+        }
+        let Some(negotiated) = &self.negotiated else {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::RegistryNotNegotiated(protocol));
+        };
+        if negotiated.fingerprint != self.expected_fingerprint {
+            self.disabled.insert(protocol);
+            return Err(PeerProtocolError::WrongFingerprint);
+        }
+        Ok(())
+    }
+
+    const fn requires_registry(&self) -> bool {
+        matches!(
+            self.profile,
+            ExperimentalWireProfile::DenuoV1 | ExperimentalWireProfile::Auto
+        )
     }
 }
 
@@ -203,6 +302,16 @@ pub enum PeerProtocolError {
     AdvertisedServiceWithoutRegistry,
     #[error("registry negotiation has not completed for {0:?}")]
     RegistryNotNegotiated(PeerProtocol),
+    #[error("local HIP-76 requester policy is disabled")]
+    DnsRelayRequesterDisabled,
+    #[error("local HIP-76 output/provider role is not enabled")]
+    LocalDnsRelayProviderDisabled,
+    #[error("local HIP-76 output service is not advertised")]
+    LocalDnsRelayServiceNotAdvertised,
+    #[error("local HIP-76 output backend is not ready")]
+    LocalDnsRelayBackendNotReady,
+    #[error("local HIP-76 output service is advertised without Denuo registry support")]
+    LocalDnsRelayRegistryNotAdvertised,
     #[error("registry fingerprint differs")]
     WrongFingerprint,
     #[error("network identity differs")]
@@ -240,6 +349,21 @@ mod tests {
         }
     }
 
+    fn ready_peer(services: ServiceMask) -> ExperimentalPeerState {
+        let mut peer = state(services);
+        peer.mark_established();
+        peer.install_negotiation(negotiated()).expect("matches");
+        peer
+    }
+
+    const fn dns_relay_output(enabled: bool) -> DnsRelayOutputPolicy {
+        if enabled {
+            DnsRelayOutputPolicy::opted_in()
+        } else {
+            DnsRelayOutputPolicy::disabled()
+        }
+    }
+
     #[test]
     fn denuo_packets_require_service_connection_and_registry() {
         let services = ServiceMask::default()
@@ -267,6 +391,90 @@ mod tests {
             peer.admit_packet(DNS_RELAY_REQUEST_PACKET),
             Ok(ExperimentalAdmission::Experimental(PeerProtocol::DnsRelay))
         );
+    }
+
+    #[test]
+    fn outbound_request_requires_requester_eligibility_and_remote_provider() {
+        let remote_provider = ServiceMask::default()
+            .with(DNS_RELAY_SERVICE)
+            .with(DENUO_EXTENSION_SERVICE);
+        let mut peer = ready_peer(remote_provider);
+        assert_eq!(
+            peer.admit_outbound_dns_relay_request(DnsRelayRequesterPolicy::Auto),
+            Ok(ExperimentalAdmission::Experimental(PeerProtocol::DnsRelay))
+        );
+
+        let mut peer = ready_peer(remote_provider);
+        assert_eq!(
+            peer.admit_outbound_dns_relay_request(DnsRelayRequesterPolicy::Disabled),
+            Err(PeerProtocolError::DnsRelayRequesterDisabled)
+        );
+        assert!(!peer.is_disabled(PeerProtocol::DnsRelay));
+
+        let mut peer = ready_peer(ServiceMask::default().with(DENUO_EXTENSION_SERVICE));
+        assert!(matches!(
+            peer.admit_outbound_dns_relay_request(DnsRelayRequesterPolicy::Required),
+            Err(PeerProtocolError::PacketWithoutService {
+                protocol: PeerProtocol::DnsRelay,
+                required_service: DNS_RELAY_SERVICE,
+            })
+        ));
+        assert!(peer.is_disabled(PeerProtocol::DnsRelay));
+    }
+
+    #[test]
+    fn inbound_request_uses_local_provider_evidence_not_requester_service() {
+        let requester_services = ServiceMask::default().with(DENUO_EXTENSION_SERVICE);
+        let local_services = ServiceMask::default()
+            .with(DNS_RELAY_SERVICE)
+            .with(DENUO_EXTENSION_SERVICE);
+        let mut peer = ready_peer(requester_services);
+        assert_eq!(
+            peer.admit_inbound_dns_relay_request(local_services, dns_relay_output(true), true,),
+            Ok(ExperimentalAdmission::Experimental(PeerProtocol::DnsRelay))
+        );
+    }
+
+    #[test]
+    fn inbound_request_requires_opt_in_advertisement_and_ready_backend() {
+        let requester_services = ServiceMask::default().with(DENUO_EXTENSION_SERVICE);
+        let local_services = ServiceMask::default()
+            .with(DNS_RELAY_SERVICE)
+            .with(DENUO_EXTENSION_SERVICE);
+
+        let mut peer = ready_peer(requester_services);
+        assert_eq!(
+            peer.admit_inbound_dns_relay_request(local_services, dns_relay_output(false), true,),
+            Err(PeerProtocolError::LocalDnsRelayProviderDisabled)
+        );
+
+        let mut peer = ready_peer(requester_services);
+        assert_eq!(
+            peer.admit_inbound_dns_relay_request(
+                ServiceMask::default().with(DENUO_EXTENSION_SERVICE),
+                dns_relay_output(true),
+                true,
+            ),
+            Err(PeerProtocolError::LocalDnsRelayServiceNotAdvertised)
+        );
+
+        let mut peer = ready_peer(requester_services);
+        assert_eq!(
+            peer.admit_inbound_dns_relay_request(local_services, dns_relay_output(true), false,),
+            Err(PeerProtocolError::LocalDnsRelayBackendNotReady)
+        );
+
+        let mut peer = ready_peer(requester_services);
+        assert_eq!(
+            peer.admit_inbound_dns_relay_request(
+                ServiceMask::default().with(DNS_RELAY_SERVICE),
+                dns_relay_output(true),
+                true,
+            ),
+            Err(PeerProtocolError::LocalDnsRelayRegistryNotAdvertised)
+        );
+        assert!(peer.is_disabled(PeerProtocol::DnsRelay));
+        assert!(peer.ordinary_handshake_remains_available());
     }
 
     #[test]

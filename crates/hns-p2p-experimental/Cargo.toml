@@ -16,6 +16,8 @@ sha2.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 
+[dev-dependencies]
+hns-dns-relay-protocol = { path = "../hns-dns-relay-protocol" }
+
 [lints]
 workspace = true
-

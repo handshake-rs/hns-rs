@@ -53,7 +53,9 @@ silently interpreted as a direct locator here.
 Opaque ODoH proxy participation defaults on and has an independent persistent
 opt-out. Target/output-node participation defaults off and requires explicit
 opt-in. Proxy consent never enables the target role, and the target never
-inherits requester settings.
+inherits requester settings. The shared transport policy records these in
+separate `OpaqueRelayRoles` and `OutputRoles` values; the former is never an
+output-admission authority.
 
 `OBLIVIOUS_REQUIRED` must never fall back to direct relay. The shared policy
 types express that distinction; consuming runtimes must persist and enforce

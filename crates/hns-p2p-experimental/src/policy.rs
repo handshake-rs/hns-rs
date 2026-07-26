@@ -100,6 +100,67 @@ impl Default for HnsrPolicy {
     }
 }
 
+/// Narrow consent authority for operating a plaintext HIP-76 DNS output.
+///
+/// This is deliberately not an opaque-relay capability. Constructing
+/// [`Self::opted_in`] records the operator decision required before a runtime
+/// may advertise or serve HIP-76.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DnsRelayOutputPolicy {
+    enabled: bool,
+}
+
+impl DnsRelayOutputPolicy {
+    pub const fn disabled() -> Self {
+        Self { enabled: false }
+    }
+
+    pub const fn opted_in() -> Self {
+        Self { enabled: true }
+    }
+
+    pub const fn is_enabled(self) -> bool {
+        self.enabled
+    }
+}
+
+impl Default for DnsRelayOutputPolicy {
+    fn default() -> Self {
+        Self::disabled()
+    }
+}
+
+/// Opaque forwarding roles that default on with independent opt-out.
+///
+/// HNSR's opaque relay bit remains in [`HnsrPolicy`] because its other roles
+/// share one wire protocol, but follows the same default-on boundary.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct OpaqueRelayRoles {
+    pub odoh_proxy: bool,
+}
+
+impl Default for OpaqueRelayRoles {
+    fn default() -> Self {
+        Self { odoh_proxy: true }
+    }
+}
+
+/// Output roles that see plaintext and/or perform external DNS work.
+///
+/// Every field defaults off and requires an explicit operator opt-in.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct OutputRoles {
+    pub dns_relay: DnsRelayOutputPolicy,
+    pub odoh_target: bool,
+}
+
+/// Legacy mixed role bucket retained only for configuration migration.
+///
+/// New admission and policy APIs use [`OpaqueRelayRoles`] and [`OutputRoles`]
+/// so opaque relay defaults cannot grant output authority.
+#[deprecated(
+    note = "split this value into OpaqueRelayRoles and OutputRoles; it is not an admission authority"
+)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProviderRoles {
     pub dns_relay: bool,
@@ -107,6 +168,7 @@ pub struct ProviderRoles {
     pub odoh_target: bool,
 }
 
+#[allow(deprecated)]
 impl Default for ProviderRoles {
     fn default() -> Self {
         Self {
@@ -117,14 +179,46 @@ impl Default for ProviderRoles {
     }
 }
 
+#[allow(deprecated)]
+impl ProviderRoles {
+    pub const fn split(self) -> (OpaqueRelayRoles, OutputRoles) {
+        (
+            OpaqueRelayRoles {
+                odoh_proxy: self.odoh_proxy,
+            },
+            OutputRoles {
+                dns_relay: if self.dns_relay {
+                    DnsRelayOutputPolicy::opted_in()
+                } else {
+                    DnsRelayOutputPolicy::disabled()
+                },
+                odoh_target: self.odoh_target,
+            },
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TransportPolicy {
     pub dns_relay_requester: DnsRelayRequesterPolicy,
     pub oblivious_dns: ObliviousDnsPolicy,
     pub allow_direct_relay_fallback: bool,
     pub hnsr: HnsrPolicy,
-    pub providers: ProviderRoles,
+    pub opaque_relays: OpaqueRelayRoles,
+    pub outputs: OutputRoles,
     pub wire_profile: ExperimentalWireProfile,
+}
+
+impl TransportPolicy {
+    /// Import the former mixed provider bucket without making it authoritative.
+    #[allow(deprecated)]
+    #[deprecated(note = "migrate configuration to opaque_relays and outputs")]
+    pub const fn with_legacy_provider_roles(mut self, roles: ProviderRoles) -> Self {
+        let (opaque_relays, outputs) = roles.split();
+        self.opaque_relays = opaque_relays;
+        self.outputs = outputs;
+        self
+    }
 }
 
 impl Default for TransportPolicy {
@@ -134,7 +228,8 @@ impl Default for TransportPolicy {
             oblivious_dns: ObliviousDnsPolicy::Preferred,
             allow_direct_relay_fallback: true,
             hnsr: HnsrPolicy::default(),
-            providers: ProviderRoles::default(),
+            opaque_relays: OpaqueRelayRoles::default(),
+            outputs: OutputRoles::default(),
             wire_profile: ExperimentalWireProfile::DenuoV1,
         }
     }
@@ -153,6 +248,9 @@ pub enum PolicyAction {
     WithdrawHnsrRoutes,
     CloseHnsrCircuits,
     ClearRequesterSelections,
+    DrainOpaqueRelayWork,
+    DrainOutputWork,
+    #[deprecated(note = "use DrainOpaqueRelayWork or DrainOutputWork")]
     DrainProviderWork,
     RefreshStructuredStatus,
     RenegotiateAffectedPeers,
@@ -205,7 +303,7 @@ impl PolicyController {
         self.generation = self.generation.saturating_add(1);
         self.policy = next;
 
-        let mut actions = Vec::with_capacity(12);
+        let mut actions = Vec::with_capacity(16);
         if next.dns_relay_requester == DnsRelayRequesterPolicy::Disabled {
             actions.push(PolicyAction::StopAdmittingDnsRelayRequests);
             actions.push(PolicyAction::CancelDnsRelayRequests);
@@ -214,27 +312,34 @@ impl PolicyController {
             actions.push(PolicyAction::StopAdmittingOdohRequests);
             actions.push(PolicyAction::CancelOdohRequests);
         }
-        if previous.providers.dns_relay && !next.providers.dns_relay {
+        if previous.outputs.dns_relay.is_enabled() && !next.outputs.dns_relay.is_enabled() {
             actions.push(PolicyAction::WithdrawDnsRelayAdvertisement);
-            actions.push(PolicyAction::DrainProviderWork);
+            actions.push(PolicyAction::DrainOutputWork);
         }
-        if previous.providers.odoh_proxy && !next.providers.odoh_proxy {
+        if previous.opaque_relays.odoh_proxy && !next.opaque_relays.odoh_proxy {
             actions.push(PolicyAction::WithdrawOdohProxyAdvertisement);
-            actions.push(PolicyAction::DrainProviderWork);
+            actions.push(PolicyAction::DrainOpaqueRelayWork);
         }
-        if previous.providers.odoh_target && !next.providers.odoh_target {
+        if previous.outputs.odoh_target && !next.outputs.odoh_target {
             actions.push(PolicyAction::WithdrawOdohTargetAdvertisement);
             actions.push(PolicyAction::RevokeOdohTargetConfigurations);
-            actions.push(PolicyAction::DrainProviderWork);
+            actions.push(PolicyAction::DrainOutputWork);
         }
         if previous.hnsr != next.hnsr {
             actions.push(PolicyAction::WithdrawHnsrRoutes);
             actions.push(PolicyAction::CloseHnsrCircuits);
+            if previous.hnsr.has_relay() && !next.hnsr.has_relay() {
+                actions.push(PolicyAction::DrainOpaqueRelayWork);
+            }
+            if previous.hnsr.has_endpoint() && !next.hnsr.has_endpoint() {
+                actions.push(PolicyAction::DrainOutputWork);
+            }
         }
         actions.push(PolicyAction::ClearRequesterSelections);
         actions.push(PolicyAction::RefreshStructuredStatus);
 
-        let advertisements_changed = previous.providers != next.providers
+        let advertisements_changed = previous.opaque_relays != next.opaque_relays
+            || previous.outputs != next.outputs
             || previous.hnsr.has_relay() != next.hnsr.has_relay()
             || previous.hnsr.has_rendezvous() != next.hnsr.has_rendezvous()
             || previous.wire_profile != next.wire_profile;
@@ -271,9 +376,9 @@ mod tests {
         assert!(policy.hnsr.has_relay());
         assert!(!policy.hnsr.has_endpoint());
         assert!(!policy.hnsr.has_rendezvous());
-        assert!(!policy.providers.dns_relay);
-        assert!(policy.providers.odoh_proxy);
-        assert!(!policy.providers.odoh_target);
+        assert!(policy.opaque_relays.odoh_proxy);
+        assert!(!policy.outputs.dns_relay.is_enabled());
+        assert!(!policy.outputs.odoh_target);
     }
 
     #[test]
@@ -291,6 +396,36 @@ mod tests {
         assert!(!output_only.has_relay());
         assert!(output_only.has_endpoint());
         assert!(!output_only.has_rendezvous());
+    }
+
+    #[test]
+    fn opaque_relay_and_output_authorities_never_imply_each_other() {
+        let mut policy = TransportPolicy::default();
+        policy.opaque_relays.odoh_proxy = false;
+        policy.hnsr = policy.hnsr.with_relay(false);
+        assert!(!policy.outputs.dns_relay.is_enabled());
+        assert!(!policy.outputs.odoh_target);
+
+        policy.outputs.dns_relay = DnsRelayOutputPolicy::opted_in();
+        policy.outputs.odoh_target = true;
+        assert!(!policy.opaque_relays.odoh_proxy);
+        assert!(!policy.hnsr.has_relay());
+        assert!(policy.outputs.dns_relay.is_enabled());
+        assert!(policy.outputs.odoh_target);
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn legacy_provider_roles_split_without_cross_granting() {
+        let (opaque_relays, outputs) = ProviderRoles {
+            dns_relay: true,
+            odoh_proxy: false,
+            odoh_target: false,
+        }
+        .split();
+        assert!(!opaque_relays.odoh_proxy);
+        assert!(outputs.dns_relay.is_enabled());
+        assert!(!outputs.odoh_target);
     }
 
     #[test]
@@ -316,19 +451,23 @@ mod tests {
     }
 
     #[test]
-    fn withdrawing_provider_roles_requires_peer_renegotiation() {
+    fn withdrawing_opaque_and_output_roles_uses_separate_drains() {
         let initial = TransportPolicy {
-            providers: ProviderRoles {
-                dns_relay: true,
-                odoh_proxy: true,
+            outputs: OutputRoles {
+                dns_relay: DnsRelayOutputPolicy::opted_in(),
                 odoh_target: true,
             },
             ..TransportPolicy::default()
         };
+        let next = TransportPolicy {
+            opaque_relays: OpaqueRelayRoles { odoh_proxy: false },
+            hnsr: HnsrPolicy::default().with_relay(false),
+            ..TransportPolicy::default()
+        };
         let mut controller = PolicyController::new(initial, 9);
-        let transition = controller
-            .replace(TransportPolicy::default())
-            .expect("policy changed");
+        let transition = controller.replace(next).expect("policy changed");
+        assert!(!controller.policy().opaque_relays.odoh_proxy);
+        assert!(!controller.policy().hnsr.has_relay());
         assert!(
             transition
                 .actions
@@ -344,5 +483,14 @@ mod tests {
                 .actions
                 .contains(&PolicyAction::RevokeOdohTargetConfigurations)
         );
+        assert!(
+            transition
+                .actions
+                .contains(&PolicyAction::DrainOpaqueRelayWork)
+        );
+        assert!(transition.actions.contains(&PolicyAction::DrainOutputWork));
+        #[allow(deprecated)]
+        let legacy_mixed_drain = PolicyAction::DrainProviderWork;
+        assert!(!transition.actions.contains(&legacy_mixed_drain));
     }
 }

@@ -3,10 +3,19 @@
 use hns_encoding::{DecodeError, Decoder, Encoder};
 use thiserror::Error;
 
-pub const MAX_DNS_RELAY_QUERY_SIZE: usize = 4 * 1024;
-pub const MAX_DNS_RELAY_RESPONSE_SIZE: usize = u16::MAX as usize;
-pub const MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE: usize = 8 + 2 + MAX_DNS_RELAY_QUERY_SIZE;
-pub const MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE: usize = 8 + 1 + 2 + MAX_DNS_RELAY_RESPONSE_SIZE;
+/// Maximum DNS message body carried by a HIP-76 request.
+pub const MAX_DNS_RELAY_QUERY_BODY_SIZE: usize = 4 * 1024;
+/// Maximum DNS message body carried by a successful HIP-76 response.
+pub const MAX_DNS_RELAY_RESPONSE_BODY_SIZE: usize = u16::MAX as usize;
+/// Maximum complete `getdnsrelay` payload: request ID, body length, and body.
+pub const MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE: usize = 8 + 2 + MAX_DNS_RELAY_QUERY_BODY_SIZE;
+/// Maximum complete `dnsrelay` payload: request ID, status, body length, and body.
+pub const MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE: usize = 8 + 1 + 2 + MAX_DNS_RELAY_RESPONSE_BODY_SIZE;
+
+/// Compatibility alias for the maximum HIP-76 query body size.
+pub const MAX_DNS_RELAY_QUERY_SIZE: usize = MAX_DNS_RELAY_QUERY_BODY_SIZE;
+/// Compatibility alias for the maximum HIP-76 response body size.
+pub const MAX_DNS_RELAY_RESPONSE_SIZE: usize = MAX_DNS_RELAY_RESPONSE_BODY_SIZE;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -71,10 +80,10 @@ impl GetDnsRelay {
             return Err(DnsRelayProtocolError::ZeroRequestId);
         }
         let query_length = decoder.read_u16_le()? as usize;
-        if query_length > MAX_DNS_RELAY_QUERY_SIZE {
+        if query_length > MAX_DNS_RELAY_QUERY_BODY_SIZE {
             return Err(DnsRelayProtocolError::QueryTooLarge(query_length));
         }
-        let query = decoder.read_bounded_vec(query_length, MAX_DNS_RELAY_QUERY_SIZE)?;
+        let query = decoder.read_bounded_vec(query_length, MAX_DNS_RELAY_QUERY_BODY_SIZE)?;
         decoder.finish()?;
         Self::new(request_id, query)
     }
@@ -86,7 +95,7 @@ impl GetDnsRelay {
         if self.query.is_empty() {
             return Err(DnsRelayProtocolError::EmptyQuery);
         }
-        if self.query.len() > MAX_DNS_RELAY_QUERY_SIZE {
+        if self.query.len() > MAX_DNS_RELAY_QUERY_BODY_SIZE {
             return Err(DnsRelayProtocolError::QueryTooLarge(self.query.len()));
         }
         Ok(())
@@ -136,10 +145,11 @@ impl DnsRelay {
         }
         let status = DnsRelayStatus::try_from(decoder.read_u8()?)?;
         let response_length = decoder.read_u16_le()? as usize;
-        if response_length > MAX_DNS_RELAY_RESPONSE_SIZE {
+        if response_length > MAX_DNS_RELAY_RESPONSE_BODY_SIZE {
             return Err(DnsRelayProtocolError::ResponseTooLarge(response_length));
         }
-        let response = decoder.read_bounded_vec(response_length, MAX_DNS_RELAY_RESPONSE_SIZE)?;
+        let response =
+            decoder.read_bounded_vec(response_length, MAX_DNS_RELAY_RESPONSE_BODY_SIZE)?;
         decoder.finish()?;
         Self::new(request_id, status, response)
     }
@@ -148,7 +158,7 @@ impl DnsRelay {
         if self.request_id == 0 {
             return Err(DnsRelayProtocolError::ZeroRequestId);
         }
-        if self.response.len() > MAX_DNS_RELAY_RESPONSE_SIZE {
+        if self.response.len() > MAX_DNS_RELAY_RESPONSE_BODY_SIZE {
             return Err(DnsRelayProtocolError::ResponseTooLarge(self.response.len()));
         }
         match (self.status, self.response.is_empty()) {
@@ -257,23 +267,34 @@ mod tests {
     #[test]
     fn allocation_bounds_are_enforced_at_both_limits() {
         let request =
-            GetDnsRelay::new(1, vec![0; MAX_DNS_RELAY_QUERY_SIZE]).expect("maximum request");
+            GetDnsRelay::new(1, vec![0; MAX_DNS_RELAY_QUERY_BODY_SIZE]).expect("maximum request");
         assert_eq!(
             request.encode().expect("valid").len(),
             MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE
         );
+        assert_eq!(MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE, 4_106);
         assert_eq!(
-            GetDnsRelay::new(1, vec![0; MAX_DNS_RELAY_QUERY_SIZE + 1]),
+            GetDnsRelay::new(1, vec![0; MAX_DNS_RELAY_QUERY_BODY_SIZE + 1]),
             Err(DnsRelayProtocolError::QueryTooLarge(
-                MAX_DNS_RELAY_QUERY_SIZE + 1
+                MAX_DNS_RELAY_QUERY_BODY_SIZE + 1
             ))
         );
 
-        let response = DnsRelay::new(1, DnsRelayStatus::Ok, vec![0; MAX_DNS_RELAY_RESPONSE_SIZE])
-            .expect("maximum response");
+        let response = DnsRelay::new(
+            1,
+            DnsRelayStatus::Ok,
+            vec![0; MAX_DNS_RELAY_RESPONSE_BODY_SIZE],
+        )
+        .expect("maximum response");
         assert_eq!(
             response.encode().expect("valid").len(),
             MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE
+        );
+        assert_eq!(MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE, 65_546);
+        assert_eq!(MAX_DNS_RELAY_QUERY_SIZE, MAX_DNS_RELAY_QUERY_BODY_SIZE);
+        assert_eq!(
+            MAX_DNS_RELAY_RESPONSE_SIZE,
+            MAX_DNS_RELAY_RESPONSE_BODY_SIZE
         );
     }
 }
