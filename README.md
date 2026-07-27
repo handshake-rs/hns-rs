@@ -32,3 +32,16 @@ The implemented protocol layer contains:
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 and `docs/experimental-p2p-registry.md` for assignment status and governance.
+
+## Qualification
+
+Run the locked protocol, registry reproducibility, dependency-policy,
+feature-matrix, release, fuzz-compilation, and deterministic parser-smoke gates
+with:
+
+```bash
+./scripts/check.sh
+```
+
+CI also audits the root and independent fuzz lockfiles with a pinned RustSec
+scanner.
