@@ -26,6 +26,16 @@ The release script publishes only these packages, in dependency order:
 Internal dependencies carry both a workspace path and the shared crates.io
 version. Cargo removes each path when it creates the published package.
 
+## 0.1.0 publication record
+
+All 14 allowlisted crates were published to crates.io on 2026-07-29 and are
+non-yanked. Every published package embeds release-source commit
+`0ea5994c336642ea7d01c51c0e22df2008985426` in its Cargo VCS metadata.
+
+Registry publication is complete, but no `v0.1.0` Git tag exists locally or on
+`origin`. Treat the commit above as the published source; do not describe
+`0.1.0` as Git-tagged unless that tag is later created and pushed.
+
 ## Private packages
 
 The following development packages must retain `publish = false`:
