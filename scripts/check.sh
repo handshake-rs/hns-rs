@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
 rust_toolchain=${RUST_TOOLCHAIN:-1.89.0}
@@ -20,3 +20,4 @@ cargo +"$rust_toolchain" test --locked --workspace --all-targets --no-default-fe
 cargo +"$rust_toolchain" build --locked --release --workspace --all-targets --all-features
 cargo +"$rust_toolchain" test --locked -p hns-conformance \
   deterministic_mutation_smoke_exercises_every_parser_without_panics
+./scripts/publish.sh --dry-run

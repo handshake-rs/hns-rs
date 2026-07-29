@@ -9,8 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-hns-p2p-experimental = { path = "../../crates/hns-p2p-experimental" }
+hns-p2p-experimental.workspace = true
 
 [lints]
 workspace = true
-

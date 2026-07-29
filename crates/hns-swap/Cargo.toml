@@ -6,14 +6,19 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/hns-swap"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 
 [dependencies]
 blake2.workspace = true
-hns-covenants = { path = "../hns-covenants" }
-hns-encoding = { path = "../hns-encoding" }
-hns-primitives = { path = "../hns-primitives" }
-hns-script = { path = "../hns-script" }
-hns-transaction = { path = "../hns-transaction" }
+hns-covenants.workspace = true
+hns-encoding.workspace = true
+hns-primitives.workspace = true
+hns-script.workspace = true
+hns-transaction.workspace = true
 k256.workspace = true
 sha3.workspace = true
 thiserror.workspace = true

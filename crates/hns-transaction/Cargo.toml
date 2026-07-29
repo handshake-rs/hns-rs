@@ -6,12 +6,17 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/hns-transaction"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 
 [dependencies]
 blake2.workspace = true
-hns-covenants = { path = "../hns-covenants" }
-hns-encoding = { path = "../hns-encoding" }
-hns-primitives = { path = "../hns-primitives" }
+hns-covenants.workspace = true
+hns-encoding.workspace = true
+hns-primitives.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

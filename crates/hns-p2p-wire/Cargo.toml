@@ -6,15 +6,20 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/hns-p2p-wire"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 
 [dependencies]
 blake2.workspace = true
-hns-encoding = { path = "../hns-encoding" }
-hns-header-consensus = { path = "../hns-header-consensus" }
-hns-mining = { path = "../hns-mining" }
-hns-primitives = { path = "../hns-primitives" }
-hns-transaction = { path = "../hns-transaction" }
-hns-urkel-proof = { path = "../hns-urkel-proof" }
+hns-encoding.workspace = true
+hns-header-consensus.workspace = true
+hns-mining.workspace = true
+hns-primitives.workspace = true
+hns-transaction.workspace = true
+hns-urkel-proof.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

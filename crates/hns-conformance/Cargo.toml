@@ -8,18 +8,18 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-hns-covenants = { path = "../hns-covenants" }
-hns-dns-relay-protocol = { path = "../hns-dns-relay-protocol" }
-hns-header-consensus = { path = "../hns-header-consensus" }
-hns-hnsr-protocol = { path = "../hns-hnsr-protocol" }
-hns-mining = { path = "../hns-mining" }
-hns-odoh-protocol = { path = "../hns-odoh-protocol" }
-hns-p2p-experimental = { path = "../hns-p2p-experimental" }
-hns-p2p-wire = { path = "../hns-p2p-wire" }
-hns-script = { path = "../hns-script" }
-hns-swap = { path = "../hns-swap" }
-hns-transaction = { path = "../hns-transaction" }
-hns-urkel-proof = { path = "../hns-urkel-proof" }
+hns-covenants.workspace = true
+hns-dns-relay-protocol.workspace = true
+hns-header-consensus.workspace = true
+hns-hnsr-protocol.workspace = true
+hns-mining.workspace = true
+hns-odoh-protocol.workspace = true
+hns-p2p-experimental.workspace = true
+hns-p2p-wire.workspace = true
+hns-script.workspace = true
+hns-swap.workspace = true
+hns-transaction.workspace = true
+hns-urkel-proof.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

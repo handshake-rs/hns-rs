@@ -33,6 +33,21 @@ The implemented protocol layer contains:
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 and `docs/experimental-p2p-registry.md` for assignment status and governance.
 
+## Crates
+
+The public crates are:
+
+- `hns-encoding` and `hns-primitives`;
+- `hns-covenants`, `hns-transaction`, `hns-header-consensus`,
+  `hns-urkel-proof`, and `hns-script`;
+- `hns-swap`, `hns-mining`, and `hns-p2p-wire`;
+- `hns-p2p-experimental`, `hns-dns-relay-protocol`,
+  `hns-odoh-protocol`, and `hns-hnsr-protocol`.
+
+The conformance harness, fuzz package, and deterministic registry generator are
+development tooling and are intentionally private. See `docs/releasing.md` for
+the release allowlist, dependency order, and publication procedure.
+
 ## Qualification
 
 Run the locked protocol, registry reproducibility, dependency-policy,

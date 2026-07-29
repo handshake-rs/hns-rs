@@ -6,10 +6,15 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/hns-urkel-proof"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 
 [dependencies]
 blake2.workspace = true
-hns-primitives = { path = "../hns-primitives" }
+hns-primitives.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

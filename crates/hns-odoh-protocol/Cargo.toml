@@ -6,12 +6,17 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/hns-odoh-protocol"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 
 [dependencies]
 aes-gcm.workspace = true
 blake2.workspace = true
 hkdf.workspace = true
-hns-encoding = { path = "../hns-encoding" }
+hns-encoding.workspace = true
 hpke.workspace = true
 k256.workspace = true
 sha2.workspace = true

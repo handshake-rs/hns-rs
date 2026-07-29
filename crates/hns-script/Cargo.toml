@@ -6,11 +6,16 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/hns-script"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
 
 [dependencies]
 blake2.workspace = true
-hns-encoding = { path = "../hns-encoding" }
-hns-transaction = { path = "../hns-transaction" }
+hns-encoding.workspace = true
+hns-transaction.workspace = true
 k256.workspace = true
 ripemd = "0.1.3"
 sha1 = "0.10.6"
@@ -20,7 +25,7 @@ thiserror.workspace = true
 
 [dev-dependencies]
 hex.workspace = true
-hns-covenants = { path = "../hns-covenants" }
+hns-covenants.workspace = true
 
 [lints]
 workspace = true
