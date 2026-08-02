@@ -423,6 +423,18 @@ mod tests {
 
     use super::*;
 
+    const PROTOCOL_V1_FIXTURES: &str =
+        include_str!("../../../fixtures/protocol-v1/hns-swap-v1.txt");
+
+    fn fixture_bytes(name: &str) -> Vec<u8> {
+        let value = PROTOCOL_V1_FIXTURES
+            .lines()
+            .filter_map(|line| line.split_once('='))
+            .find_map(|(key, value)| (key == name).then_some(value))
+            .unwrap_or_else(|| panic!("missing fixture {name}"));
+        hex::decode(value).expect("fixture hex")
+    }
+
     fn htlc_fixture() -> (HnsHtlc, [u8; 32], SigningKey, SigningKey) {
         let receiver_key = SigningKey::from_slice(&[0x41; 32]).expect("receiver key");
         let refund_key = SigningKey::from_slice(&[0x42; 32]).expect("refund key");
@@ -592,6 +604,94 @@ mod tests {
                         hns_script::OP_CHECKLOCKTIMEVERIFY,
                     ]
                 })
+        );
+    }
+
+    #[test]
+    fn exact_v1_htlc_descriptor_and_transaction_vectors_are_consumed() {
+        let (htlc, preimage, receiver_key, refund_key) = htlc_fixture();
+        assert_eq!(
+            htlc.encode().expect("descriptor encoding"),
+            fixture_bytes("htlc_descriptor")
+        );
+        assert_eq!(
+            htlc.descriptor_hash().expect("descriptor hash").as_slice(),
+            fixture_bytes("htlc_descriptor_hash").as_slice()
+        );
+        assert_eq!(
+            htlc.script().expect("HTLC script"),
+            fixture_bytes("htlc_script")
+        );
+        assert_eq!(
+            htlc.script_hash().expect("HTLC script hash").as_slice(),
+            fixture_bytes("htlc_script_hash").as_slice()
+        );
+        let encoded_address = fixture_bytes("htlc_address");
+        let htlc_address = htlc.address().expect("HTLC address");
+        assert_eq!(htlc_address.version, encoded_address[0]);
+        assert_eq!(htlc_address.hash.as_slice(), &encoded_address[2..]);
+        assert_eq!(usize::from(encoded_address[1]), htlc_address.hash.len());
+
+        let (funding, coin) = funding_fixture(&htlc);
+        assert_eq!(
+            funding.encode().expect("funding encoding"),
+            fixture_bytes("htlc_funding_transaction")
+        );
+        assert_eq!(
+            funding
+                .transaction_hash()
+                .expect("funding txid")
+                .as_bytes()
+                .as_slice(),
+            fixture_bytes("htlc_funding_txid").as_slice()
+        );
+
+        let mut redeem = unsigned_spend(&coin, 0);
+        assert_eq!(
+            htlc
+                .signature_hash(&redeem, 0, &coin)
+                .expect("redeem sighash")
+                .as_slice(),
+            fixture_bytes("htlc_redeem_sighash").as_slice()
+        );
+        let signature = compact_signature(&htlc, &redeem, &coin, &receiver_key);
+        redeem.inputs[0].witness = htlc
+            .redeem_witness(&signature, &preimage)
+            .expect("redeem witness");
+        assert_eq!(
+            redeem.encode().expect("redeem encoding"),
+            fixture_bytes("htlc_redeem_transaction")
+        );
+        assert_eq!(
+            redeem
+                .transaction_hash()
+                .expect("redeem txid")
+                .as_bytes()
+                .as_slice(),
+            fixture_bytes("htlc_redeem_txid").as_slice()
+        );
+
+        let mut refund = unsigned_spend(&coin, htlc.refund_locktime);
+        assert_eq!(
+            htlc
+                .signature_hash(&refund, 0, &coin)
+                .expect("refund sighash")
+                .as_slice(),
+            fixture_bytes("htlc_refund_sighash").as_slice()
+        );
+        let signature = compact_signature(&htlc, &refund, &coin, &refund_key);
+        refund.inputs[0].witness = htlc.refund_witness(&signature).expect("refund witness");
+        assert_eq!(
+            refund.encode().expect("refund encoding"),
+            fixture_bytes("htlc_refund_transaction")
+        );
+        assert_eq!(
+            refund
+                .transaction_hash()
+                .expect("refund txid")
+                .as_bytes()
+                .as_slice(),
+            fixture_bytes("htlc_refund_txid").as_slice()
         );
     }
 

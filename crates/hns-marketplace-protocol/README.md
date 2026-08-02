@@ -8,6 +8,13 @@ runtime, Ethereum runtime, browser API, or platform ABI. Every decoder bounds
 variable input and requires complete consumption. Money uses integer base units
 and prices use reduced rational values; floating-point arithmetic is never used.
 
+Fill grants delegate an independent per-session maker settlement key from the
+long-term marketplace identity. Session hellos bind both settlement
+authorities, exact amounts, SHA-256 hashlock, descriptor commitments, and
+timeouts; native HNS sides can be constructed and verified directly against
+`hns-swap::HnsHtlc`. New-funding admission is time-gated separately from
+historical status and reorganization validation.
+
 It is part of the [`hns-rs`](https://github.com/handshake-rs/hns-rs) workspace
 and supports Rust 1.89 or later.
 

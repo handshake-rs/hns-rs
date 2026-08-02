@@ -10,10 +10,23 @@ Release-candidate source for the modular wallet and marketplace boundary:
 - additive Denuo Experimental Registry V2, preserving the exact V1 identity
   while assigning the separately negotiated cross-chain marketplace protocol;
 - canonical bounded market intents, observations, deterministic price rounds,
-  fill grants, and bilateral swap-session/status messages;
-- signed fixed-price name listings and cancellations; and
+  fill grants with independent maker settlement delegation, and bilateral
+  swap-session/status messages;
+- signed fixed-price name listings and cancellations;
 - native SHA-256 Handshake HTLC funding, redeem, refund, and preimage
-  primitives.
+  primitives;
+- canonical Shakedex buyer fulfillment and explicit-recipient two-stage
+  cancellation construction, authentication, and spend classification;
+- an exact native-HNS HTLC/session join with deadline-safe upward conversion
+  to HSD's 512-second time-lock granularity;
+- recovery-safe status validation after the new-funding window closes;
+- exact recognized Denuo versions with zero flags and a 512 KiB typed
+  marketplace cap;
+- source-independent, versioned, SHA-256-sidecarred protocol vectors covering
+  signed objects, full envelopes, descriptors, transactions, signature hashes,
+  and transaction IDs; and
+- resumable publication checks requiring exact `.crate` bytes and release VCS
+  identity before an existing package version is skipped.
 
 All public workspace packages advance together so changed crates never attempt
 to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is

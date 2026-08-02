@@ -1,4 +1,5 @@
 /target/
 /fuzz/target/
+/dist/
 *.profraw
 *.proptest-regressions

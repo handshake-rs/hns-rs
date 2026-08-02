@@ -1,4 +1,8 @@
 use hns_encoding::Decoder;
+use hns_primitives::Dollarydoos;
+use hns_swap::{
+    HnsHtlc, HsdTimeLock, NetworkBinding as HnsNetworkBinding, encode_time_lock_not_before,
+};
 
 use crate::crypto;
 use crate::types::encode_fixed_versioned;
@@ -84,12 +88,42 @@ impl SettlementDeadline {
     }
 }
 
+/// Selects the maker-offered or maker-received side of a swap agreement.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SwapAssetSide {
+    Offered,
+    Received,
+}
+
+/// Exact native-HNS descriptor and timing identity bound into one session
+/// hello side.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HnsHtlcSessionBinding {
+    pub descriptor: HnsHtlc,
+    pub descriptor_hash: [u8; 32],
+    pub promised_refund_unix_time: u64,
+    pub effective_refund_unix_time: u64,
+}
+
+/// Convert a marketplace Unix safety deadline to HSD's encoded median-time
+/// lock without allowing 512-second granularity to shorten the promise.
+pub fn hns_refund_time_lock(deadline: SettlementDeadline) -> Result<HsdTimeLock> {
+    deadline.validate()?;
+    if deadline.kind != DeadlineKind::UnixTime {
+        return Err(MarketplaceError::Invalid(
+            "native HNS HTLC refunds require a Unix deadline",
+        ));
+    }
+    Ok(encode_time_lock_not_before(deadline.value)?)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SwapSessionHello {
     pub header: SignedObjectHeader,
     pub fill_grant_hash: [u8; 32],
     pub swap_session_id: [u8; 32],
-    /// Settlement authority controlled by the intent publisher (maker).
+    /// Independent per-session settlement authority delegated by the maker's
+    /// signed fill grant.
     pub maker_settlement_public_key: [u8; 33],
     /// Ephemeral settlement authority supplied by the match requester (taker).
     pub taker_settlement_public_key: [u8; 33],
@@ -121,7 +155,6 @@ impl SwapSessionHello {
             return Err(MarketplaceError::SigningKeyMismatch);
         }
         self.maker_settlement_public_key = public_key;
-        bind_signer(&mut self.header, private_key)?;
         self.validate_fields()?;
         self.maker_signature = crypto::sign(
             SESSION_HELLO_MAKER_SIGNATURE_DOMAIN,
@@ -162,6 +195,17 @@ impl SwapSessionHello {
         Ok(())
     }
 
+    /// Action gate for admitting a new funding broadcast. Historical funding
+    /// and reorg status validation deliberately uses [`Self::verify_agreement`]
+    /// instead, because receiving a status cannot create new funding.
+    pub fn verify_new_funding_at(
+        &self,
+        expected_network: NetworkBinding,
+        now: u64,
+    ) -> Result<()> {
+        self.verify_at(expected_network, now)
+    }
+
     /// Verify both parties' acceptance without requiring that the funding
     /// window is still open. Recovery/status consumers use this after a
     /// deadline; new funding must use [`Self::verify_at`].
@@ -190,8 +234,8 @@ impl SwapSessionHello {
             || self.price_round_hash != grant.price_round_hash
             || self.header.network != grant.header.network
             || self.header.pair != grant.header.pair
-            || self.maker_settlement_public_key != intent.header.signer_public_key
-            || self.maker_settlement_public_key != grant.header.signer_public_key
+            || self.header.signer_public_key != grant.header.signer_public_key
+            || self.maker_settlement_public_key != grant.maker_settlement_key
             || self.taker_settlement_public_key != grant.counterparty_settlement_key
             || self.offered_asset != intent.offered_asset
             || self.received_asset != received_asset
@@ -206,6 +250,93 @@ impl SwapSessionHello {
             ));
         }
         self.verify_at(expected_network, now)
+    }
+
+    /// Construct and commit the exact native-HNS HTLC for one side of this
+    /// proposed agreement. The other chain's lock commitment remains the
+    /// responsibility of its canonical adapter.
+    pub fn build_and_bind_hns_htlc(
+        &mut self,
+        side: SwapAssetSide,
+        receiver_public_key: [u8; 33],
+        refund_public_key: [u8; 33],
+    ) -> Result<HnsHtlcSessionBinding> {
+        let binding = self.build_hns_htlc(side, receiver_public_key, refund_public_key)?;
+        match side {
+            SwapAssetSide::Offered => self.offered_lock_commitment = binding.descriptor_hash,
+            SwapAssetSide::Received => self.received_lock_commitment = binding.descriptor_hash,
+        }
+        Ok(binding)
+    }
+
+    /// Construct the exact native-HNS descriptor implied by one session side
+    /// without mutating the hello.
+    pub fn build_hns_htlc(
+        &self,
+        side: SwapAssetSide,
+        receiver_public_key: [u8; 33],
+        refund_public_key: [u8; 33],
+    ) -> Result<HnsHtlcSessionBinding> {
+        self.header.validate()?;
+        if self.hashlock == [0; 32] {
+            return Err(MarketplaceError::Invalid("zero SHA-256 hashlock"));
+        }
+        let (asset, amount, deadline) = self.hns_side_terms(side);
+        if asset != AssetId::HNS {
+            return Err(MarketplaceError::Invalid(
+                "selected swap side is not native HNS",
+            ));
+        }
+        let amount = u64::try_from(amount.get()).map_err(|_| {
+            MarketplaceError::Invalid("native HNS amount exceeds the exact u64 range")
+        })?;
+        if amount == 0 {
+            return Err(MarketplaceError::Invalid("native HNS amount is zero"));
+        }
+        let time_lock = hns_refund_time_lock(deadline)?;
+        let descriptor = HnsHtlc {
+            network: HnsNetworkBinding {
+                magic: self.header.network.hns_magic,
+                genesis: self.header.network.hns_genesis,
+            },
+            value: Dollarydoos::new(amount),
+            hashlock: self.hashlock,
+            receiver_public_key,
+            refund_public_key,
+            refund_locktime: time_lock.encoded,
+        };
+        descriptor.validate()?;
+        Ok(HnsHtlcSessionBinding {
+            descriptor,
+            descriptor_hash: descriptor.descriptor_hash()?,
+            promised_refund_unix_time: deadline.value,
+            effective_refund_unix_time: time_lock.effective_time_seconds,
+        })
+    }
+
+    /// Verify that an externally supplied descriptor is exactly the native-HNS
+    /// lock frozen into one side of this signed agreement.
+    pub fn verify_hns_htlc(
+        &self,
+        side: SwapAssetSide,
+        descriptor: &HnsHtlc,
+    ) -> Result<HnsHtlcSessionBinding> {
+        self.verify_signatures()?;
+        let expected = self.build_hns_htlc(
+            side,
+            descriptor.receiver_public_key,
+            descriptor.refund_public_key,
+        )?;
+        let committed = match side {
+            SwapAssetSide::Offered => self.offered_lock_commitment,
+            SwapAssetSide::Received => self.received_lock_commitment,
+        };
+        if descriptor != &expected.descriptor || committed != expected.descriptor_hash {
+            return Err(MarketplaceError::Invalid(
+                "native HNS HTLC differs from the swap session",
+            ));
+        }
+        Ok(expected)
     }
 
     pub fn encode(&self) -> Result<Vec<u8>> {
@@ -255,7 +386,8 @@ impl SwapSessionHello {
         crypto::validate_public_key(&self.taker_settlement_public_key)?;
         self.offered_refund_deadline.validate()?;
         self.received_refund_deadline.validate()?;
-        if self.header.signer_public_key != self.maker_settlement_public_key
+        if self.header.signer_public_key == self.maker_settlement_public_key
+            || self.header.signer_public_key == self.taker_settlement_public_key
             || self.maker_settlement_public_key == self.taker_settlement_public_key
             || self.fill_grant_hash == [0; 32]
             || self.swap_session_id == [0; 32]
@@ -279,6 +411,24 @@ impl SwapSessionHello {
             return Err(MarketplaceError::Invalid("invalid swap session hello"));
         }
         Ok(())
+    }
+
+    fn hns_side_terms(
+        &self,
+        side: SwapAssetSide,
+    ) -> (AssetId, AssetAmount, SettlementDeadline) {
+        match side {
+            SwapAssetSide::Offered => (
+                self.offered_asset,
+                self.offered_amount,
+                self.offered_refund_deadline,
+            ),
+            SwapAssetSide::Received => (
+                self.received_asset,
+                self.received_amount,
+                self.received_refund_deadline,
+            ),
+        }
     }
 
     fn verify_maker_signature(&self) -> Result<()> {
@@ -416,9 +566,7 @@ impl SwapFundingStatus {
             self.swap_session_id,
             hello,
             expected_network,
-            now,
             expected_authority,
-            true,
         )?;
         let expected_amount = if self.chain == hello.offered_asset.chain() {
             hello.offered_amount
@@ -590,9 +738,7 @@ impl SwapRedeemStatus {
             self.swap_session_id,
             hello,
             expected_network,
-            now,
             expected_authority,
-            false,
         )?;
         if self.preimage_hash != hello.hashlock {
             return Err(MarketplaceError::Invalid(
@@ -728,9 +874,7 @@ impl SwapRefundStatus {
             self.swap_session_id,
             hello,
             expected_network,
-            now,
             expected_authority,
-            false,
         )?;
         self.verify_at(expected_network, now)
     }
@@ -818,15 +962,9 @@ fn verify_status_session(
     swap_session_id: [u8; 32],
     hello: &SwapSessionHello,
     expected_network: NetworkBinding,
-    now: u64,
     expected_authority: [u8; 33],
-    require_open_funding_window: bool,
 ) -> Result<()> {
-    if require_open_funding_window {
-        hello.verify_at(expected_network, now)?;
-    } else {
-        hello.verify_agreement(expected_network)?;
-    }
+    hello.verify_agreement(expected_network)?;
     if swap_session_id != hello.swap_session_id
         || header.network != hello.header.network
         || header.pair != hello.header.pair
@@ -898,8 +1036,10 @@ mod tests {
     }
 
     fn unsigned_hello() -> SwapSessionHello {
-        SwapSessionHello {
-            header: header(1),
+        let mut hello_header = header(1);
+        hello_header.signer_public_key = crypto::public_key(&[7; 32]).unwrap();
+        let mut hello = SwapSessionHello {
+            header: hello_header,
             fill_grant_hash: [3; 32],
             swap_session_id: [4; 32],
             maker_settlement_public_key: [0; 33],
@@ -909,7 +1049,7 @@ mod tests {
             received_asset: AssetId::BTC,
             received_amount: AssetAmount::new(10_000),
             price_round_hash: [5; 32],
-            hashlock: [6; 32],
+            hashlock: HnsHtlc::hash_preimage(&[6; 32]),
             first_funding_chain: ChainId::HANDSHAKE,
             offered_lock_commitment: [10; 32],
             offered_refund_deadline: SettlementDeadline {
@@ -925,12 +1065,20 @@ mod tests {
             received_minimum_confirmations: 6,
             maker_signature: [0; 64],
             taker_signature: [0; 64],
-        }
+        };
+        hello
+            .build_and_bind_hns_htlc(
+                SwapAssetSide::Offered,
+                crypto::public_key(&[0x41; 32]).unwrap(),
+                crypto::public_key(&[0x42; 32]).unwrap(),
+            )
+            .unwrap();
+        hello
     }
 
     fn accepted_hello() -> SwapSessionHello {
         let mut hello = unsigned_hello();
-        hello.sign_maker(&[7; 32]).unwrap();
+        hello.sign_maker(&[9; 32]).unwrap();
         hello.accept_taker(&[8; 32]).unwrap();
         hello
     }
@@ -938,7 +1086,7 @@ mod tests {
     #[test]
     fn session_hello_is_signed_bounded_and_canonical() {
         let mut maker_only = unsigned_hello();
-        maker_only.sign_maker(&[7; 32]).unwrap();
+        maker_only.sign_maker(&[9; 32]).unwrap();
         assert!(maker_only.verify_at(network(), 150).is_err());
         assert!(matches!(
             maker_only.accept_taker(&[9; 32]),
@@ -961,12 +1109,12 @@ mod tests {
         unsafe_timeouts.offered_refund_deadline.value = 400;
         unsafe_timeouts.maker_signature = [0; 64];
         unsafe_timeouts.taker_signature = [0; 64];
-        assert!(unsafe_timeouts.sign_maker(&[7; 32]).is_err());
+        assert!(unsafe_timeouts.sign_maker(&[9; 32]).is_err());
         let mut header_overrun = hello.clone();
         header_overrun.header.expires_at = 501;
         header_overrun.maker_signature = [0; 64];
         header_overrun.taker_signature = [0; 64];
-        assert!(header_overrun.sign_maker(&[7; 32]).is_err());
+        assert!(header_overrun.sign_maker(&[9; 32]).is_err());
         let mut trailing = encoded;
         trailing.push(0);
         assert!(SwapSessionHello::decode(&trailing).is_err());
@@ -980,7 +1128,7 @@ mod tests {
             header: header(2),
             swap_session_id: [4; 32],
             chain: ChainId::HANDSHAKE,
-            lock_commitment: [10; 32],
+            lock_commitment: hello.offered_lock_commitment,
             transaction_id: [7; 32],
             output_index: 0,
             amount: AssetAmount::new(1_000_000),
@@ -988,12 +1136,12 @@ mod tests {
             state: FundingState::Confirmed,
             signature: [0; 64],
         };
-        funding.sign(&[7; 32]).unwrap();
+        funding.sign(&[9; 32]).unwrap();
         funding.verify_for_session(&hello, network(), 150).unwrap();
         let mut below_minimum = funding.clone();
         below_minimum.confirmations = hello.offered_minimum_confirmations - 1;
         below_minimum.signature = [0; 64];
-        below_minimum.sign(&[7; 32]).unwrap();
+        below_minimum.sign(&[9; 32]).unwrap();
         assert!(
             below_minimum
                 .verify_for_session(&hello, network(), 150)
@@ -1020,7 +1168,7 @@ mod tests {
         let mut third_party_funding = funding.clone();
         third_party_funding.header.signer_public_key = [0; 33];
         third_party_funding.signature = [0; 64];
-        third_party_funding.sign(&[9; 32]).unwrap();
+        third_party_funding.sign(&[10; 32]).unwrap();
         assert!(
             third_party_funding
                 .verify_for_session(&hello, network(), 150)
@@ -1046,12 +1194,12 @@ mod tests {
             swap_session_id: [4; 32],
             chain: ChainId::BITCOIN,
             transaction_id: [8; 32],
-            preimage_hash: [6; 32],
+            preimage_hash: hello.hashlock,
             confirmations: 0,
             state: RedeemState::Seen,
             signature: [0; 64],
         };
-        redeem.sign(&[7; 32]).unwrap();
+        redeem.sign(&[9; 32]).unwrap();
         redeem.verify_for_session(&hello, network(), 150).unwrap();
         assert_eq!(
             SwapRedeemStatus::decode(&redeem.encode().unwrap()).unwrap(),
@@ -1068,7 +1216,7 @@ mod tests {
         let mut third_party_redeem = redeem.clone();
         third_party_redeem.header.signer_public_key = [0; 33];
         third_party_redeem.signature = [0; 64];
-        third_party_redeem.sign(&[9; 32]).unwrap();
+        third_party_redeem.sign(&[10; 32]).unwrap();
         assert!(
             third_party_redeem
                 .verify_for_session(&hello, network(), 150)
@@ -1084,7 +1232,7 @@ mod tests {
             state: RefundState::Broadcast,
             signature: [0; 64],
         };
-        refund.sign(&[7; 32]).unwrap();
+        refund.sign(&[9; 32]).unwrap();
         refund.verify_for_session(&hello, network(), 150).unwrap();
         assert_eq!(
             SwapRefundStatus::decode(&refund.encode().unwrap()).unwrap(),
@@ -1101,10 +1249,58 @@ mod tests {
         let mut third_party_refund = refund;
         third_party_refund.header.signer_public_key = [0; 33];
         third_party_refund.signature = [0; 64];
-        third_party_refund.sign(&[9; 32]).unwrap();
+        third_party_refund.sign(&[10; 32]).unwrap();
         assert!(
             third_party_refund
                 .verify_for_session(&hello, network(), 150)
+                .is_err()
+        );
+
+        let mut historical = funding;
+        historical.header.expires_at = 900;
+        historical.header.signer_public_key = [0; 33];
+        historical.state = FundingState::Reorged;
+        historical.confirmations = 0;
+        historical.signature = [0; 64];
+        historical.sign(&[9; 32]).unwrap();
+        historical
+            .verify_for_session(&hello, network(), 550)
+            .expect("historical reorg status remains verifiable after funding closes");
+        assert!(hello.verify_new_funding_at(network(), 550).is_err());
+    }
+
+    #[test]
+    fn native_hns_binding_is_exact_and_rounds_safety_deadline_up() {
+        let hello = accepted_hello();
+        let descriptor = hello
+            .build_hns_htlc(
+                SwapAssetSide::Offered,
+                crypto::public_key(&[0x41; 32]).unwrap(),
+                crypto::public_key(&[0x42; 32]).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(descriptor.promised_refund_unix_time, 800);
+        assert_eq!(descriptor.effective_refund_unix_time, 1_024);
+        assert_eq!(descriptor.descriptor.refund_locktime, 0x8000_0002);
+        assert_eq!(descriptor.descriptor_hash, hello.offered_lock_commitment);
+        hello
+            .verify_hns_htlc(SwapAssetSide::Offered, &descriptor.descriptor)
+            .unwrap();
+
+        let mut wrong_amount = descriptor.descriptor;
+        wrong_amount.value = Dollarydoos::new(wrong_amount.value.get() + 1);
+        assert!(
+            hello
+                .verify_hns_htlc(SwapAssetSide::Offered, &wrong_amount)
+                .is_err()
+        );
+        assert!(
+            hello
+                .build_hns_htlc(
+                    SwapAssetSide::Received,
+                    crypto::public_key(&[0x41; 32]).unwrap(),
+                    crypto::public_key(&[0x42; 32]).unwrap(),
+                )
                 .is_err()
         );
     }

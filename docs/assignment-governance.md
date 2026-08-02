@@ -1,11 +1,13 @@
-# Experimental assignment governance
+# Private Denuo assignment governance
 
-The canonical registry is append-only within version 1:
+The canonical registry is append-only within each version. V2 retains every V1
+service, packet, and active protocol assignment before narrowing a previously
+reserved range:
 
 - an assigned numeric value is never reused for a different semantic meaning;
 - reserved values remain unusable until a new registry version deliberately
   assigns them;
-- collisions disable only the affected experimental protocol when ordinary
+- collisions disable only the affected private protocol when ordinary
   Handshake P2P remains safe;
 - every status surface names the registry version and fingerprint and states
   that it is not an official assignment;
@@ -14,4 +16,3 @@ The canonical registry is append-only within version 1:
 
 Draft HIP or HSD pull-request branches are research references. This project
 does not update, rewrite, or describe those branches as accepted standards.
-

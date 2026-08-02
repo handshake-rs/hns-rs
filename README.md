@@ -2,10 +2,12 @@
 
 Canonical Rust protocol primitives for the Handshake ecosystem.
 
-This workspace is intentionally independent of async runtimes, databases, wallets,
-browser shells, and mining applications. Experimental peer-to-peer assignments are
-identified as **Denuo Experimental — not official Handshake protocol
-assignments**. Registry V2 is additive and preserves the exact V1 identity.
+This production protocol workspace is intentionally independent of async
+runtimes, databases, wallets, browser shells, and mining applications. Private
+peer-to-peer assignments retain the name **Denuo Experimental — not official
+Handshake protocol assignments**; that label describes assignment governance,
+not implementation maturity. Registry V2 is additive and preserves the exact
+V1 identity.
 
 The implemented protocol layer contains:
 
@@ -19,8 +21,10 @@ The implemented protocol layer contains:
 - HSD-compatible signature hashing and absolute/relative lock predicates;
 - a production script interpreter differentially matched to all 876 pinned HSD
   script vectors, including Handshake `OP_TYPE`;
-- HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives;
-- signed fixed-price listing/cancellation wrappers and native HNS HTLC primitives;
+- HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives,
+  including canonical buyer fulfillment and seller cancellation transactions;
+- signed fixed-price listing/cancellation wrappers and native HNS HTLC
+  primitives joined directly to bilateral session commitments;
 - canonical HNS/BTC and HNS/ETH asset, intent, price-round, fill-grant, and
   bilateral swap-session wire values;
 - bounded HSD-compatible Urkel inclusion and non-inclusion proofs;
@@ -32,6 +36,9 @@ The implemented protocol layer contains:
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, and HIP #78 HNSR protocol values.
+
+Source-independent exact V1 settlement and marketplace vectors live in
+`fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and

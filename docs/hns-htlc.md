@@ -25,3 +25,22 @@ prevents routine diagnostics from formatting the raw secret.
 Confirmation depth, fee/dust policy, and the asymmetric cross-chain timeout
 relationship are wallet/settlement policy and are intentionally not invented
 by this protocol crate.
+
+## Marketplace session binding
+
+`hns-marketplace-protocol` provides the canonical join between a signed
+`SwapSessionHello` side and `HnsHtlc`. Construction binds the exact HNS network
+magic/genesis, native amount (with checked `u128` to `u64` conversion), SHA-256
+hashlock, receiver/refund keys, and descriptor hash. Verification reconstructs
+that descriptor and rejects any mismatch.
+
+Marketplace safety deadlines are Unix seconds, while HSD time locks have
+512-second granularity. `encode_time_lock_not_before` uses ceiling division and
+returns both the encoded locktime and its effective Unix time. This is distinct
+from the floor conversion retained for Shakedex wire compatibility and ensures
+the on-chain refund cannot become available before the signed promise.
+
+`fixtures/protocol-v1/hns-swap-v1.txt` pins the descriptor, descriptor hash,
+script, script hash, address, funding transaction, redeem/refund digests,
+complete witness transactions, and transaction IDs. Its SHA-256 sidecar and
+source-independent generator make accidental wire drift visible.

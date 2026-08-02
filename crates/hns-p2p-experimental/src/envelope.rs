@@ -18,8 +18,10 @@ pub const DENUO_EXTENSION_MAX_NESTED_PAYLOAD: usize =
     DENUO_EXTENSION_MAX_PACKET_PAYLOAD - DENUO_ENVELOPE_OVERHEAD;
 pub const DEFAULT_MAX_DENUO_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const ATOMIC_MARKET_PROTOCOL_ID: u16 = 0x0001;
+pub const ATOMIC_MARKET_PROTOCOL_VERSION: u16 = 1;
 pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const CROSS_CHAIN_MARKET_PROTOCOL_ID: u16 = 0x0002;
+pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 1;
 pub const CROSS_CHAIN_MARKET_MAX_PAYLOAD: usize = 512 * 1024;
 
 pub const MARKET_INTENT_INV_MESSAGE_TYPE: u16 = 1;
@@ -225,6 +227,31 @@ impl DenuoExtensionEnvelope {
                 registry_version: self.registry_version,
                 protocol_id: self.protocol_id,
             });
+        }
+        let supported_protocol_version = match self.protocol_id {
+            REGISTRY_NEGOTIATION_PROTOCOL_ID => Some(REGISTRY_NEGOTIATION_PROTOCOL_VERSION),
+            ATOMIC_MARKET_PROTOCOL_ID => Some(ATOMIC_MARKET_PROTOCOL_VERSION),
+            CROSS_CHAIN_MARKET_PROTOCOL_ID
+                if self.registry_version == DENUO_V2_REGISTRY_VERSION =>
+            {
+                Some(CROSS_CHAIN_MARKET_PROTOCOL_VERSION)
+            }
+            _ => None,
+        };
+        if let Some(expected) = supported_protocol_version {
+            if self.protocol_version != expected {
+                return Ok(ProtocolDisposition::UnknownProtocol {
+                    protocol_id: self.protocol_id,
+                    protocol_version: self.protocol_version,
+                });
+            }
+            if self.flags != 0 {
+                return Err(EnvelopeError::UnsupportedFlags {
+                    protocol_id: self.protocol_id,
+                    protocol_version: self.protocol_version,
+                    flags: self.flags,
+                });
+            }
         }
         let known = match (self.registry_version, self.protocol_id, self.message_type) {
             (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_HELLO_MESSAGE_TYPE) => {
@@ -542,6 +569,14 @@ pub enum EnvelopeError {
         protocol_id: u16,
     },
     #[error(
+        "protocol {protocol_id:#06x} version {protocol_version} uses unsupported flags {flags:#06x}"
+    )]
+    UnsupportedFlags {
+        protocol_id: u16,
+        protocol_version: u16,
+        flags: u16,
+    },
+    #[error(
         "request ID is zero for correlated protocol {protocol_id:#06x} message {message_type:#06x}"
     )]
     ZeroRequestId { protocol_id: u16, message_type: u16 },
@@ -584,7 +619,7 @@ mod tests {
             protocol_id: ATOMIC_MARKET_PROTOCOL_ID,
             protocol_version: 1,
             message_type: 6,
-            flags: 0x0201,
+            flags: 0,
             request_id: 7,
             payload: vec![0xaa, 0xbb],
         }
@@ -595,7 +630,7 @@ mod tests {
         let encoded = envelope().encode(1024).expect("valid");
         assert_eq!(
             hex::encode(&encoded),
-            "444e553101000100010006000102070000000000000002000000aabb"
+            "444e553101000100010006000000070000000000000002000000aabb"
         );
         assert_eq!(
             DenuoExtensionEnvelope::decode(&encoded, 1024).expect("valid"),
@@ -642,6 +677,30 @@ mod tests {
         assert!(matches!(
             unknown_message.classify(),
             Err(EnvelopeError::UnknownMessage { .. })
+        ));
+    }
+
+    #[test]
+    fn known_classification_requires_exact_protocol_version_and_zero_flags() {
+        let mut future_version = envelope();
+        future_version.protocol_version += 1;
+        assert_eq!(
+            future_version.classify(),
+            Ok(ProtocolDisposition::UnknownProtocol {
+                protocol_id: ATOMIC_MARKET_PROTOCOL_ID,
+                protocol_version: 2,
+            })
+        );
+
+        let mut flagged = envelope();
+        flagged.flags = 1;
+        assert!(matches!(
+            flagged.classify(),
+            Err(EnvelopeError::UnsupportedFlags {
+                protocol_id: ATOMIC_MARKET_PROTOCOL_ID,
+                protocol_version: ATOMIC_MARKET_PROTOCOL_VERSION,
+                flags: 1,
+            })
         ));
     }
 

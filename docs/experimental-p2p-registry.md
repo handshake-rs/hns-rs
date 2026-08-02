@@ -1,7 +1,8 @@
 # Denuo Experimental Handshake P2P Registries
 
-Status: **Denuo Experimental V1/V2 — Not official Handshake protocol
-assignments**.
+Status: **Production-supported Denuo Experimental V1/V2 — not official
+Handshake protocol assignments**. "Experimental" is the assignment namespace
+and does not mark these parsers or compatibility commitments as prototypes.
 
 This registry gives one collision-detectable identity to the private assignments
 used by the Rust ecosystem. The values are compatible with the cited draft HIP
@@ -31,6 +32,9 @@ Version 2 retains every Version 1 packet, service, and active protocol value,
 then assigns the cross-chain marketplace protocol `0x0002`. Its remaining
 protocol range is reserved at `0x0003..=0xffff`. Version 1 continues to reserve
 `0x0002..=0xffff`; a Version 1 envelope cannot carry the Version 2 protocol.
+The V2 residual reservation records `first_supported_release = "0.1.0"`
+because that numeric range was already reserved by V1; the 0.2.0 assignment of
+`0x0002` narrows rather than creates the remaining reservation.
 
 The machine-readable authorities are `registry/denuo-experimental-v1.toml` and
 `registry/denuo-experimental-v2.toml`. Each checked-in `.bin` is a canonical,
@@ -49,6 +53,8 @@ Consumers obtain the name, versions, profile, fingerprint, and limits from
 The canonical full `DENUO_EXT` packet payload limit is 1,048,576 bytes. Its
 26-byte envelope leaves at most 1,048,550 bytes for a nested payload, and a
 registry-negotiation payload is further limited to 16,384 bytes.
+Typed name-market and cross-chain marketplace decoders both impose a tighter
+512 KiB payload cap.
 
 The HIP-76 assignment rows retain the draft's DNS-body limits: 4,096 bytes for
 `getdnsrelay` and 65,535 bytes for `dnsrelay`. Their complete message payloads,

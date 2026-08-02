@@ -314,6 +314,7 @@ impl MatchRequest {
             || self.intent_sequence == 0
             || self.swap_session_id == [0; 32]
             || self.requested_amount == AssetAmount::ZERO
+            || self.settlement_public_key == self.header.signer_public_key
         {
             return Err(MarketplaceError::Invalid("invalid match request"));
         }
@@ -492,6 +493,10 @@ pub struct FillGrant {
     pub intent_id: [u8; 32],
     pub intent_sequence: u64,
     pub swap_session_id: [u8; 32],
+    /// Independent per-session maker settlement/status authority. The grant's
+    /// header signer remains the long-term marketplace identity that delegates
+    /// to this key through the domain-separated grant signature.
+    pub maker_settlement_key: [u8; 33],
     pub counterparty_settlement_key: [u8; 33],
     pub offered_amount: AssetAmount,
     pub received_amount: AssetAmount,
@@ -632,6 +637,7 @@ impl FillGrant {
             intent_id: decoder.read_array()?,
             intent_sequence: decoder.read_u64_le()?,
             swap_session_id: decoder.read_array()?,
+            maker_settlement_key: decoder.read_array()?,
             counterparty_settlement_key: decoder.read_array()?,
             offered_amount: AssetAmount::decode_from(&mut decoder)?,
             received_amount: AssetAmount::decode_from(&mut decoder)?,
@@ -654,6 +660,7 @@ impl FillGrant {
 
     fn validate_fields(&self) -> Result<()> {
         self.header.validate()?;
+        crypto::validate_public_key(&self.maker_settlement_key)?;
         crypto::validate_public_key(&self.counterparty_settlement_key)?;
         if self.intent_id == [0; 32]
             || self.intent_sequence == 0
@@ -662,6 +669,9 @@ impl FillGrant {
             || self.received_amount == AssetAmount::ZERO
             || self.price_round_hash == [0; 32]
             || self.reservation_sequence == 0
+            || self.maker_settlement_key == self.counterparty_settlement_key
+            || self.maker_settlement_key == self.header.signer_public_key
+            || self.counterparty_settlement_key == self.header.signer_public_key
         {
             return Err(MarketplaceError::Invalid("invalid fill grant"));
         }
@@ -691,6 +701,7 @@ impl FillGrant {
             encoder.put_bytes(&self.intent_id);
             encoder.put_u64_le(self.intent_sequence);
             encoder.put_bytes(&self.swap_session_id);
+            encoder.put_bytes(&self.maker_settlement_key);
             encoder.put_bytes(&self.counterparty_settlement_key);
             self.offered_amount.encode_to(encoder);
             self.received_amount.encode_to(encoder);
@@ -871,6 +882,7 @@ mod tests {
             intent_id: intent.intent_id,
             intent_sequence: intent.header.sequence,
             swap_session_id: [8; 32],
+            maker_settlement_key: crypto::public_key(&[9; 32]).unwrap(),
             counterparty_settlement_key: crypto::public_key(&[8; 32]).unwrap(),
             offered_amount: AssetAmount::new(offered_amount),
             received_amount: AssetAmount::new(received_amount),
@@ -936,7 +948,7 @@ mod tests {
             requested_amount: AssetAmount::new(2_000_000),
             signature: [0; 64],
         };
-        request.sign(&[8; 32]).unwrap();
+        request.sign(&[10; 32]).unwrap();
         request.verify_for_intent(&intent).unwrap();
 
         let mut grant = FillGrant {
@@ -945,6 +957,7 @@ mod tests {
             intent_id: intent.intent_id,
             intent_sequence: intent.header.sequence,
             swap_session_id: [8; 32],
+            maker_settlement_key: crypto::public_key(&[9; 32]).unwrap(),
             counterparty_settlement_key: [0; 33],
             offered_amount: AssetAmount::new(2_000_000),
             received_amount: AssetAmount::new(200),
@@ -1038,11 +1051,12 @@ mod tests {
         let mut session_header = header(4);
         session_header.created_at = 126;
         session_header.expires_at = 140;
+        session_header.signer_public_key = grant.header.signer_public_key;
         let mut hello = SwapSessionHello {
             header: session_header,
             fill_grant_hash: grant.grant_hash,
             swap_session_id: grant.swap_session_id,
-            maker_settlement_public_key: [0; 33],
+            maker_settlement_public_key: grant.maker_settlement_key,
             taker_settlement_public_key: grant.counterparty_settlement_key,
             offered_asset: AssetId::HNS,
             offered_amount: grant.offered_amount,
@@ -1066,7 +1080,7 @@ mod tests {
             maker_signature: [0; 64],
             taker_signature: [0; 64],
         };
-        hello.sign_maker(&[7; 32]).unwrap();
+        hello.sign_maker(&[9; 32]).unwrap();
         assert!(
             hello
                 .verify_for_grant(&intent, &grant, &round, verifier, None, 130)
@@ -1081,7 +1095,7 @@ mod tests {
         wrong_amount.received_amount = AssetAmount::new(5);
         wrong_amount.maker_signature = [0; 64];
         wrong_amount.taker_signature = [0; 64];
-        wrong_amount.sign_maker(&[7; 32]).unwrap();
+        wrong_amount.sign_maker(&[9; 32]).unwrap();
         wrong_amount.accept_taker(&[8; 32]).unwrap();
         assert!(
             wrong_amount

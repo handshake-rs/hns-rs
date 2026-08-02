@@ -6,6 +6,17 @@ cd "$repo_root"
 
 rust_toolchain=${RUST_TOOLCHAIN:-1.89.0}
 mode=${1:---dry-run}
+release_commit=$(git rev-parse HEAD)
+release_tmp=
+
+cleanup_release_tmp() {
+    if [ -n "$release_tmp" ] && [ -d "$release_tmp" ]
+    then
+        rm -rf -- "$release_tmp"
+    fi
+}
+
+trap cleanup_release_tmp EXIT HUP INT TERM
 
 public_crates="
 hns-encoding
@@ -134,6 +145,56 @@ dry_run_with_local_dependencies() {
     esac
 }
 
+verify_published_package() {
+    package=$1
+    version=$2
+    package_target=${CARGO_TARGET_DIR:-target}
+    local_archive="$package_target/package/$package-$version.crate"
+
+    cargo +"$rust_toolchain" package --locked --no-verify -p "$package"
+    if [ ! -f "$local_archive" ]
+    then
+        echo "error: Cargo did not create $local_archive" >&2
+        exit 1
+    fi
+
+    if [ -z "$release_tmp" ]
+    then
+        release_tmp=$(mktemp -d "${TMPDIR:-/tmp}/hns-rs-release.XXXXXX")
+    fi
+    published_archive="$release_tmp/$package-$version.crate"
+    curl \
+        --fail \
+        --location \
+        --silent \
+        --show-error \
+        --user-agent "hns-rs-release/0.2 (https://github.com/handshake-rs/hns-rs)" \
+        --output "$published_archive" \
+        "https://crates.io/api/v1/crates/$package/$version/download"
+
+    local_checksum=$(sha256sum "$local_archive" | awk '{print $1}')
+    published_checksum=$(sha256sum "$published_archive" | awk '{print $1}')
+    if [ "$local_checksum" != "$published_checksum" ]
+    then
+        echo "error: published $package $version differs from the current source package" >&2
+        echo "error: local checksum $local_checksum; published checksum $published_checksum" >&2
+        exit 1
+    fi
+
+    for archive in "$local_archive" "$published_archive"
+    do
+        vcs_info=$(tar -xOf "$archive" "$package-$version/.cargo_vcs_info.json")
+        compact_vcs_info=$(printf '%s' "$vcs_info" | tr -d '[:space:]')
+        case "$compact_vcs_info" in
+            *\"sha1\":\"$release_commit\"*) ;;
+            *)
+                echo "error: $archive does not identify release commit $release_commit" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
 case "$mode" in
     --dry-run)
         for package in $public_crates
@@ -142,7 +203,7 @@ case "$mode" in
         done
         ;;
     --execute)
-        if ! git diff --quiet || ! git diff --cached --quiet
+        if [ -n "$(git status --porcelain)" ]
         then
             echo "error: refusing to publish from a dirty worktree" >&2
             exit 1
@@ -168,13 +229,14 @@ case "$mode" in
             status=$(curl \
                 --silent \
                 --show-error \
-                --user-agent "hns-rs-release/0.1 (https://github.com/handshake-rs/hns-rs)" \
+                --user-agent "hns-rs-release/0.2 (https://github.com/handshake-rs/hns-rs)" \
                 --output /dev/null \
                 --write-out '%{http_code}' \
                 "https://crates.io/api/v1/crates/$package/$version")
 
             case "$status" in
                 200)
+                    verify_published_package "$package" "$version"
                     echo "skipping $package $version: already published"
                     ;;
                 404)

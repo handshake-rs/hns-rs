@@ -3,7 +3,8 @@
 HIP-0001 and Shakedex-compatible atomic name-swap primitives.
 
 This crate implements fixed-price swaps and bounded reverse-Dutch auctions,
-including proof encoding, validation, signing, and verification. It also
+including proof encoding, validation, signing, verification, canonical
+buyer-funded fulfillment, and explicit-recipient seller cancellation. It also
 provides:
 
 - canonical, bounded `FixedPriceListing` and `ListingCancellation` envelopes
@@ -13,6 +14,13 @@ provides:
   hashlock/absolute-timelock HNS witness script, exact funding verification,
   strict `SIGHASH_ALL`, redeem/refund witness builders, consensus-backed spend
   verification, checked preimage extraction, and redacted secret diagnostics.
+
+The cancellation API models Shakedex's first-stage seller-signed `TRANSFER`
+with fixed `SIGHASH_SINGLE | ANYONECANPAY`; the later `FINALIZE` remains a
+separate consensus action. It authenticates its own seller signature and does
+not require a retained marketplace presign. Safety-deadline helpers expose
+upward HSD time-lock conversion without changing Shakedex's floor-compatible
+proof reconstruction.
 
 Marketplace callers must still persist per-seller/name sequence state to reject
 replays, verify the embedded `SwapProof` against the current FINALIZE coin, and

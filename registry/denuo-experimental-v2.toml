@@ -247,6 +247,8 @@ security_classification = "bounded-signed-cross-chain-market-gossip-and-rendezvo
 first_supported_release = "0.2.0"
 deprecation_state = "active"
 
+# This residual range was already reserved by V1; V2 narrows it after assigning
+# 0x0002, so its historical first-supported release remains 0.1.0.
 [[assignment]]
 semantic_name = "reserved-protocols-0x0003-0xffff"
 kind = "protocol_id"

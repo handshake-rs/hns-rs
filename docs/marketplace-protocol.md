@@ -33,20 +33,27 @@ therefore fails closed.
 
 An intent states only the offered asset, maximum quantity, minimum fill, partial
 fill policy, and expiry. It does not contain a user-selected rate. A fill grant
-binds the exact intent/sequence, session, ephemeral counterparty settlement
-key, both native amounts, frozen price-round hash, expiry, and reservation
-sequence. It authorizes a reservation only; it does not move funds.
+binds the exact intent/sequence, session, independent maker settlement key,
+ephemeral counterparty settlement key, both native amounts, frozen price-round
+hash, expiry, and reservation sequence. The long-term maker identity signs the
+grant and thereby delegates only this session to the maker settlement key. The
+two settlement keys must be valid and distinct from each other and from the
+maker's long-term identity. Match requests likewise require the taker's
+ephemeral settlement key to differ from its request-signing identity. A grant
+authorizes a reservation only; it does not move funds.
 
 A swap-session hello freezes the verified grant and round hashes, both native
 amounts, SHA-256 hashlock, each chain's lock-descriptor commitment, Unix-time
-refund deadline, and minimum confirmation depth. The maker (intent publisher)
-signs the complete proposal with the intent authority, then the grant's
-designated taker settlement authority signs the same bytes. Funding validation
-requires both signatures, and a `Confirmed` funding status must meet the
-chain-specific minimum confirmation count frozen in those signed terms. The
-maker funds the offered-asset chain and the taker funds the received-asset
-chain; redemption authority is the opposite party for each chain, while refund
-authority is its funder. Third-party status signatures are rejected.
+refund deadline, and minimum confirmation depth. The delegated maker
+settlement authority signs the complete proposal, then the grant's designated
+taker settlement authority signs the same bytes. The hello continues to carry
+the long-term maker identity in its header and verification requires it to
+match the grant signer. Funding validation requires both settlement signatures,
+and a `Confirmed` funding status must meet the chain-specific minimum
+confirmation count frozen in those signed terms. The maker funds the
+offered-asset chain and the taker funds the received-asset chain; redemption
+authority is the opposite party for each chain, while refund authority is its
+funder. Third-party status signatures are rejected.
 
 The intent publisher always funds the offered-asset chain first, and that lock
 has the later deadline; this gives the counterparty time to use the revealed
@@ -56,7 +63,19 @@ policy must require a margin large enough for both chains' finality and fee
 conditions; version 1 intentionally does not invent that deployment-specific
 minimum. Chain modules define and verify their descriptor preimages; the
 generic protocol commits to them without duplicating Bitcoin or Ethereum wire
-types.
+types. Native HNS is the exception because `build_hns_htlc`,
+`build_and_bind_hns_htlc`, and `verify_hns_htlc` join a hello side directly to
+the exact `HnsHtlc` network, amount, SHA-256 hashlock, keys, descriptor hash,
+and refund locktime. HSD represents time in 512-second units, so this safety
+conversion rounds upward: the effective refund time can be later than the
+promised Unix deadline but can never be earlier.
+
+`verify_new_funding_at` is the action gate for admitting a new broadcast and
+closes with the signed funding window. Session status validation authenticates
+the immutable agreement without reopening funding, allowing current signed
+`Reorged`, refund, and recovery evidence to be processed after that deadline.
+Each status object must still have a currently valid header and correct session
+authority.
 
 ## Price rounds
 
@@ -87,7 +106,10 @@ means no usable new price round.
 
 Primitive encodings are at most 256 bytes, signed market/session objects at most
 8 KiB, observations at most 4 KiB, and rounds at most 256 KiB with at most 64
-observations. Inventory and Denuo payload bounds are documented in
+observations. Typed name-market and cross-chain Denuo payloads are both capped
+at 512 KiB; the registry's outer atomic-market assignment can advertise a wider
+transport limit without weakening this parser boundary. Inventory and Denuo
+payload bounds are documented in
 [`denuo-marketplace.md`](denuo-marketplace.md). All decoders require complete
 input and reject noncanonical compact lengths, rationals, sets, signatures, and
 presence/state values.

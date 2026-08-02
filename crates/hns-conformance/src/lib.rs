@@ -217,9 +217,23 @@ pub enum ConformanceError {
 mod tests {
     use super::*;
 
+    const SWAP_V1_FIXTURES: &str =
+        include_str!("../../../fixtures/protocol-v1/hns-swap-v1.txt");
+    const MARKETPLACE_V1_FIXTURES: &str =
+        include_str!("../../../fixtures/protocol-v1/hns-marketplace-v1.txt");
+
+    fn fixture_bytes(document: &str, name: &str) -> Vec<u8> {
+        let value = document
+            .lines()
+            .filter_map(|line| line.split_once('='))
+            .find_map(|(key, value)| (key == name).then_some(value))
+            .unwrap_or_else(|| panic!("missing fixture {name}"));
+        hex::decode(value).expect("fixture hex")
+    }
+
     const TRANSACTION: &str = "0100000001080808080808080808080808080808080808080808080808080808080808080802000000feffffff012a0000000000000000140909090909090909090909090909090909090909020103616263630000000203010203020405";
     const REGTEST_PING: &str = "cf9538ae02080000004343434343434343";
-    const DENUO: &str = "444e553101000100010006000102070000000000000002000000aabb";
+    const DENUO: &str = "444e553101000100010006000000070000000000000002000000aabb";
     const DENUO_NAME_MARKET: &str = "444e553101000100010002000000070000000000000000000000";
     const DENUO_CROSS_CHAIN_MARKET: &str = concat!(
         "444e55310200020001000100000007000000000000002100000001",
@@ -249,6 +263,29 @@ mod tests {
             let bytes = hex::decode(encoded).expect("static hex");
             let accepted = exercise_production_parsers(&bytes).expect("bounded");
             assert!(accepted.contains(parser), "parser bit {parser:#x}");
+        }
+
+        let swap_proof = fixture_bytes(SWAP_V1_FIXTURES, "swap_proof");
+        assert!(
+            exercise_production_parsers(&swap_proof)
+                .expect("bounded")
+                .contains(AcceptanceMask::SWAP_PROOF)
+        );
+        for name in [
+            "denuo_market_intent_envelope",
+            "denuo_price_round_envelope",
+            "denuo_swap_session_hello_envelope",
+            "denuo_swap_funding_status_envelope",
+            "denuo_swap_redeem_status_envelope",
+            "denuo_swap_refund_status_envelope",
+        ] {
+            let envelope = fixture_bytes(MARKETPLACE_V1_FIXTURES, name);
+            assert!(
+                exercise_production_parsers(&envelope)
+                    .expect("bounded")
+                    .contains(AcceptanceMask::DENUO_CROSS_CHAIN_MARKET),
+                "cross-chain fixture {name}"
+            );
         }
     }
 

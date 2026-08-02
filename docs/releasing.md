@@ -53,6 +53,12 @@ No `0.2.0` package or tag has been published by the preparation commit. The
 full gate, source review, intentional commit, authenticated upload, tag, and
 post-publication verification remain separate release actions.
 
+The release candidate includes exact protocol-V1 marketplace/settlement
+fixtures, independent maker settlement delegation, native-HNS hello binding,
+Shakedex fulfillment and cancellation APIs, exact Denuo version/flag handling,
+post-deadline recovery-status validation, and resumable publication identity
+checks. These are supported release surfaces, not provisional APIs.
+
 ## Private packages
 
 The following development packages must retain `publish = false`:
@@ -99,9 +105,13 @@ published.
    ./scripts/publish.sh --execute
    ```
 
-The execution mode is restartable. It checks the crates.io API and skips a
-package version that is already present, allowing a partially completed release
-to continue safely.
+The execution mode is restartable, but it never skips solely because an API
+record exists. For an already-published package/version it recreates the
+normalized `.crate`, downloads the crates.io archive, requires byte-for-byte
+SHA-256 identity, and requires both archives' `.cargo_vcs_info.json` to name the
+current release commit. Any mismatch aborts the release. This permits a
+partially completed release to resume without accepting an unrelated artifact
+under the same version.
 
 After publication, push the release commit and an annotated `vX.Y.Z` tag, then
 confirm every package page and docs.rs build.
