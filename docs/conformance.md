@@ -8,7 +8,7 @@ Current canonical protocol coverage:
 | bounded little-endian/compact encoding | `hns-encoding` | canonical, truncation, trailing, and bound tests |
 | headers, PoW, targets, chainwork, retargets, networks, genesis | `hns-header-consensus` | HSD/genesis differential vectors |
 | transactions, IDs, witness behavior | `hns-transaction` | HSD transaction/sighash fixtures |
-| script execution, `OP_TYPE`, lock predicates, sighash | `hns-script` | exact results for all 876 pinned HSD script cases plus mode and coin-binding tests |
+| script execution, `OP_TYPE`, lock predicates, sighash, fee policy | `hns-script` | exact results for all 876 pinned HSD script cases plus coin-bound sigops and source-hash-pinned virtual-size/minimum-fee vectors |
 | name covenants, validation, hashes, linkage | `hns-covenants`, `hns-transaction` | round-trip and state-link tests |
 | authenticated NameState and resources | `hns-covenants`, `hns-primitives` | exact pinned-HSD value/resource bytes, key/name binding, shared null-owner outpoint, compression, truncation, unknown-bit/tag, noncanonical, trailing, and allocation-bound cases |
 | Urkel proof parsing and verification | `hns-urkel-proof` | exact HSD positive and mutation-derived negative vectors |
@@ -31,10 +31,13 @@ remain tracked by the integration matrix until implemented and green.
 
 The checked-in V1 settlement/market oracle documents and SHA-256 sidecars live
 under `fixtures/protocol-v1/`. Exact HSD NameState/resource bytes and source
-hashes live in `fixtures/hsd/name-state-resource-v1.txt`. Tests consume these
-documents directly; the conformance mutation harness also routes NameState and
-resource inputs through the same public decoders.
+hashes live in `fixtures/hsd/name-state-resource-v1.txt`; exact fee-policy
+vectors and their transaction/policy/consensus source hashes live in
+`fixtures/hsd/fee-policy-v1.txt`. Tests consume these documents directly; the
+conformance mutation harness also routes NameState and resource inputs through
+the same public decoders.
 
-The NameState/resource tranche is currently source- and vector-reviewed only.
-The repository's full locked qualification gate was not rerun for it; that
-remains required before the unreleased 0.2.0 line can be published.
+The NameState/resource and fee-policy tranches are currently source- and
+vector-reviewed only. The repository's full locked qualification gate was not
+rerun for them; that remains required before the unreleased 0.2.0 line can be
+published.

@@ -1,10 +1,13 @@
 # hns-script
 
-Handshake signature hashing, lock predicates, and script primitives.
+Handshake script, signature hashing, and fee-policy primitives.
 
 This crate provides HSD-compatible signature hashing and a production script
-interpreter, including Handshake `OP_TYPE`. It is part of the
-[`hns-rs`](https://github.com/handshake-rs/hns-rs) protocol workspace.
+interpreter, including Handshake `OP_TYPE`. It also exposes input-coin-bound
+sigop counting, sigop-adjusted policy virtual size, and HSD's exact minimum-fee
+rounding through explicit weight, sigop, virtual-byte, and fee-rate units. It
+is part of the [`hns-rs`](https://github.com/handshake-rs/hns-rs) protocol
+workspace.
 
 ```bash
 cargo add hns-script

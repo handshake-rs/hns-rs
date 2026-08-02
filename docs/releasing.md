@@ -58,8 +58,11 @@ fixtures, independent maker settlement delegation, native-HNS hello binding,
 Shakedex fulfillment and cancellation APIs, exact Denuo version/flag handling,
 post-deadline recovery-status validation, and resumable publication identity
 checks. It also includes the exact HSD NameState/resource codec, shared
-owner-outpoint semantics, and pinned source-verified HSD vectors. These are
-supported release surfaces, not provisional APIs.
+owner-outpoint semantics, sigop-adjusted fee-policy arithmetic with explicit
+units, and pinned source-verified HSD vectors. The fee-policy source is
+canonical release-candidate code, but it has not yet passed this document's
+full locked gate. No downstream release may claim the API until that gate
+passes and the shared `0.2.0` packages are published.
 
 ## Private packages
 

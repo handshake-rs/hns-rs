@@ -20,7 +20,8 @@ The implemented protocol layer contains:
   HSD NameState values, typed lossless resource decoding, authenticated
   name/key and owner-outpoint semantics, and non-coinbase covenant-link
   validation;
-- HSD-compatible signature hashing and absolute/relative lock predicates;
+- HSD-compatible signature hashing, absolute/relative lock predicates, and
+  sigop-adjusted minimum-fee policy arithmetic with explicit units;
 - a production script interpreter differentially matched to all 876 pinned HSD
   script vectors, including Handshake `OP_TYPE`;
 - HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives,
@@ -43,7 +44,8 @@ Source-independent exact V1 settlement and marketplace vectors live in
 `fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.
 Pinned-HSD NameState and compressed resource vectors live in
 `fixtures/hsd/name-state-resource-v1.txt` with their own deterministic oracle
-generator and SHA-256 sidecar.
+generator and SHA-256 sidecar. Pinned sigop-size and minimum-policy-fee vectors
+live beside them in `fixtures/hsd/fee-policy-v1.txt`.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and

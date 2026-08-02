@@ -17,6 +17,12 @@ and are identified per subsystem in the compatibility documents. Experimental
 proposal and implementation revisions are recorded in the HIP-specific
 compatibility documents.
 
+`fixtures/hsd/fee-policy-v1.txt` binds HSD's sigop-adjusted virtual-size and
+minimum-fee behavior to exact `tx.js`, `policy.js`, and `consensus.js` source
+hashes. The fixture retains HSD's floor division and its distinct rule that a
+nonzero size/rate pair with a zero quotient pays the full rate. Standardness
+bounds remain separate from arithmetic, matching the pinned implementation.
+
 `fixtures/hsd/name-state-resource-v1.txt` binds HSD's exact NameState value
 ordering, optional-field bitmap, compact integers, null-owner convention, and
 version-zero resource record/compression bytes. Its generator verifies the

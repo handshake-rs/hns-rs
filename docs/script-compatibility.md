@@ -2,7 +2,8 @@
 
 `hns-script` contains the runtime-independent HSD script interpreter, witness
 program gate, signature hashing, compact secp256k1 verification, sigop
-accounting, lock predicates, and Handshake `OP_TYPE` introspection.
+accounting, sigop-adjusted policy virtual size, minimum-policy-fee arithmetic,
+lock predicates, and Handshake `OP_TYPE` introspection.
 
 The differential corpus in `fixtures/hsd/script-tests-v1.txt` contains all 876
 cases from
@@ -29,3 +30,43 @@ exact input outpoint before using its address or value. Version-zero 20-byte
 and 32-byte witness programs execute with HSD's mandatory limits and failure
 codes; unknown witness versions remain forward-compatible unless standard
 policy explicitly discourages them.
+
+## Fee-policy arithmetic
+
+The fee-policy boundary follows
+`handshake-org/hsd@698e252ebc7b5c1dd0a9587e342fdd153d020ae4`.
+`lib/primitives/tx.js#getSigopsSize` takes the larger of serialized transaction
+weight and sigop cost multiplied by `lib/protocol/policy.js`'s 20 bytes per
+sigop, then ceiling-divides by the consensus witness scale factor of four.
+`transaction_policy_virtual_size` obtains that sigop cost only through the
+existing transaction/input-coin outpoint binding.
+
+`minimum_policy_fee` reproduces `lib/protocol/policy.js#getMinFee`: rates are
+dollarydoos per 1,000 policy virtual bytes, multiplication is floor-divided by
+1,000, and a nonzero size/rate pair whose quotient is zero returns the full
+rate. It does not substitute the separate HSD `getRoundFee` whole-kilobyte
+operation. `TransactionWeight`, `SigopCost`, `PolicyVirtualSize`, and `FeeRate`
+make each public unit explicit. Rust arithmetic is checked, the public scalar
+units are bounded to `u32`, and fees use the canonical `Dollarydoos` value.
+
+Standardness remains a separate decision, as it is in HSD. The exact pinned
+caps are exposed as `MAX_POLICY_TRANSACTION_WEIGHT` (400,000 weight units) and
+`MAX_POLICY_TRANSACTION_SIGOPS` (16,000), but the size function does not hide
+evidence for an out-of-policy transaction by applying those checks itself.
+
+`fixtures/hsd/fee-policy-v1.txt` covers ceiling, sigop-dominant, floor,
+nonzero-rate fallback, maximum unsigned fee rate, standard-policy, and
+consensus boundaries. Its generator refuses source drift by authenticating
+these exact pinned files before calling the HSD oracle:
+
+- `lib/primitives/tx.js` SHA-256
+  `7681f599330cba3ff72529da899ed309daa628f3efd500c5d04ba89dd5be9300`;
+- `lib/protocol/policy.js` SHA-256
+  `1d8840bc6b8b6b4c78fa2e73337f3665b5b65329d650c44589b4a8a67a44a60e`;
+- `lib/protocol/consensus.js` SHA-256
+  `9342ee033ca27fe1539b6047fbd3529bb912ae2cdbe456adf7828798fb5cc8a2`.
+
+This tranche has static source, fixture, and sidecar review only. No local
+Cargo, build, test, formatting, or publication gate was run for it. The full
+locked qualification gate and publication of the shared `0.2.0` line remain
+required before downstream crates can consume the API from crates.io.

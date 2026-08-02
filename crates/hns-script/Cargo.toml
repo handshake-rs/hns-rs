@@ -1,6 +1,6 @@
 [package]
 name = "hns-script"
-description = "Handshake signature hashing, lock predicates, and script primitives"
+description = "Handshake script, signature hashing, and fee-policy primitives"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,6 +15,7 @@ publish.workspace = true
 [dependencies]
 blake2.workspace = true
 hns-encoding.workspace = true
+hns-primitives.workspace = true
 hns-transaction.workspace = true
 k256.workspace = true
 ripemd = "0.1.3"

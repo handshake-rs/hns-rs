@@ -7,6 +7,9 @@ The workspace crates use a shared version and follow Semantic Versioning.
 
 Release-candidate source for the modular wallet and marketplace boundary:
 
+- exact HSD sigop-adjusted policy virtual size and minimum-policy-fee
+  arithmetic with public weight, sigop, virtual-byte, and fee-rate units,
+  checked bounds, input-coin binding, and source-hash-pinned vectors;
 - exact, bounded HSD NameState value encoding with mandatory external
   name-hash binding, shared null-owner outpoint semantics, canonical optional
   fields, and complete-input rejection;
@@ -36,7 +39,8 @@ Release-candidate source for the modular wallet and marketplace boundary:
 
 All public workspace packages advance together so changed crates never attempt
 to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is
-published by this source commit.
+published by this source commit. The fee-policy addition is source- and
+fixture-reviewed only until the consolidated locked qualification gate passes.
 
 ## 0.1.0 - 2026-07-29
 

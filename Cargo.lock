@@ -627,6 +627,7 @@ dependencies = [
  "hex",
  "hns-covenants",
  "hns-encoding",
+ "hns-primitives",
  "hns-transaction",
  "k256",
  "ripemd",

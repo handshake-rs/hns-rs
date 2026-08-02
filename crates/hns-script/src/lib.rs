@@ -1,8 +1,10 @@
-#![doc = "Consensus-visible Handshake script and signature-hash primitives."]
+#![doc = "Consensus-visible Handshake script, signature-hash, and fee-policy primitives."]
 
 mod interpreter;
+mod policy;
 
 pub use interpreter::*;
+pub use policy::*;
 
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};

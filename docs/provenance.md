@@ -7,6 +7,7 @@ tests.
 | Surface | Authority snapshot | Status |
 | --- | --- | --- |
 | Handshake consensus and standard wire | `handshake-org/hsd@698e252ebc7b5c1dd0a9587e342fdd153d020ae4` | official deployed behavior |
+| Sigop-adjusted policy size and minimum fee | pinned HSD `tx.js`, `policy.js`, and `consensus.js` hashes recorded in `fixtures/hsd/fee-policy-v1.txt` | exact HSD policy arithmetic with checked Rust bounds and explicit units |
 | NameState values and version-zero resources | pinned HSD `namestate.js`/`resource.js` and BNS DNS-name encoding hashes recorded in `fixtures/hsd/name-state-resource-v1.txt` | exact HSD codec behavior with stricter complete-input consumer parsing |
 | HIP-0001 swap construction | HIP-0001 plus `kurumiimari/shakedex@ab5687b04cb61d2548937b8cee3c056c1c75bbdc` | published HIP and ecosystem implementation |
 | Native HNS HTLC | pinned HSD script, transaction, address, locktime, and sighash behavior plus `fixtures/protocol-v1/hns-swap-v1.txt` | canonical workspace V1 settlement construction |
@@ -36,6 +37,13 @@ NameState and resource bytes are regenerated with
 tree whose reported version or pinned NameState, resource, or BNS encoding
 source hashes differ, then writes the exact oracle bytes and a complete-file
 SHA-256 sidecar. It performs no network access.
+
+Fee-policy vectors are regenerated with
+`generators/generate-hsd-fee-policy-vectors.js`. Before invoking
+`TX#getSigopsSize` and `policy.getMinFee`, it requires the pinned HSD version
+and exact transaction, policy, and consensus source hashes. The complete
+fixture has a SHA-256 sidecar that the Rust conformance test authenticates
+before parsing any vector.
 
 Marketplace and settlement wire vectors are regenerated with
 `python3 generators/generate-marketplace-v1-fixtures.py --write`. The generator
