@@ -11,6 +11,8 @@ entrypoint. It is kept outside the release workspace so libFuzzer and a nightly
 compiler never become dependencies of the protocol crates. The deterministic
 smoke corpus remains part of the normal stable-toolchain gate.
 
-Market advertisements/offers, DNS wire/DNSSEC/TLSA, native messaging, and
-proxy request heads live in downstream repositories and must join the
-cross-project qualification gate as those production parsers land.
+Canonical Denuo name-market and cross-chain-market envelopes are included as
+exact seeds, and their typed production decoders share this target. DNS
+wire/DNSSEC/TLSA, native messaging, and proxy request heads live in downstream
+repositories and must join the cross-project qualification gate as those
+production parsers land.

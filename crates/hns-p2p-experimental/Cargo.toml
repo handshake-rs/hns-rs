@@ -1,6 +1,6 @@
 [package]
 name = "hns-p2p-experimental"
-description = "Denuo Experimental V1 assignments, negotiation, and bounded envelopes"
+description = "Denuo Experimental assignments, negotiation, and bounded envelopes"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

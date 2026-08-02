@@ -1,4 +1,17 @@
-#![doc = "HIP-0001 atomic name-swap and reverse-Dutch auction primitives."]
+#![doc = "HIP-0001 name swaps, signed marketplace listings, and HNS HTLC primitives."]
+
+mod htlc;
+mod listing;
+
+pub use htlc::{
+    HNS_HTLC_HASHLOCK_SIZE, HNS_HTLC_PREIMAGE_SIZE, HNS_HTLC_SIGHASH, HNS_HTLC_VERSION, HnsHtlc,
+    HnsHtlcPreimage, HnsHtlcSpend, MAX_HNS_HTLC_DESCRIPTOR_SIZE,
+};
+pub use listing::{
+    FIXED_PRICE_LISTING_VERSION, FixedPriceListing, LISTING_CANCELLATION_VERSION,
+    ListingCancellation, MARKETPLACE_SIGNATURE_SIZE, MAX_FIXED_PRICE_LISTING_SIZE,
+    MAX_LISTING_CANCELLATION_SIZE,
+};
 
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
@@ -497,7 +510,7 @@ fn decode_address(decoder: &mut Decoder<'_>) -> Result<Address, SwapError> {
     Ok(Address::new(version, hash)?)
 }
 
-fn blake2b_256(input: &[u8]) -> [u8; 32] {
+pub(crate) fn blake2b_256(input: &[u8]) -> [u8; 32] {
     let mut hasher = Blake2bVar::new(32).expect("valid BLAKE2b output length");
     hasher.update(input);
     let mut output = [0_u8; 32];
@@ -569,6 +582,82 @@ pub enum SwapError {
     NonCanonicalSchedule,
     #[error("auction steps do not describe the same listing")]
     InconsistentAuction,
+    #[error("fixed-price listing sequence must be nonzero")]
+    ZeroListingSequence,
+    #[error("fixed-price listing version {0} is unsupported")]
+    UnsupportedListingVersion(u16),
+    #[error("fixed-price listing expiration must be later than its creation time")]
+    InvalidListingLifetime,
+    #[error("fixed-price listing is {0} bytes, exceeding the configured bound")]
+    ListingTooLarge(usize),
+    #[error("fixed-price listing must contain a signed Shakedex presign")]
+    UnsignedListingProof,
+    #[error("fixed-price listing is unsigned")]
+    UnsignedListing,
+    #[error("fixed-price listing hash does not match its canonical contents")]
+    ListingHashMismatch,
+    #[error("fixed-price listing has not reached its creation time")]
+    ListingNotYetActive,
+    #[error("fixed-price listing has expired")]
+    ListingExpired,
+    #[error("listing cancellation sequence must be nonzero")]
+    ZeroCancellationSequence,
+    #[error("listing cancellation version {0} is unsupported")]
+    UnsupportedCancellationVersion(u16),
+    #[error("listing cancellation expiration must be later than its creation time")]
+    InvalidCancellationLifetime,
+    #[error("listing cancellation is {0} bytes, exceeding the configured bound")]
+    CancellationTooLarge(usize),
+    #[error("listing cancellation is unsigned")]
+    UnsignedCancellation,
+    #[error("listing cancellation hash does not match its canonical contents")]
+    CancellationHashMismatch,
+    #[error("listing cancellation does not identify the supplied listing")]
+    CancellationListingMismatch,
+    #[error("listing cancellation sequence is not newer than the listing sequence")]
+    CancellationSequenceNotNewer,
+    #[error("listing cancellation expires before the listing")]
+    CancellationExpiresTooEarly,
+    #[error("listing cancellation has not reached its creation time")]
+    CancellationNotYetActive,
+    #[error("listing cancellation has expired")]
+    CancellationExpired,
+    #[error("marketplace signature has noncanonical high-S form")]
+    HighMarketplaceSignature,
+    #[error("HTLC descriptor version {0} is unsupported")]
+    UnsupportedHtlcVersion(u16),
+    #[error("HNS HTLC descriptor is {0} bytes, exceeding the configured bound")]
+    HtlcTooLarge(usize),
+    #[error("HNS HTLC value must be nonzero")]
+    ZeroHtlcValue,
+    #[error("HNS HTLC hashlock must be nonzero")]
+    ZeroHtlcHashlock,
+    #[error("HNS HTLC receiver and refund public keys must be distinct")]
+    HtlcKeyReuse,
+    #[error("HNS HTLC refund locktime must be nonzero")]
+    ZeroHtlcRefundLocktime,
+    #[error("HNS HTLC funding output has the wrong value")]
+    HtlcValueMismatch,
+    #[error("HNS HTLC funding output has the wrong script address")]
+    HtlcAddressMismatch,
+    #[error("HNS HTLC funding output must use the NONE covenant")]
+    HtlcCovenantMismatch,
+    #[error("HNS HTLC funding output index {requested} is outside {outputs} outputs")]
+    HtlcFundingOutputIndex { requested: usize, outputs: usize },
+    #[error("HNS HTLC spend input index {requested} is outside {inputs} inputs")]
+    HtlcSpendInputIndex { requested: usize, inputs: usize },
+    #[error("HNS HTLC spend input does not reference the supplied funding coin")]
+    HtlcOutpointMismatch,
+    #[error("HNS HTLC witness signature uses invalid hash type 0x{0:02x}")]
+    InvalidHtlcSignatureHashType(u8),
+    #[error("HNS HTLC witness signature is malformed")]
+    InvalidHtlcSignature,
+    #[error("HNS HTLC witness signature has noncanonical high-S form")]
+    HighHtlcSignature,
+    #[error("HNS HTLC preimage does not match the descriptor hashlock")]
+    HtlcPreimageMismatch,
+    #[error("HNS HTLC witness does not have a canonical redeem or refund layout")]
+    InvalidHtlcWitness,
     #[error("arithmetic overflow")]
     ArithmeticOverflow,
 }

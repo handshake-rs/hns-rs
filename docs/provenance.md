@@ -11,7 +11,7 @@ tests.
 | DNS relay | HIP PR 76 at `25f6d99cdd2b766f9eb6bb3b72d9dc804efd6131`; HSD PR 958 at `ea31be1554f3235bfa96bdd394e6d33e7dda8080` | draft; Denuo Experimental V1 |
 | ODoH relay | HIP PR 77 at `d3ae6be483663ed6cf0ead4f4b4f17a80b1d1162`; HSD PR 959 at `909311d97c794eb59ed2eb0b095a122607ae078e` | draft; Denuo Experimental V1 |
 | HNSR | HIP PR 78 at `53b962e901ffa796f4ccf66a5d53956d7421c58c`; HSD PR 960 at `2fc40f1c61ff16a2f39d9514cd950d1560430ced` | draft; Denuo Experimental V1 |
-| Experimental assignment registry | `registry/denuo-experimental-v1.toml` and its canonical binary/hash | Denuo Experimental V1, not official |
+| Experimental assignment registries | `registry/denuo-experimental-v1.toml` and `registry/denuo-experimental-v2.toml`, with their canonical binaries/hashes | Denuo Experimental V1/V2, not official |
 
 Source archives named in the assignment were not present in the supplied
 workspace. The integration source audit records that absence and the exact

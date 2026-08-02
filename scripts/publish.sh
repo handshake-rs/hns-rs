@@ -21,6 +21,7 @@ hns-transaction
 hns-script
 hns-mining
 hns-swap
+hns-marketplace-protocol
 hns-p2p-wire
 "
 
@@ -105,6 +106,16 @@ dry_run_with_local_dependencies() {
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
                 --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
                 --config 'patch.crates-io.hns-script.path="crates/hns-script"' \
+                --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
+            ;;
+        hns-marketplace-protocol)
+            dry_run_package "$package" \
+                --config 'patch.crates-io.hns-covenants.path="crates/hns-covenants"' \
+                --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-p2p-experimental.path="crates/hns-p2p-experimental"' \
+                --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
+                --config 'patch.crates-io.hns-script.path="crates/hns-script"' \
+                --config 'patch.crates-io.hns-swap.path="crates/hns-swap"' \
                 --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
             ;;
         hns-p2p-wire)

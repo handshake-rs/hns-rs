@@ -1,11 +1,11 @@
 # hns-p2p-experimental
 
-Denuo Experimental V1 assignments, negotiation, and bounded envelopes.
+Denuo Experimental V1 and V2 assignments, negotiation, and bounded envelopes.
 
 This crate contains the versioned Denuo extension registry, semantic wire
 profiles, peer negotiation, and extension framing.
 
-**Denuo Experimental V1 is not an official Handshake protocol assignment.**
+**Denuo Experimental V1 and V2 are not official Handshake protocol assignments.**
 
 ```bash
 cargo add hns-p2p-experimental

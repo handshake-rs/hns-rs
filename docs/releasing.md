@@ -21,20 +21,37 @@ The release script publishes only these packages, in dependency order:
 11. `hns-script`
 12. `hns-mining`
 13. `hns-swap`
-14. `hns-p2p-wire`
+14. `hns-marketplace-protocol`
+15. `hns-p2p-wire`
 
 Internal dependencies carry both a workspace path and the shared crates.io
 version. Cargo removes each path when it creates the published package.
 
 ## 0.1.0 publication record
 
-All 14 allowlisted crates were published to crates.io on 2026-07-29 and are
+The original 14 allowlisted crates were published to crates.io on 2026-07-29 and are
 non-yanked. Every published package embeds release-source commit
 `0ea5994c336642ea7d01c51c0e22df2008985426` in its Cargo VCS metadata.
+
+`hns-marketplace-protocol` was added after that publication and has no 0.1.0
+publication record in this repository.
 
 Registry publication is complete, but no `v0.1.0` Git tag exists locally or on
 `origin`. Treat the commit above as the published source; do not describe
 `0.1.0` as Git-tagged unless that tag is later created and pushed.
+
+## 0.2.0 release candidate
+
+The marketplace/Denuo V2 source advances the shared workspace and every
+internal dependency requirement to `0.2.0`. This is necessary because the new
+marketplace crate consumes `hns-swap` and `hns-p2p-experimental` APIs that do
+not exist in their permanent crates.io `0.1.0` packages. Local publication
+patches are verification aids only and must never be used to present the old
+version as satisfying those dependencies.
+
+No `0.2.0` package or tag has been published by the preparation commit. The
+full gate, source review, intentional commit, authenticated upload, tag, and
+post-publication verification remain separate release actions.
 
 ## Private packages
 

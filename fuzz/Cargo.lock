@@ -484,12 +484,13 @@ dependencies = [
 
 [[package]]
 name = "hns-conformance"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hns-covenants",
  "hns-dns-relay-protocol",
  "hns-header-consensus",
  "hns-hnsr-protocol",
+ "hns-marketplace-protocol",
  "hns-mining",
  "hns-odoh-protocol",
  "hns-p2p-experimental",
@@ -503,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "hns-covenants"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -514,7 +515,7 @@ dependencies = [
 
 [[package]]
 name = "hns-dns-relay-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hns-encoding",
  "thiserror",
@@ -522,14 +523,14 @@ dependencies = [
 
 [[package]]
 name = "hns-encoding"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "hns-header-consensus"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -540,7 +541,7 @@ dependencies = [
 
 [[package]]
 name = "hns-hnsr-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -550,8 +551,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "hns-marketplace-protocol"
+version = "0.2.0"
+dependencies = [
+ "blake2",
+ "hns-encoding",
+ "hns-p2p-experimental",
+ "hns-primitives",
+ "hns-swap",
+ "k256",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "hns-mining"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-covenants",
@@ -564,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "hns-odoh-protocol"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "blake2",
@@ -579,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-experimental"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hex",
  "hns-encoding",
@@ -592,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-wire"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -606,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "hns-primitives"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hex",
  "thiserror",
@@ -622,7 +637,7 @@ dependencies = [
 
 [[package]]
 name = "hns-script"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -637,7 +652,7 @@ dependencies = [
 
 [[package]]
 name = "hns-swap"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-covenants",
@@ -646,13 +661,14 @@ dependencies = [
  "hns-script",
  "hns-transaction",
  "k256",
+ "sha2 0.10.9",
  "sha3",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-transaction"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-covenants",
@@ -663,7 +679,7 @@ dependencies = [
 
 [[package]]
 name = "hns-urkel-proof"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-primitives",

@@ -6,7 +6,10 @@ pub use crate::negotiation::{
     REGISTRY_NEGOTIATION_MAX_PAYLOAD, REGISTRY_NEGOTIATION_PROTOCOL_ID,
     REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
 };
-use crate::registry::DENUO_V1_REGISTRY_VERSION;
+use crate::registry::{
+    DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_VERSION, DENUO_V2_REGISTRY_FINGERPRINT,
+    DENUO_V2_REGISTRY_VERSION,
+};
 
 pub const DENUO_ENVELOPE_MAGIC: [u8; 4] = *b"DNU1";
 pub const DENUO_ENVELOPE_OVERHEAD: usize = 26;
@@ -16,6 +19,24 @@ pub const DENUO_EXTENSION_MAX_NESTED_PAYLOAD: usize =
 pub const DEFAULT_MAX_DENUO_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const ATOMIC_MARKET_PROTOCOL_ID: u16 = 0x0001;
 pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
+pub const CROSS_CHAIN_MARKET_PROTOCOL_ID: u16 = 0x0002;
+pub const CROSS_CHAIN_MARKET_MAX_PAYLOAD: usize = 512 * 1024;
+
+pub const MARKET_INTENT_INV_MESSAGE_TYPE: u16 = 1;
+pub const GET_MARKET_INTENT_MESSAGE_TYPE: u16 = 2;
+pub const MARKET_INTENT_MESSAGE_TYPE: u16 = 3;
+pub const CANCEL_MARKET_INTENT_MESSAGE_TYPE: u16 = 4;
+pub const PRICE_OBSERVATION_INV_MESSAGE_TYPE: u16 = 5;
+pub const GET_PRICE_OBSERVATION_MESSAGE_TYPE: u16 = 6;
+pub const PRICE_OBSERVATION_MESSAGE_TYPE: u16 = 7;
+pub const PRICE_ROUND_MESSAGE_TYPE: u16 = 8;
+pub const MATCH_REQUEST_MESSAGE_TYPE: u16 = 9;
+pub const FILL_GRANT_MESSAGE_TYPE: u16 = 10;
+pub const MATCH_REJECT_MESSAGE_TYPE: u16 = 11;
+pub const SWAP_SESSION_HELLO_MESSAGE_TYPE: u16 = 12;
+pub const SWAP_FUNDING_STATUS_MESSAGE_TYPE: u16 = 13;
+pub const SWAP_REDEEM_STATUS_MESSAGE_TYPE: u16 = 14;
+pub const SWAP_REFUND_STATUS_MESSAGE_TYPE: u16 = 15;
 
 const REGISTRY_HELLO_MESSAGE_TYPE: u16 = 1;
 const REGISTRY_HELLO_ACK_MESSAGE_TYPE: u16 = 2;
@@ -37,26 +58,88 @@ impl DenuoExtensionEnvelope {
         request_id: u64,
         hello: &RegistryHello,
     ) -> Result<Self, RegistryEnvelopeError> {
-        Self::registry_message(REGISTRY_HELLO_MESSAGE_TYPE, request_id, hello)
+        Self::registry_message(
+            DENUO_V1_REGISTRY_VERSION,
+            REGISTRY_HELLO_MESSAGE_TYPE,
+            request_id,
+            hello,
+        )
     }
 
     pub fn registry_hello_ack(
         request_id: u64,
         hello: &RegistryHello,
     ) -> Result<Self, RegistryEnvelopeError> {
-        Self::registry_message(REGISTRY_HELLO_ACK_MESSAGE_TYPE, request_id, hello)
+        Self::registry_message(
+            DENUO_V1_REGISTRY_VERSION,
+            REGISTRY_HELLO_ACK_MESSAGE_TYPE,
+            request_id,
+            hello,
+        )
+    }
+
+    pub fn registry_hello_v2(
+        request_id: u64,
+        hello: &RegistryHello,
+    ) -> Result<Self, RegistryEnvelopeError> {
+        Self::registry_message(
+            DENUO_V2_REGISTRY_VERSION,
+            REGISTRY_HELLO_MESSAGE_TYPE,
+            request_id,
+            hello,
+        )
+    }
+
+    pub fn registry_hello_ack_v2(
+        request_id: u64,
+        hello: &RegistryHello,
+    ) -> Result<Self, RegistryEnvelopeError> {
+        Self::registry_message(
+            DENUO_V2_REGISTRY_VERSION,
+            REGISTRY_HELLO_ACK_MESSAGE_TYPE,
+            request_id,
+            hello,
+        )
     }
 
     pub fn decode_registry_hello(
         input: &[u8],
     ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
-        Self::decode_registry_message(input, KnownMessage::RegistryHello)
+        Self::decode_registry_message(
+            input,
+            DENUO_V1_REGISTRY_VERSION,
+            KnownMessage::RegistryHello,
+        )
     }
 
     pub fn decode_registry_hello_ack(
         input: &[u8],
     ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
-        Self::decode_registry_message(input, KnownMessage::RegistryHelloAck)
+        Self::decode_registry_message(
+            input,
+            DENUO_V1_REGISTRY_VERSION,
+            KnownMessage::RegistryHelloAck,
+        )
+    }
+
+    pub fn decode_registry_hello_v2(
+        input: &[u8],
+    ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
+        Self::decode_registry_message(
+            input,
+            DENUO_V2_REGISTRY_VERSION,
+            KnownMessage::RegistryHello,
+        )
+    }
+
+    pub fn decode_registry_hello_ack_v2(
+        input: &[u8],
+    ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
+        Self::decode_registry_message(
+            input,
+            DENUO_V2_REGISTRY_VERSION,
+            KnownMessage::RegistryHelloAck,
+        )
     }
 
     pub fn encode_canonical(&self) -> Result<Vec<u8>, EnvelopeError> {
@@ -135,25 +218,114 @@ impl DenuoExtensionEnvelope {
     }
 
     pub fn classify(&self) -> Result<ProtocolDisposition, EnvelopeError> {
-        let known = match (self.protocol_id, self.message_type) {
-            (REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_HELLO_MESSAGE_TYPE) => {
+        if self.registry_version == DENUO_V1_REGISTRY_VERSION
+            && self.protocol_id == CROSS_CHAIN_MARKET_PROTOCOL_ID
+        {
+            return Err(EnvelopeError::ProtocolUnavailable {
+                registry_version: self.registry_version,
+                protocol_id: self.protocol_id,
+            });
+        }
+        let known = match (self.registry_version, self.protocol_id, self.message_type) {
+            (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_HELLO_MESSAGE_TYPE) => {
                 Some(KnownMessage::RegistryHello)
             }
-            (REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_HELLO_ACK_MESSAGE_TYPE) => {
+            (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_HELLO_ACK_MESSAGE_TYPE) => {
                 Some(KnownMessage::RegistryHelloAck)
             }
-            (REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_REJECT_MESSAGE_TYPE) => {
+            (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, REGISTRY_REJECT_MESSAGE_TYPE) => {
                 Some(KnownMessage::RegistryReject)
             }
-            (ATOMIC_MARKET_PROTOCOL_ID, 1) => Some(KnownMessage::MarketHello),
-            (ATOMIC_MARKET_PROTOCOL_ID, 2) => Some(KnownMessage::GetOfferInventory),
-            (ATOMIC_MARKET_PROTOCOL_ID, 3) => Some(KnownMessage::OfferInventory),
-            (ATOMIC_MARKET_PROTOCOL_ID, 4) => Some(KnownMessage::GetOffers),
-            (ATOMIC_MARKET_PROTOCOL_ID, 5) => Some(KnownMessage::Offers),
-            (ATOMIC_MARKET_PROTOCOL_ID, 6) => Some(KnownMessage::GetOffer),
-            (ATOMIC_MARKET_PROTOCOL_ID, 7) => Some(KnownMessage::Offer),
-            (ATOMIC_MARKET_PROTOCOL_ID, 8) => Some(KnownMessage::OfferTombstone),
-            (REGISTRY_NEGOTIATION_PROTOCOL_ID, _) | (ATOMIC_MARKET_PROTOCOL_ID, _) => {
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 1) => Some(KnownMessage::MarketHello),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 2) => Some(KnownMessage::GetOfferInventory),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 3) => Some(KnownMessage::OfferInventory),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 4) => Some(KnownMessage::GetOffers),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 5) => Some(KnownMessage::Offers),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 6) => Some(KnownMessage::GetOffer),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 7) => Some(KnownMessage::Offer),
+            (_, ATOMIC_MARKET_PROTOCOL_ID, 8) => Some(KnownMessage::OfferTombstone),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                MARKET_INTENT_INV_MESSAGE_TYPE,
+            ) => Some(KnownMessage::MarketIntentInventory),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                GET_MARKET_INTENT_MESSAGE_TYPE,
+            ) => Some(KnownMessage::GetMarketIntent),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                MARKET_INTENT_MESSAGE_TYPE,
+            ) => Some(KnownMessage::MarketIntent),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                CANCEL_MARKET_INTENT_MESSAGE_TYPE,
+            ) => Some(KnownMessage::CancelMarketIntent),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                PRICE_OBSERVATION_INV_MESSAGE_TYPE,
+            ) => Some(KnownMessage::PriceObservationInventory),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                GET_PRICE_OBSERVATION_MESSAGE_TYPE,
+            ) => Some(KnownMessage::GetPriceObservation),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                PRICE_OBSERVATION_MESSAGE_TYPE,
+            ) => Some(KnownMessage::PriceObservation),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                PRICE_ROUND_MESSAGE_TYPE,
+            ) => Some(KnownMessage::PriceRound),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                MATCH_REQUEST_MESSAGE_TYPE,
+            ) => Some(KnownMessage::MatchRequest),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                FILL_GRANT_MESSAGE_TYPE,
+            ) => Some(KnownMessage::FillGrant),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                MATCH_REJECT_MESSAGE_TYPE,
+            ) => Some(KnownMessage::MatchReject),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                SWAP_SESSION_HELLO_MESSAGE_TYPE,
+            ) => Some(KnownMessage::SwapSessionHello),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                SWAP_FUNDING_STATUS_MESSAGE_TYPE,
+            ) => Some(KnownMessage::SwapFundingStatus),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                SWAP_REDEEM_STATUS_MESSAGE_TYPE,
+            ) => Some(KnownMessage::SwapRedeemStatus),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                SWAP_REFUND_STATUS_MESSAGE_TYPE,
+            ) => Some(KnownMessage::SwapRefundStatus),
+            (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, _) | (_, ATOMIC_MARKET_PROTOCOL_ID, _) => {
+                return Err(EnvelopeError::UnknownMessage {
+                    protocol_id: self.protocol_id,
+                    message_type: self.message_type,
+                });
+            }
+            (DENUO_V2_REGISTRY_VERSION, CROSS_CHAIN_MARKET_PROTOCOL_ID, _) => {
                 return Err(EnvelopeError::UnknownMessage {
                     protocol_id: self.protocol_id,
                     message_type: self.message_type,
@@ -189,10 +361,12 @@ impl DenuoExtensionEnvelope {
     }
 
     fn registry_message(
+        registry_version: u16,
         message_type: u16,
         request_id: u64,
         hello: &RegistryHello,
     ) -> Result<Self, RegistryEnvelopeError> {
+        validate_registry_identity(registry_version, hello)?;
         let payload = hello.encode()?;
         if payload.len() > REGISTRY_NEGOTIATION_MAX_PAYLOAD {
             return Err(EnvelopeError::PayloadTooLarge {
@@ -202,7 +376,7 @@ impl DenuoExtensionEnvelope {
             .into());
         }
         let envelope = Self {
-            registry_version: DENUO_V1_REGISTRY_VERSION,
+            registry_version,
             protocol_id: REGISTRY_NEGOTIATION_PROTOCOL_ID,
             protocol_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
             message_type,
@@ -216,6 +390,7 @@ impl DenuoExtensionEnvelope {
 
     fn decode_registry_message(
         input: &[u8],
+        expected_registry_version: u16,
         expected: KnownMessage,
     ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
         if input.len() > DENUO_EXTENSION_MAX_PACKET_PAYLOAD {
@@ -226,7 +401,7 @@ impl DenuoExtensionEnvelope {
             .into());
         }
         let envelope = Self::decode(input, REGISTRY_NEGOTIATION_MAX_PAYLOAD)?;
-        if envelope.registry_version != DENUO_V1_REGISTRY_VERSION {
+        if envelope.registry_version != expected_registry_version {
             return Err(RegistryEnvelopeError::WrongRegistryVersion(
                 envelope.registry_version,
             ));
@@ -252,8 +427,42 @@ impl DenuoExtensionEnvelope {
             return Err(RegistryEnvelopeError::UnexpectedMessage { expected, actual });
         }
         let hello = RegistryHello::decode(&envelope.payload)?;
+        validate_registry_identity(expected_registry_version, &hello)?;
         Ok((envelope.request_id, hello))
     }
+}
+
+fn validate_registry_identity(
+    registry_version: u16,
+    hello: &RegistryHello,
+) -> Result<(), RegistryEnvelopeError> {
+    let expected_fingerprint = match registry_version {
+        DENUO_V1_REGISTRY_VERSION => DENUO_V1_REGISTRY_FINGERPRINT,
+        DENUO_V2_REGISTRY_VERSION => DENUO_V2_REGISTRY_FINGERPRINT,
+        _ => {
+            return Err(RegistryEnvelopeError::WrongRegistryVersion(
+                registry_version,
+            ));
+        }
+    };
+    if hello.fingerprint != expected_fingerprint
+        || hello.registry_versions.as_slice() != [registry_version]
+    {
+        return Err(RegistryEnvelopeError::RegistryIdentityMismatch { registry_version });
+    }
+    if registry_version == DENUO_V1_REGISTRY_VERSION
+        && hello
+            .protocols
+            .iter()
+            .any(|protocol| protocol.protocol_id == CROSS_CHAIN_MARKET_PROTOCOL_ID)
+    {
+        return Err(EnvelopeError::ProtocolUnavailable {
+            registry_version,
+            protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+        }
+        .into());
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -269,13 +478,37 @@ pub enum KnownMessage {
     GetOffer,
     Offer,
     OfferTombstone,
+    MarketIntentInventory,
+    GetMarketIntent,
+    MarketIntent,
+    CancelMarketIntent,
+    PriceObservationInventory,
+    GetPriceObservation,
+    PriceObservation,
+    PriceRound,
+    MatchRequest,
+    FillGrant,
+    MatchReject,
+    SwapSessionHello,
+    SwapFundingStatus,
+    SwapRedeemStatus,
+    SwapRefundStatus,
 }
 
 impl KnownMessage {
     pub const fn requires_request_id(self) -> bool {
         !matches!(
             self,
-            Self::RegistryReject | Self::MarketHello | Self::OfferTombstone
+            Self::RegistryReject
+                | Self::MarketHello
+                | Self::OfferTombstone
+                | Self::MarketIntentInventory
+                | Self::CancelMarketIntent
+                | Self::PriceObservationInventory
+                | Self::PriceRound
+                | Self::SwapFundingStatus
+                | Self::SwapRedeemStatus
+                | Self::SwapRefundStatus
         )
     }
 }
@@ -303,6 +536,11 @@ pub enum EnvelopeError {
     LengthMismatch { declared: usize, available: usize },
     #[error("unknown message type {message_type:#06x} for known protocol {protocol_id:#06x}")]
     UnknownMessage { protocol_id: u16, message_type: u16 },
+    #[error("protocol {protocol_id:#06x} is unavailable in registry version {registry_version}")]
+    ProtocolUnavailable {
+        registry_version: u16,
+        protocol_id: u16,
+    },
     #[error(
         "request ID is zero for correlated protocol {protocol_id:#06x} message {message_type:#06x}"
     )]
@@ -315,8 +553,10 @@ pub enum RegistryEnvelopeError {
     Envelope(#[from] EnvelopeError),
     #[error(transparent)]
     Negotiation(#[from] NegotiationError),
-    #[error("registry envelope uses registry version {0}; expected version 1")]
+    #[error("registry envelope uses unexpected registry version {0}")]
     WrongRegistryVersion(u16),
+    #[error("registry hello identity does not match registry version {registry_version}")]
+    RegistryIdentityMismatch { registry_version: u16 },
     #[error(
         "registry envelope uses protocol {protocol_id:#06x} version {protocol_version}; expected 0x0000 version 1"
     )]
@@ -420,6 +660,11 @@ mod tests {
             .expect("canonical registry hello")
     }
 
+    fn registry_hello_v2() -> RegistryHello {
+        RegistryHello::denuo_v2(Network::Regtest, [8; 32], Vec::new(), 4096, 4, 3)
+            .expect("canonical V2 registry hello")
+    }
+
     #[test]
     fn typed_registry_hello_and_ack_round_trip_without_private_numbers() {
         let hello = registry_hello();
@@ -443,6 +688,184 @@ mod tests {
             Err(RegistryEnvelopeError::UnexpectedMessage {
                 expected: KnownMessage::RegistryHello,
                 actual: KnownMessage::RegistryHelloAck,
+            })
+        ));
+    }
+
+    #[test]
+    fn typed_v2_registry_hello_and_ack_round_trip() {
+        let hello = registry_hello_v2();
+        let hello_envelope =
+            DenuoExtensionEnvelope::registry_hello_v2(9, &hello).expect("typed V2 hello");
+        assert_eq!(hello_envelope.registry_version, DENUO_V2_REGISTRY_VERSION);
+        let hello_wire = hello_envelope.encode_canonical().expect("bounded envelope");
+        assert_eq!(
+            DenuoExtensionEnvelope::decode_registry_hello_v2(&hello_wire),
+            Ok((9, hello.clone()))
+        );
+        assert!(matches!(
+            DenuoExtensionEnvelope::decode_registry_hello(&hello_wire),
+            Err(RegistryEnvelopeError::WrongRegistryVersion(
+                DENUO_V2_REGISTRY_VERSION
+            ))
+        ));
+
+        let ack_envelope =
+            DenuoExtensionEnvelope::registry_hello_ack_v2(9, &hello).expect("typed V2 ack");
+        let ack_wire = ack_envelope.encode_canonical().expect("bounded envelope");
+        assert_eq!(
+            DenuoExtensionEnvelope::decode_registry_hello_ack_v2(&ack_wire),
+            Ok((9, hello))
+        );
+
+        assert!(matches!(
+            DenuoExtensionEnvelope::registry_hello_v2(9, &registry_hello()),
+            Err(RegistryEnvelopeError::RegistryIdentityMismatch {
+                registry_version: DENUO_V2_REGISTRY_VERSION
+            })
+        ));
+
+        let v1_with_v2_protocol = RegistryHello::denuo_v1(
+            Network::Regtest,
+            [8; 32],
+            vec![crate::ProtocolRange {
+                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                minimum_version: 1,
+                maximum_version: 1,
+            }],
+            4096,
+            4,
+            3,
+        )
+        .expect("generic hello remains structurally valid");
+        assert!(matches!(
+            DenuoExtensionEnvelope::registry_hello(9, &v1_with_v2_protocol),
+            Err(RegistryEnvelopeError::Envelope(
+                EnvelopeError::ProtocolUnavailable {
+                    registry_version: DENUO_V1_REGISTRY_VERSION,
+                    protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn cross_chain_messages_are_known_only_in_registry_v2() {
+        let messages = [
+            (
+                MARKET_INTENT_INV_MESSAGE_TYPE,
+                KnownMessage::MarketIntentInventory,
+            ),
+            (
+                GET_MARKET_INTENT_MESSAGE_TYPE,
+                KnownMessage::GetMarketIntent,
+            ),
+            (MARKET_INTENT_MESSAGE_TYPE, KnownMessage::MarketIntent),
+            (
+                CANCEL_MARKET_INTENT_MESSAGE_TYPE,
+                KnownMessage::CancelMarketIntent,
+            ),
+            (
+                PRICE_OBSERVATION_INV_MESSAGE_TYPE,
+                KnownMessage::PriceObservationInventory,
+            ),
+            (
+                GET_PRICE_OBSERVATION_MESSAGE_TYPE,
+                KnownMessage::GetPriceObservation,
+            ),
+            (
+                PRICE_OBSERVATION_MESSAGE_TYPE,
+                KnownMessage::PriceObservation,
+            ),
+            (PRICE_ROUND_MESSAGE_TYPE, KnownMessage::PriceRound),
+            (MATCH_REQUEST_MESSAGE_TYPE, KnownMessage::MatchRequest),
+            (FILL_GRANT_MESSAGE_TYPE, KnownMessage::FillGrant),
+            (MATCH_REJECT_MESSAGE_TYPE, KnownMessage::MatchReject),
+            (
+                SWAP_SESSION_HELLO_MESSAGE_TYPE,
+                KnownMessage::SwapSessionHello,
+            ),
+            (
+                SWAP_FUNDING_STATUS_MESSAGE_TYPE,
+                KnownMessage::SwapFundingStatus,
+            ),
+            (
+                SWAP_REDEEM_STATUS_MESSAGE_TYPE,
+                KnownMessage::SwapRedeemStatus,
+            ),
+            (
+                SWAP_REFUND_STATUS_MESSAGE_TYPE,
+                KnownMessage::SwapRefundStatus,
+            ),
+        ];
+        for (message_type, expected) in messages {
+            let envelope = DenuoExtensionEnvelope {
+                registry_version: DENUO_V2_REGISTRY_VERSION,
+                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                protocol_version: 1,
+                message_type,
+                flags: 0,
+                request_id: 1,
+                payload: Vec::new(),
+            };
+            assert_eq!(
+                envelope.classify(),
+                Ok(ProtocolDisposition::Known(expected))
+            );
+        }
+
+        let v1_reserved = DenuoExtensionEnvelope {
+            registry_version: DENUO_V1_REGISTRY_VERSION,
+            protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+            protocol_version: 1,
+            message_type: MARKET_INTENT_INV_MESSAGE_TYPE,
+            flags: 0,
+            request_id: 0,
+            payload: Vec::new(),
+        };
+        assert_eq!(
+            v1_reserved.classify(),
+            Err(EnvelopeError::ProtocolUnavailable {
+                registry_version: DENUO_V1_REGISTRY_VERSION,
+                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+            })
+        );
+        assert!(matches!(
+            v1_reserved.encode_canonical(),
+            Err(EnvelopeError::ProtocolUnavailable { .. })
+        ));
+
+        let v2_inventory = DenuoExtensionEnvelope {
+            registry_version: DENUO_V2_REGISTRY_VERSION,
+            ..v1_reserved.clone()
+        };
+        let mut mislabeled_v1_wire = v2_inventory
+            .encode_canonical()
+            .expect("V2 inventory envelope");
+        mislabeled_v1_wire[4..6].copy_from_slice(&DENUO_V1_REGISTRY_VERSION.to_le_bytes());
+        assert!(matches!(
+            DenuoExtensionEnvelope::decode_canonical(&mislabeled_v1_wire),
+            Err(EnvelopeError::ProtocolUnavailable {
+                registry_version: DENUO_V1_REGISTRY_VERSION,
+                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+            })
+        ));
+
+        let mut atomic_v2 = envelope();
+        atomic_v2.registry_version = DENUO_V2_REGISTRY_VERSION;
+        assert_eq!(
+            atomic_v2.classify(),
+            Ok(ProtocolDisposition::Known(KnownMessage::GetOffer))
+        );
+
+        let mut unknown_v2 = v1_reserved;
+        unknown_v2.registry_version = DENUO_V2_REGISTRY_VERSION;
+        unknown_v2.message_type = 16;
+        assert!(matches!(
+            unknown_v2.classify(),
+            Err(EnvelopeError::UnknownMessage {
+                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                message_type: 16,
             })
         ));
     }

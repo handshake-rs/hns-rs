@@ -110,6 +110,7 @@ impl TryFrom<u8> for Network {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ExperimentalWireProfile {
     DenuoV1,
+    DenuoV2,
     LegacyDraftRegtest,
     Official(u16),
     Auto,
@@ -126,13 +127,14 @@ impl ExperimentalWireProfile {
                 Err(AssignmentError::LegacyProfileProhibited(network))
             }
             Self::Official(version) => Err(AssignmentError::UnknownOfficialProfile(version)),
-            Self::DenuoV1 | Self::LegacyDraftRegtest | Self::Auto => Ok(()),
+            Self::DenuoV1 | Self::DenuoV2 | Self::LegacyDraftRegtest | Self::Auto => Ok(()),
         }
     }
 
     pub const fn status_name(self) -> &'static str {
         match self {
             Self::DenuoV1 => "Denuo Experimental V1",
+            Self::DenuoV2 => "Denuo Experimental V2",
             Self::LegacyDraftRegtest => "Legacy Draft Compatibility",
             Self::Official(_) => "Official Assignment Profile",
             Self::Auto => "Automatic Semantic Assignment Selection",
@@ -168,6 +170,9 @@ impl WireAssignments {
         denuo_extension_packet: DENUO_EXTENSION_PACKET,
     };
 
+    /// Denuo V2 retains every V1 packet and service assignment.
+    pub const DENUO_V2: Self = Self::DENUO_V1;
+
     pub fn for_profile(
         profile: ExperimentalWireProfile,
         network: Network,
@@ -178,6 +183,7 @@ impl WireAssignments {
             ExperimentalWireProfile::DenuoV1
             | ExperimentalWireProfile::LegacyDraftRegtest
             | ExperimentalWireProfile::Auto => Ok(Self::DENUO_V1),
+            ExperimentalWireProfile::DenuoV2 => Ok(Self::DENUO_V2),
             ExperimentalWireProfile::Official(version) => {
                 Err(AssignmentError::UnknownOfficialProfile(version))
             }
@@ -212,6 +218,15 @@ mod tests {
         assert_eq!(ODOH_PACKET.value(), 0xf2);
         assert_eq!(HNSR_PACKET.value(), 0xf3);
         assert_eq!(DENUO_EXTENSION_PACKET.value(), 0xf4);
+        assert_eq!(WireAssignments::DENUO_V2, WireAssignments::DENUO_V1);
+        assert_eq!(
+            WireAssignments::for_profile(ExperimentalWireProfile::DenuoV2, Network::Mainnet, false),
+            Ok(WireAssignments::DENUO_V2)
+        );
+        assert_eq!(
+            ExperimentalWireProfile::DenuoV2.status_name(),
+            "Denuo Experimental V2"
+        );
     }
 
     #[test]

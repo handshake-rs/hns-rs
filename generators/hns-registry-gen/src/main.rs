@@ -5,9 +5,7 @@ use std::path::{Path, PathBuf};
 
 use hns_p2p_experimental::RegistryDocument;
 
-const REGISTRY_TOML: &str = "registry/denuo-experimental-v1.toml";
-const REGISTRY_BINARY: &str = "registry/denuo-experimental-v1.bin";
-const REGISTRY_DIGEST: &str = "registry/denuo-experimental-v1.sha256";
+const REGISTRY_STEMS: [&str; 2] = ["denuo-experimental-v1", "denuo-experimental-v2"];
 
 fn main() -> Result<(), Box<dyn Error>> {
     let check = match env::args().nth(1).as_deref() {
@@ -18,24 +16,31 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     let root = workspace_root()?;
-    let input_path = root.join(REGISTRY_TOML);
-    let binary_path = root.join(REGISTRY_BINARY);
-    let digest_path = root.join(REGISTRY_DIGEST);
+    for stem in REGISTRY_STEMS {
+        process_registry(&root, stem, check)?;
+    }
+    Ok(())
+}
+
+fn process_registry(root: &Path, stem: &str, check: bool) -> Result<(), Box<dyn Error>> {
+    let input_path = root.join("registry").join(format!("{stem}.toml"));
+    let binary_path = root.join("registry").join(format!("{stem}.bin"));
+    let digest_path = root.join("registry").join(format!("{stem}.sha256"));
 
     let input = fs::read_to_string(&input_path)?;
     let registry = RegistryDocument::from_toml(&input)?;
     let binary = registry.canonical_bytes()?;
-    let digest = format!("{}  denuo-experimental-v1.bin\n", registry.id()?);
+    let digest = format!("{}  {stem}.bin\n", registry.id()?);
 
     if check {
         compare(&binary_path, &binary)?;
         compare(&digest_path, digest.as_bytes())?;
         RegistryDocument::from_canonical_bytes(&fs::read(&binary_path)?)?;
-        println!("registry artifacts verified: {}", registry.id()?);
+        println!("registry artifacts verified: {stem} {}", registry.id()?);
     } else {
         fs::write(&binary_path, &binary)?;
         fs::write(&digest_path, digest)?;
-        println!("registry artifacts generated: {}", registry.id()?);
+        println!("registry artifacts generated: {stem} {}", registry.id()?);
     }
     Ok(())
 }

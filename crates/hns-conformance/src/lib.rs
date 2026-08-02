@@ -5,6 +5,7 @@ use hns_covenants::Covenant;
 use hns_dns_relay_protocol::{DnsRelay, GetDnsRelay};
 use hns_header_consensus::Header;
 use hns_hnsr_protocol::HnsrPacket;
+use hns_marketplace_protocol::{CrossChainMessage, NameMarketMessage};
 use hns_mining::Block;
 use hns_odoh_protocol::OdnsPacket;
 use hns_p2p_experimental::DenuoExtensionEnvelope;
@@ -42,6 +43,8 @@ impl AcceptanceMask {
     pub const HIP78_ENVELOPE: u16 = 1 << 10;
     pub const URKEL_PROOF: u16 = 1 << 11;
     pub const SWAP_PROOF: u16 = 1 << 12;
+    pub const DENUO_NAME_MARKET: u16 = 1 << 13;
+    pub const DENUO_CROSS_CHAIN_MARKET: u16 = 1 << 14;
 
     /// Whether the named parser bit accepted the input.
     pub const fn contains(self, parser: u16) -> bool {
@@ -110,6 +113,14 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
         HsdUrkelProof::decode_strict(input).is_ok(),
     );
     accepted.record(AcceptanceMask::SWAP_PROOF, SwapProof::decode(input).is_ok());
+    accepted.record(
+        AcceptanceMask::DENUO_NAME_MARKET,
+        NameMarketMessage::decode_envelope(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::DENUO_CROSS_CHAIN_MARKET,
+        CrossChainMessage::decode_envelope(input).is_ok(),
+    );
     Ok(accepted)
 }
 
@@ -209,6 +220,11 @@ mod tests {
     const TRANSACTION: &str = "0100000001080808080808080808080808080808080808080808080808080808080808080802000000feffffff012a0000000000000000140909090909090909090909090909090909090909020103616263630000000203010203020405";
     const REGTEST_PING: &str = "cf9538ae02080000004343434343434343";
     const DENUO: &str = "444e553101000100010006000102070000000000000002000000aabb";
+    const DENUO_NAME_MARKET: &str = "444e553101000100010002000000070000000000000000000000";
+    const DENUO_CROSS_CHAIN_MARKET: &str = concat!(
+        "444e55310200020001000100000007000000000000002100000001",
+        "0101010101010101010101010101010101010101010101010101010101010101"
+    );
     const HIP76: &str = "08070605040302012a00123401100001000000000001037777770972656c617974657374000001000100002904d0000080000000";
     const HIP77: &str = "0101000008070605040302010203";
     const HIP78: &str = "011100000102030405060708deadbeef";
@@ -219,6 +235,11 @@ mod tests {
             (TRANSACTION, AcceptanceMask::TRANSACTION),
             (REGTEST_PING, AcceptanceMask::STANDARD_FRAME),
             (DENUO, AcceptanceMask::DENUO_ENVELOPE),
+            (DENUO_NAME_MARKET, AcceptanceMask::DENUO_NAME_MARKET),
+            (
+                DENUO_CROSS_CHAIN_MARKET,
+                AcceptanceMask::DENUO_CROSS_CHAIN_MARKET,
+            ),
             (HIP76, AcceptanceMask::HIP76_REQUEST),
             (HIP77, AcceptanceMask::HIP77_ENVELOPE),
             (HIP78, AcceptanceMask::HIP78_ENVELOPE),
@@ -233,7 +254,16 @@ mod tests {
 
     #[test]
     fn deterministic_mutation_smoke_exercises_every_parser_without_panics() {
-        let seeds = [TRANSACTION, REGTEST_PING, DENUO, HIP76, HIP77, HIP78];
+        let seeds = [
+            TRANSACTION,
+            REGTEST_PING,
+            DENUO,
+            DENUO_NAME_MARKET,
+            DENUO_CROSS_CHAIN_MARKET,
+            HIP76,
+            HIP77,
+            HIP78,
+        ];
         let mut mutations = 0_usize;
         for seed in seeds {
             let seed = hex::decode(seed).expect("static hex");

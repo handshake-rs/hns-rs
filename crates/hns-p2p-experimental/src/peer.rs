@@ -191,7 +191,9 @@ impl ExperimentalPeerState {
     pub fn validate_advertisements(&self) -> Result<(), PeerProtocolError> {
         if !matches!(
             self.profile,
-            ExperimentalWireProfile::DenuoV1 | ExperimentalWireProfile::Auto
+            ExperimentalWireProfile::DenuoV1
+                | ExperimentalWireProfile::DenuoV2
+                | ExperimentalWireProfile::Auto
         ) {
             return Ok(());
         }
@@ -268,7 +270,9 @@ impl ExperimentalPeerState {
     const fn requires_registry(&self) -> bool {
         matches!(
             self.profile,
-            ExperimentalWireProfile::DenuoV1 | ExperimentalWireProfile::Auto
+            ExperimentalWireProfile::DenuoV1
+                | ExperimentalWireProfile::DenuoV2
+                | ExperimentalWireProfile::Auto
         )
     }
 }

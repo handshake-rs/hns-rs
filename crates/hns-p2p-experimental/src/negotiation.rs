@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::assignment::Network;
 use crate::registry::{
     DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_PROTOCOL_VERSION, DENUO_V1_REGISTRY_VERSION,
+    DENUO_V2_REGISTRY_FINGERPRINT, DENUO_V2_REGISTRY_VERSION,
 };
 
 const HELLO_MAGIC: [u8; 4] = *b"DNRN";
@@ -50,6 +51,49 @@ impl RegistryHello {
     pub fn denuo_v1(
         network: Network,
         genesis_hash: [u8; 32],
+        protocols: Vec<ProtocolRange>,
+        maximum_receive_size: u32,
+        maximum_live_requests: u16,
+        feature_flags: u64,
+    ) -> Result<Self, NegotiationError> {
+        Self::denuo(
+            DENUO_V1_REGISTRY_FINGERPRINT,
+            DENUO_V1_REGISTRY_VERSION,
+            network,
+            genesis_hash,
+            protocols,
+            maximum_receive_size,
+            maximum_live_requests,
+            feature_flags,
+        )
+    }
+
+    pub fn denuo_v2(
+        network: Network,
+        genesis_hash: [u8; 32],
+        protocols: Vec<ProtocolRange>,
+        maximum_receive_size: u32,
+        maximum_live_requests: u16,
+        feature_flags: u64,
+    ) -> Result<Self, NegotiationError> {
+        Self::denuo(
+            DENUO_V2_REGISTRY_FINGERPRINT,
+            DENUO_V2_REGISTRY_VERSION,
+            network,
+            genesis_hash,
+            protocols,
+            maximum_receive_size,
+            maximum_live_requests,
+            feature_flags,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn denuo(
+        fingerprint: RegistryFingerprint,
+        registry_version: u16,
+        network: Network,
+        genesis_hash: [u8; 32],
         mut protocols: Vec<ProtocolRange>,
         maximum_receive_size: u32,
         maximum_live_requests: u16,
@@ -67,8 +111,8 @@ impl RegistryHello {
             maximum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
         });
         let hello = Self {
-            fingerprint: DENUO_V1_REGISTRY_FINGERPRINT,
-            registry_versions: vec![DENUO_V1_REGISTRY_VERSION],
+            fingerprint,
+            registry_versions: vec![registry_version],
             protocols,
             maximum_receive_size,
             maximum_live_requests,
@@ -92,6 +136,9 @@ impl RegistryHello {
         }
         if self.maximum_receive_size == 0 || self.maximum_live_requests == 0 {
             return Err(NegotiationError::ZeroResourceLimit);
+        }
+        if self.genesis_hash == [0; 32] {
+            return Err(NegotiationError::ZeroGenesis);
         }
         let registry_versions: BTreeSet<_> = self.registry_versions.iter().copied().collect();
         if registry_versions.len() != self.registry_versions.len() || registry_versions.contains(&0)
@@ -333,6 +380,8 @@ pub enum NegotiationError {
     InvalidProtocolRange(ProtocolRange),
     #[error("maximum receive size and live request count must be nonzero")]
     ZeroResourceLimit,
+    #[error("registry negotiation genesis hash must be nonzero")]
+    ZeroGenesis,
     #[error("unknown network identifier {0}")]
     UnknownNetwork(u8),
     #[error("registry fingerprints differ")]
@@ -422,6 +471,34 @@ mod tests {
             ),
             Err(NegotiationError::ManagedRegistryProtocol)
         );
+
+        let cross_chain = ProtocolRange {
+            protocol_id: 2,
+            minimum_version: 1,
+            maximum_version: 1,
+        };
+        let v2 = RegistryHello::denuo_v2(
+            Network::Regtest,
+            [8; 32],
+            vec![market, cross_chain],
+            4096,
+            4,
+            3,
+        )
+        .expect("canonical V2 hello");
+        assert_eq!(v2.fingerprint, DENUO_V2_REGISTRY_FINGERPRINT);
+        assert_eq!(v2.registry_versions, vec![DENUO_V2_REGISTRY_VERSION]);
+        let negotiated = NegotiatedRegistry::negotiate(&v2, &v2).expect("V2 is compatible");
+        assert_eq!(negotiated.registry_version, DENUO_V2_REGISTRY_VERSION);
+        assert!(negotiated.supports(1, 1));
+        assert!(negotiated.supports(2, 1));
+
+        let v1 = RegistryHello::denuo_v1(Network::Regtest, [8; 32], vec![market], 4096, 4, 3)
+            .expect("canonical V1 hello");
+        assert!(matches!(
+            NegotiatedRegistry::negotiate(&v1, &v2),
+            Err(NegotiationError::WrongFingerprint { .. })
+        ));
     }
 
     #[test]

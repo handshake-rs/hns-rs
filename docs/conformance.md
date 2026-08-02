@@ -19,6 +19,9 @@ Current canonical protocol coverage:
 | HIP #77 | `hns-odoh-protocol` | exact draft/RFC cryptographic vectors |
 | HIP #78 | `hns-hnsr-protocol` | exact draft records, signatures, store, and envelope vectors |
 | HIP-0001/Shakedex v2 | `hns-swap` | exact script/sighash plus price and locktime regressions |
+| signed name listings and HNS HTLC | `hns-swap` | fixed listing/cancellation and redeem/refund/preimage vectors and negative tests |
+| market intents, price rounds, fill grants, and swap sessions | `hns-marketplace-protocol` | canonical signed round trips, exact arithmetic, quorum/outlier/circuit-breaker and replay negatives |
+| typed Denuo name/cross-chain markets | `hns-marketplace-protocol`, `hns-conformance`, `fuzz/` | exact envelope seeds plus bounded full-consumption production parsers |
 
 This is a living qualification index, not a claim that the wider ecosystem is
 already complete. Cross-project differential generators, downstream parser

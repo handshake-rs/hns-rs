@@ -24,6 +24,19 @@ pub const DENUO_V1_REGISTRY_ID: ExperimentalRegistryId =
 pub const DENUO_V1_REGISTRY_FINGERPRINT: RegistryFingerprint =
     RegistryFingerprint::new(DENUO_V1_REGISTRY_FINGERPRINT_BYTES);
 
+pub const DENUO_V2_REGISTRY_NAME: &str = "Denuo Experimental Handshake P2P Registry";
+pub const DENUO_V2_REGISTRY_VERSION: u16 = 2;
+pub const DENUO_V2_REGISTRY_PROTOCOL_VERSION: u16 = 1;
+pub const DENUO_V2_WIRE_PROFILE: &str = "denuo-v2";
+const DENUO_V2_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
+    0x73, 0x42, 0x26, 0xe8, 0x66, 0x43, 0x58, 0x21, 0xe4, 0x0b, 0xe7, 0xbd, 0xe8, 0x5f, 0xb1, 0x9d,
+    0xd6, 0xeb, 0x86, 0x7c, 0x56, 0x20, 0xab, 0xb8, 0x34, 0x7a, 0xc8, 0xcd, 0x23, 0xda, 0x4f, 0x2c,
+];
+pub const DENUO_V2_REGISTRY_ID: ExperimentalRegistryId =
+    ExperimentalRegistryId::new(DENUO_V2_REGISTRY_FINGERPRINT_BYTES);
+pub const DENUO_V2_REGISTRY_FINGERPRINT: RegistryFingerprint =
+    RegistryFingerprint::new(DENUO_V2_REGISTRY_FINGERPRINT_BYTES);
+
 const REGISTRY_MAGIC: [u8; 4] = *b"DNR1";
 const CANONICAL_FORMAT_VERSION: u16 = 1;
 const MAX_REGISTRY_TEXT: usize = 256 * 1024;
@@ -207,6 +220,24 @@ impl RegistryDocument {
         self.require_assignment("denuo-ext", AssignmentKind::PacketType, 0xf4)?;
         self.require_assignment("registry-negotiation", AssignmentKind::ProtocolId, 0)?;
         self.require_assignment("atomic-name-marketplace", AssignmentKind::ProtocolId, 1)?;
+        match self.registry.version {
+            DENUO_V1_REGISTRY_VERSION => self.require_assignment_range(
+                "reserved-protocols-0x0002-0xffff",
+                AssignmentKind::ProtocolId,
+                2,
+                u16::MAX as u64,
+            )?,
+            DENUO_V2_REGISTRY_VERSION => {
+                self.require_assignment("cross-chain-marketplace", AssignmentKind::ProtocolId, 2)?;
+                self.require_assignment_range(
+                    "reserved-protocols-0x0003-0xffff",
+                    AssignmentKind::ProtocolId,
+                    3,
+                    u16::MAX as u64,
+                )?;
+            }
+            _ => unreachable!("registry metadata validation rejects unsupported versions"),
+        }
         Ok(())
     }
 
@@ -305,6 +336,31 @@ impl RegistryDocument {
             })
         }
     }
+
+    fn require_assignment_range(
+        &self,
+        semantic_name: &'static str,
+        kind: AssignmentKind,
+        value: u64,
+        range_end: u64,
+    ) -> Result<(), RegistryError> {
+        if self.assignments.iter().any(|assignment| {
+            assignment.semantic_name == semantic_name
+                && assignment.kind == kind
+                && assignment.value == value
+                && assignment.range_end == Some(range_end)
+                && assignment.status == AssignmentStatus::Reserved
+        }) {
+            Ok(())
+        } else {
+            Err(RegistryError::MissingRequiredAssignmentRange {
+                semantic_name,
+                kind,
+                value,
+                range_end,
+            })
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -323,18 +379,24 @@ impl RegistryMetadata {
         validate_field("registry.name", &self.name)?;
         validate_field("registry.owner", &self.owner)?;
         validate_field("registry.wire_profile", &self.wire_profile)?;
-        if self.version != DENUO_V1_REGISTRY_VERSION
-            || self.protocol_version != DENUO_V1_REGISTRY_PROTOCOL_VERSION
-        {
-            return Err(RegistryError::UnsupportedRegistryVersion {
-                registry: self.version,
-                protocol: self.protocol_version,
-            });
-        }
+        let expected_wire_profile = match (self.version, self.protocol_version) {
+            (DENUO_V1_REGISTRY_VERSION, DENUO_V1_REGISTRY_PROTOCOL_VERSION) => {
+                DENUO_V1_WIRE_PROFILE
+            }
+            (DENUO_V2_REGISTRY_VERSION, DENUO_V2_REGISTRY_PROTOCOL_VERSION) => {
+                DENUO_V2_WIRE_PROFILE
+            }
+            _ => {
+                return Err(RegistryError::UnsupportedRegistryVersion {
+                    registry: self.version,
+                    protocol: self.protocol_version,
+                });
+            }
+        };
         if self.status != AssignmentStatus::StableExperimental {
             return Err(RegistryError::InvalidRegistryStatus(self.status));
         }
-        if self.wire_profile != DENUO_V1_WIRE_PROFILE {
+        if self.wire_profile != expected_wire_profile {
             return Err(RegistryError::InvalidWireProfile(self.wire_profile.clone()));
         }
         Ok(())
@@ -528,7 +590,7 @@ pub enum RegistryError {
     UnsupportedRegistryVersion { registry: u16, protocol: u16 },
     #[error("registry status must be stable-experimental, got {0:?}")]
     InvalidRegistryStatus(AssignmentStatus),
-    #[error("wire profile must be denuo-v1, got {0}")]
+    #[error("wire profile does not match the registry version: {0}")]
     InvalidWireProfile(String),
     #[error("assignment count {0} is outside 1..=256")]
     AssignmentCount(usize),
@@ -571,6 +633,15 @@ pub enum RegistryError {
         semantic_name: &'static str,
         kind: AssignmentKind,
         value: u64,
+    },
+    #[error(
+        "missing required {kind:?} assignment range {semantic_name}={value:#x}..={range_end:#x}"
+    )]
+    MissingRequiredAssignmentRange {
+        semantic_name: &'static str,
+        kind: AssignmentKind,
+        value: u64,
+        range_end: u64,
     },
     #[error("binary registry is valid but not in canonical order or form")]
     NonCanonicalBinary,
@@ -636,6 +707,9 @@ mod tests {
     const REGISTRY_TOML: &str = include_str!("../../../registry/denuo-experimental-v1.toml");
     const REGISTRY_BINARY: &[u8] = include_bytes!("../../../registry/denuo-experimental-v1.bin");
     const REGISTRY_SHA256: &str = include_str!("../../../registry/denuo-experimental-v1.sha256");
+    const REGISTRY_V2_TOML: &str = include_str!("../../../registry/denuo-experimental-v2.toml");
+    const REGISTRY_V2_BINARY: &[u8] = include_bytes!("../../../registry/denuo-experimental-v2.bin");
+    const REGISTRY_V2_SHA256: &str = include_str!("../../../registry/denuo-experimental-v2.sha256");
 
     #[test]
     fn canonical_registry_artifacts_and_exports_have_one_stable_identity() {
@@ -717,6 +791,100 @@ mod tests {
     }
 
     #[test]
+    fn canonical_v2_artifacts_extend_v1_without_reassigning_it() {
+        let v1 = RegistryDocument::from_toml(REGISTRY_TOML).expect("valid V1 registry");
+        let v2 = RegistryDocument::from_toml(REGISTRY_V2_TOML).expect("valid V2 registry");
+        assert_eq!(v2.canonical_bytes().expect("encodes"), REGISTRY_V2_BINARY);
+        assert_eq!(
+            RegistryDocument::from_canonical_bytes(REGISTRY_V2_BINARY).expect("decodes"),
+            v2
+        );
+        assert_eq!(
+            v2.id().expect("hashes").to_string(),
+            "734226e866435821e40be7bde85fb19dd6eb867c5620abb8347ac8cd23da4f2c"
+        );
+        assert_eq!(v2.id().expect("hashes"), DENUO_V2_REGISTRY_ID);
+        assert_eq!(
+            RegistryFingerprint::from(v2.id().expect("hashes")),
+            DENUO_V2_REGISTRY_FINGERPRINT
+        );
+        assert_eq!(v2.registry.name, DENUO_V2_REGISTRY_NAME);
+        assert_eq!(v2.registry.version, DENUO_V2_REGISTRY_VERSION);
+        assert_eq!(
+            v2.registry.protocol_version,
+            DENUO_V2_REGISTRY_PROTOCOL_VERSION
+        );
+        assert_eq!(v2.registry.wire_profile, DENUO_V2_WIRE_PROFILE);
+        assert_eq!(
+            REGISTRY_V2_SHA256,
+            format!("{DENUO_V2_REGISTRY_ID}  denuo-experimental-v2.bin\n")
+        );
+
+        for old in v1
+            .assignments
+            .iter()
+            .filter(|assignment| assignment.semantic_name != "reserved-protocols-0x0002-0xffff")
+        {
+            let retained = v2
+                .assignments
+                .iter()
+                .find(|assignment| assignment.semantic_name == old.semantic_name)
+                .expect("V1 assignment retained in V2");
+            assert_eq!(retained.kind, old.kind);
+            assert_eq!(retained.value, old.value);
+            assert_eq!(retained.range_end, old.range_end);
+            assert_eq!(retained.protocol_version, old.protocol_version);
+            assert_eq!(retained.status, old.status);
+            assert_eq!(retained.owner, old.owner);
+            assert_eq!(retained.source_proposal_url, old.source_proposal_url);
+            assert_eq!(
+                retained.source_implementation_url,
+                old.source_implementation_url
+            );
+            assert_eq!(retained.network_applicability, old.network_applicability);
+            assert_eq!(retained.maximum_payload, old.maximum_payload);
+            assert_eq!(
+                retained.security_classification,
+                old.security_classification
+            );
+            assert_eq!(
+                retained.first_supported_release,
+                old.first_supported_release
+            );
+            assert_eq!(retained.deprecation_state, old.deprecation_state);
+            assert_eq!(retained.replacement_assignment, old.replacement_assignment);
+            assert_eq!(retained.registry_version, DENUO_V2_REGISTRY_VERSION);
+        }
+
+        let cross_chain = v2
+            .assignments
+            .iter()
+            .find(|assignment| assignment.semantic_name == "cross-chain-marketplace")
+            .expect("V2 cross-chain assignment");
+        assert_eq!(cross_chain.kind, AssignmentKind::ProtocolId);
+        assert_eq!(cross_chain.value, 2);
+        assert_eq!(cross_chain.range_end, None);
+        assert_eq!(
+            cross_chain.maximum_payload,
+            crate::envelope::CROSS_CHAIN_MARKET_MAX_PAYLOAD as u32
+        );
+        assert_eq!(cross_chain.first_supported_release, "0.2.0");
+        assert_eq!(
+            cross_chain.source_implementation_url,
+            "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-marketplace-protocol"
+        );
+        let reserved = v2
+            .assignments
+            .iter()
+            .find(|assignment| assignment.semantic_name == "reserved-protocols-0x0003-0xffff")
+            .expect("V2 reserved range");
+        assert_eq!(
+            (reserved.value, reserved.range_end),
+            (3, Some(u16::MAX as u64))
+        );
+    }
+
+    #[test]
     fn collisions_and_wrong_versions_are_rejected() {
         let registry = RegistryDocument::from_toml(REGISTRY_TOML).expect("valid registry");
         let mut collision = registry.clone();
@@ -728,7 +896,7 @@ mod tests {
         ));
 
         let mut wrong_version = registry;
-        wrong_version.registry.version = 2;
+        wrong_version.registry.version = 3;
         assert!(matches!(
             wrong_version.validate(),
             Err(RegistryError::UnsupportedRegistryVersion { .. })

@@ -4,8 +4,8 @@ Canonical Rust protocol primitives for the Handshake ecosystem.
 
 This workspace is intentionally independent of async runtimes, databases, wallets,
 browser shells, and mining applications. Experimental peer-to-peer assignments are
-identified as **Denuo Experimental V1 — not an official Handshake protocol
-assignment**.
+identified as **Denuo Experimental — not official Handshake protocol
+assignments**. Registry V2 is additive and preserves the exact V1 identity.
 
 The implemented protocol layer contains:
 
@@ -20,18 +20,22 @@ The implemented protocol layer contains:
 - a production script interpreter differentially matched to all 876 pinned HSD
   script vectors, including Handshake `OP_TYPE`;
 - HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives;
+- signed fixed-price listing/cancellation wrappers and native HNS HTLC primitives;
+- canonical HNS/BTC and HNS/ETH asset, intent, price-round, fill-grant, and
+  bilateral swap-session wire values;
 - bounded HSD-compatible Urkel inclusion and non-inclusion proofs;
 - runtime-independent standard HSD framing and all standard packet IDs;
 - HSD-compatible block commitments, subsidy/coinbase vectors, and immutable
   opened-mask mining jobs;
 - a bounded cross-protocol production-parser mutation and libFuzzer harness;
-- the canonical Denuo Experimental Handshake P2P Registry v1;
+- the canonical Denuo Experimental Handshake P2P Registries v1 and v2;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, and HIP #78 HNSR protocol values.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
-and `docs/experimental-p2p-registry.md` for assignment status and governance.
+`docs/experimental-p2p-registry.md` for assignment status and governance, and
+`docs/marketplace-protocol.md` for the canonical market verifier.
 
 ## Crates
 
@@ -40,7 +44,7 @@ The public crates are:
 - `hns-encoding` and `hns-primitives`;
 - `hns-covenants`, `hns-transaction`, `hns-header-consensus`,
   `hns-urkel-proof`, and `hns-script`;
-- `hns-swap`, `hns-mining`, and `hns-p2p-wire`;
+- `hns-swap`, `hns-marketplace-protocol`, `hns-mining`, and `hns-p2p-wire`;
 - `hns-p2p-experimental`, `hns-dns-relay-protocol`,
   `hns-odoh-protocol`, and `hns-hnsr-protocol`.
 

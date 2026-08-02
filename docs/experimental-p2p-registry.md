@@ -1,7 +1,7 @@
-# Denuo Experimental Handshake P2P Registry, Version 1
+# Denuo Experimental Handshake P2P Registries
 
-Status: **Denuo Experimental V1 — Not an official Handshake protocol
-assignment**.
+Status: **Denuo Experimental V1/V2 — Not official Handshake protocol
+assignments**.
 
 This registry gives one collision-detectable identity to the private assignments
 used by the Rust ecosystem. The values are compatible with the cited draft HIP
@@ -27,14 +27,22 @@ official Handshake assignment.
 | Registry negotiation | Denuo protocol | `0x0000` |
 | Atomic name marketplace | Denuo protocol | `0x0001` |
 
-The machine-readable authority is
-`registry/denuo-experimental-v1.toml`. The checked-in `.bin` is a canonical,
-length-delimited little-endian encoding of every metadata field and assignment.
-The `.sha256` file identifies that binary. Ordinary TOML serialization is never
-hashed.
+Version 2 retains every Version 1 packet, service, and active protocol value,
+then assigns the cross-chain marketplace protocol `0x0002`. Its remaining
+protocol range is reserved at `0x0003..=0xffff`. Version 1 continues to reserve
+`0x0002..=0xffff`; a Version 1 envelope cannot carry the Version 2 protocol.
+
+The machine-readable authorities are `registry/denuo-experimental-v1.toml` and
+`registry/denuo-experimental-v2.toml`. Each checked-in `.bin` is a canonical,
+length-delimited little-endian encoding of every metadata field and assignment;
+the corresponding `.sha256` identifies that binary. Ordinary TOML
+serialization is never hashed.
 
 Version 1 fingerprint:
 `95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d`.
+
+Version 2 fingerprint:
+`734226e866435821e40be7bde85fb19dd6eb867c5620abb8347ac8cd23da4f2c`.
 
 Consumers obtain the name, versions, profile, fingerprint, and limits from
 `hns-p2p-experimental`; they do not copy the digest or private message numbers.
@@ -67,6 +75,8 @@ The first compatible extension exchange uses protocol `0x0000`, version 1.
 Typed Hello and HelloAck constructors bind that identity and a nonzero
 correlation ID. A completed negotiation must include protocol `0x0000` version
 1 even when a peer advertises a wider forward-compatible version range.
+V2 peers advertise the V2 registry fingerprint and version and may additionally
+negotiate protocol `0x0002`; V1 and V2 fingerprints deliberately do not match.
 
 Legacy draft compatibility has no registry negotiation and is restricted to
 regtest or an explicitly controlled network. It is reported as `Legacy Draft

@@ -12,6 +12,7 @@ hns-covenants.workspace = true
 hns-dns-relay-protocol.workspace = true
 hns-header-consensus.workspace = true
 hns-hnsr-protocol.workspace = true
+hns-marketplace-protocol.workspace = true
 hns-mining.workspace = true
 hns-odoh-protocol.workspace = true
 hns-p2p-experimental.workspace = true

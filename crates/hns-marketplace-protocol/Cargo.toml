@@ -1,12 +1,12 @@
 [package]
-name = "hns-swap"
-description = "HIP-0001 and Shakedex-compatible atomic name-swap primitives"
+name = "hns-marketplace-protocol"
+description = "Runtime-independent Handshake name-market and cross-chain marketplace protocols"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation = "https://docs.rs/hns-swap"
+documentation = "https://docs.rs/hns-marketplace-protocol"
 readme = "README.md"
 keywords.workspace = true
 categories.workspace = true
@@ -14,15 +14,13 @@ publish.workspace = true
 
 [dependencies]
 blake2.workspace = true
-hns-covenants.workspace = true
 hns-encoding.workspace = true
+hns-p2p-experimental.workspace = true
 hns-primitives.workspace = true
-hns-script.workspace = true
-hns-transaction.workspace = true
+hns-swap.workspace = true
 k256.workspace = true
-sha2.workspace = true
-sha3.workspace = true
 thiserror.workspace = true
+zeroize.workspace = true
 
 [dev-dependencies]
 hex.workspace = true

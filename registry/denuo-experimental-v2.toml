@@ -1,0 +1,265 @@
+[registry]
+name = "Denuo Experimental Handshake P2P Registry"
+version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+wire_profile = "denuo-v2"
+
+[[assignment]]
+semantic_name = "hnsr-rendezvous-service"
+kind = "service_bit"
+value = 0x04000000
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/78"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/960"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "rendezvous-discovery-capability"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "hnsr-relay-service"
+kind = "service_bit"
+value = 0x08000000
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/78"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/960"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "relay-capacity-capability"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "denuo-extension-service"
+kind = "service_bit"
+value = 0x10000000
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-p2p-experimental"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "private-extension-negotiation-capability"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "p2p-odoh-service"
+kind = "service_bit"
+value = 0x20000000
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/77"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/959"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "oblivious-dns-capability"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "p2p-dns-relay-service"
+kind = "service_bit"
+value = 0x40000000
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/76"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/958"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "untrusted-dns-relay-capability"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "reserved-service-0x80000000"
+kind = "service_bit"
+value = 0x80000000
+registry_version = 2
+protocol_version = 1
+status = "reserved"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/registry"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "reserved-no-wire-semantics"
+first_supported_release = "0.1.0"
+deprecation_state = "reserved"
+
+[[assignment]]
+semantic_name = "getdnsrelay"
+kind = "packet_type"
+value = 0xf0
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/76"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/958"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 4096
+security_classification = "bounded-untrusted-dns-request"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "dnsrelay"
+kind = "packet_type"
+value = 0xf1
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/76"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/958"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 65535
+security_classification = "bounded-untrusted-dns-response"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "odns"
+kind = "packet_type"
+value = 0xf2
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/77"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/959"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 65535
+security_classification = "bounded-hpke-oblivious-dns-message"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "hnsr"
+kind = "packet_type"
+value = 0xf3
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/78"
+source_implementation_url = "https://github.com/handshake-org/hsd/pull/960"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 262144
+security_classification = "bounded-rendezvous-and-relay-control"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "denuo-ext"
+kind = "packet_type"
+value = 0xf4
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-p2p-experimental"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 1048576
+security_classification = "negotiated-bounded-private-extension-envelope"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "reserved-packets-0xf5-0xff"
+kind = "packet_type"
+value = 0xf5
+range_end = 0xff
+registry_version = 2
+protocol_version = 1
+status = "reserved"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/registry"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "reserved-no-wire-semantics"
+first_supported_release = "0.1.0"
+deprecation_state = "reserved"
+
+[[assignment]]
+semantic_name = "registry-negotiation"
+kind = "protocol_id"
+value = 0x0000
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-p2p-experimental"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 16384
+security_classification = "mandatory-peer-capability-negotiation"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "atomic-name-marketplace"
+kind = "protocol_id"
+value = 0x0001
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-p2p-experimental"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 1048576
+security_classification = "best-effort-untrusted-market-gossip"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "cross-chain-marketplace"
+kind = "protocol_id"
+value = 0x0002
+registry_version = 2
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-marketplace-protocol"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 524288
+security_classification = "bounded-signed-cross-chain-market-gossip-and-rendezvous"
+first_supported_release = "0.2.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "reserved-protocols-0x0003-0xffff"
+kind = "protocol_id"
+value = 0x0003
+range_end = 0xffff
+registry_version = 2
+protocol_version = 1
+status = "reserved"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/registry"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "reserved-no-wire-semantics"
+first_supported_release = "0.1.0"
+deprecation_state = "reserved"
