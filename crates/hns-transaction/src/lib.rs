@@ -8,6 +8,7 @@ use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
 use hns_covenants::{Covenant, CovenantError};
 use hns_encoding::{Decoder, Encoder};
+pub use hns_primitives::Outpoint;
 use hns_primitives::{Dollarydoos, Height, TransactionHash};
 use thiserror::Error;
 
@@ -18,42 +19,15 @@ pub const MAX_WITNESS_ITEMS: usize = 1000;
 pub const MAX_ADDRESS_HASH_SIZE: usize = 40;
 pub const MIN_ADDRESS_HASH_SIZE: usize = 2;
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
-pub struct Outpoint {
-    pub transaction_hash: TransactionHash,
-    pub index: u32,
+fn encode_outpoint_to(outpoint: Outpoint, encoder: &mut Encoder) {
+    encoder.put_bytes(&outpoint.encode());
 }
 
-impl Outpoint {
-    pub const NULL: Self = Self {
-        transaction_hash: TransactionHash::new([0; 32]),
-        index: u32::MAX,
-    };
-
-    pub fn is_null(self) -> bool {
-        self.index == u32::MAX && self.transaction_hash.into_bytes() == [0; 32]
-    }
-
-    pub fn encode(self) -> [u8; 36] {
-        let mut encoder = Encoder::with_capacity(36);
-        self.encode_to(&mut encoder);
-        encoder
-            .into_bytes()
-            .try_into()
-            .expect("outpoint encoding has a fixed length")
-    }
-
-    fn encode_to(self, encoder: &mut Encoder) {
-        encoder.put_bytes(self.transaction_hash.as_bytes());
-        encoder.put_u32_le(self.index);
-    }
-
-    fn decode_from(decoder: &mut Decoder<'_>) -> Result<Self, TransactionError> {
-        Ok(Self {
-            transaction_hash: TransactionHash::new(decoder.read_array()?),
-            index: decoder.read_u32_le()?,
-        })
-    }
+fn decode_outpoint_from(decoder: &mut Decoder<'_>) -> Result<Outpoint, TransactionError> {
+    Ok(Outpoint {
+        transaction_hash: TransactionHash::new(decoder.read_array()?),
+        index: decoder.read_u32_le()?,
+    })
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -129,13 +103,13 @@ pub struct Input {
 
 impl Input {
     fn encode_base_to(&self, encoder: &mut Encoder) {
-        self.previous_output.encode_to(encoder);
+        encode_outpoint_to(self.previous_output, encoder);
         encoder.put_u32_le(self.sequence);
     }
 
     fn decode_base_from(decoder: &mut Decoder<'_>) -> Result<Self, TransactionError> {
         Ok(Self {
-            previous_output: Outpoint::decode_from(decoder)?,
+            previous_output: decode_outpoint_from(decoder)?,
             sequence: decoder.read_u32_le()?,
             witness: Witness::default(),
         })

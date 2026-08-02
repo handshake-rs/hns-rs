@@ -57,7 +57,9 @@ The release candidate includes exact protocol-V1 marketplace/settlement
 fixtures, independent maker settlement delegation, native-HNS hello binding,
 Shakedex fulfillment and cancellation APIs, exact Denuo version/flag handling,
 post-deadline recovery-status validation, and resumable publication identity
-checks. These are supported release surfaces, not provisional APIs.
+checks. It also includes the exact HSD NameState/resource codec, shared
+owner-outpoint semantics, and pinned source-verified HSD vectors. These are
+supported release surfaces, not provisional APIs.
 
 ## Private packages
 

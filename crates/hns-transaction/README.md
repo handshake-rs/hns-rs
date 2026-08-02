@@ -3,7 +3,9 @@
 Canonical Handshake transaction and witness encoding.
 
 This crate provides transaction, witness, address, output, coin, and
-non-coinbase covenant-link validation primitives. It is part of the
+non-coinbase covenant-link validation primitives. Its public `Outpoint` remains
+available here as a re-export of the shared primitive also used by NameState
+ownership. It is part of the
 [`hns-rs`](https://github.com/handshake-rs/hns-rs) protocol workspace.
 
 ```bash

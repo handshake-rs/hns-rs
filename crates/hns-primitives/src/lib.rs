@@ -103,6 +103,50 @@ semantic_bytes!(OfferId, 32);
 semantic_bytes!(PeerIdentity, 33);
 semantic_bytes!(RegistryFingerprint, 32);
 
+/// Canonical Handshake transaction output reference.
+///
+/// The all-zero transaction hash paired with `u32::MAX` is HSD's null
+/// outpoint. Name-state ownership and transaction inputs intentionally share
+/// this type so an authenticated owner cannot be detached from its output
+/// index by an adapter-specific representation.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Outpoint {
+    /// Internal little-endian transaction hash bytes used by Handshake wire
+    /// encodings and HSD's name tree.
+    pub transaction_hash: TransactionHash,
+    /// Zero-based output index, or `u32::MAX` only for the null sentinel.
+    pub index: u32,
+}
+
+impl Outpoint {
+    pub const NULL: Self = Self {
+        transaction_hash: TransactionHash::new([0; 32]),
+        index: u32::MAX,
+    };
+
+    /// Whether this is HSD's exact null-outpoint sentinel.
+    pub fn is_null(self) -> bool {
+        self.index == u32::MAX && self.transaction_hash.into_bytes() == [0; 32]
+    }
+
+    /// Encode the fixed-width transaction-input representation.
+    ///
+    /// NameState values use the same hash but compact-size encode the index;
+    /// that distinct encoding is owned by `hns-covenants`.
+    pub fn encode(self) -> [u8; 36] {
+        let mut encoded = [0_u8; 36];
+        encoded[..32].copy_from_slice(self.transaction_hash.as_bytes());
+        encoded[32..].copy_from_slice(&self.index.to_le_bytes());
+        encoded
+    }
+}
+
+impl Default for Outpoint {
+    fn default() -> Self {
+        Self::NULL
+    }
+}
+
 semantic_integer!(Height, u32);
 semantic_integer!(BlockTime, u64);
 semantic_integer!(Dollarydoos, u64);
@@ -268,6 +312,19 @@ mod tests {
         let transaction = TransactionHash::new([7; 32]);
         assert_eq!(block.as_bytes(), transaction.as_bytes());
         assert_eq!(block.to_string().len(), 64);
+    }
+
+    #[test]
+    fn outpoint_null_and_fixed_transaction_encoding_are_exact() {
+        assert_eq!(Outpoint::default(), Outpoint::NULL);
+        assert!(Outpoint::NULL.is_null());
+        let outpoint = Outpoint {
+            transaction_hash: TransactionHash::new([0x42; 32]),
+            index: 0x1020_3040,
+        };
+        assert!(!outpoint.is_null());
+        assert_eq!(&outpoint.encode()[..32], &[0x42; 32]);
+        assert_eq!(&outpoint.encode()[32..], &[0x40, 0x30, 0x20, 0x10]);
     }
 
     #[test]

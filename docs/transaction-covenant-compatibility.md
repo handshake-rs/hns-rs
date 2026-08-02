@@ -21,6 +21,19 @@ value and address preservation, transfer destinations, revoked outputs, unknown
 covenant isolation, and name/start-height continuity. Coinbase covenant issuance
 is intentionally routed to a separate, context-aware verifier.
 
+The canonical `Outpoint` value now lives in `hns-primitives` and remains
+re-exported by `hns-transaction`. Transaction inputs use its fixed 36-byte
+encoding; NameState ownership uses HSD's distinct 32-byte hash plus canonical
+compact-size index encoding. Both surfaces share the exact all-zero-hash,
+`u32::MAX` null sentinel.
+
+`hns-covenants` also owns the runtime-independent HSD NameState value codec.
+The external Urkel NameHash is not serialized twice, and decoding a non-null
+state requires `hash_name(state.name)` to equal the supplied proof key. Raw
+resource bytes remain consensus-opaque; the separate resource projection
+recognizes all assigned version-zero records without silently accepting an
+unknown suffix as parsed data.
+
 ## Oracle provenance
 
 Positive byte and hash vectors come from deterministic fixtures generated
@@ -31,6 +44,7 @@ against `handshake-org/hsd` revision
 - `fixtures/hsd/covenants/codec-v1.json`
 - `fixtures/hsd/covenants/linkage-v1.json`
 - `fixtures/hsd/name-states/name-hash-v1.json`
+- `fixtures/hsd/name-state-resource-v1.txt`
 
 The embedded tests assert the exact transaction bytes, txid, witness hash,
 covenant bytes, SHA3 name hashes, and BLAKE2b blind-bid commitment. Mutation and

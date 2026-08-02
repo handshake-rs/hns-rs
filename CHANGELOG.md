@@ -7,6 +7,12 @@ The workspace crates use a shared version and follow Semantic Versioning.
 
 Release-candidate source for the modular wallet and marketplace boundary:
 
+- exact, bounded HSD NameState value encoding with mandatory external
+  name-hash binding, shared null-owner outpoint semantics, canonical optional
+  fields, and complete-input rejection;
+- lossless version-zero HSD resource bytes plus a separate typed parser for all
+  seven assigned record types, including bounded DNS compression handling;
+- deterministic pinned-HSD NameState/resource vectors and SHA-256 sidecar;
 - additive Denuo Experimental Registry V2, preserving the exact V1 identity
   while assigning the separately negotiated cross-chain marketplace protocol;
 - canonical bounded market intents, observations, deterministic price rounds,

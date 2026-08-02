@@ -3,8 +3,8 @@
 Strongly typed primitive values shared by Rust Handshake components.
 
 This crate defines allocation-free semantic values for hashes, heights,
-amounts, compact targets, chainwork, and other consensus-visible Handshake
-fields. It is part of the
+amounts, compact targets, chainwork, the shared transaction/name-owner
+outpoint, and other consensus-visible Handshake fields. It is part of the
 [`hns-rs`](https://github.com/handshake-rs/hns-rs) protocol workspace.
 
 ```bash

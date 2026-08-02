@@ -17,6 +17,20 @@ and are identified per subsystem in the compatibility documents. Experimental
 proposal and implementation revisions are recorded in the HIP-specific
 compatibility documents.
 
+`fixtures/hsd/name-state-resource-v1.txt` binds HSD's exact NameState value
+ordering, optional-field bitmap, compact integers, null-owner convention, and
+version-zero resource record/compression bytes. Its generator verifies the
+pinned `namestate.js`, `resource.js`, and BNS name-encoding source hashes before
+executing that existing oracle. The authenticated NameHash remains the Urkel
+key rather than a duplicated value field; the Rust decoder requires every
+non-null decoded name to hash to the caller-supplied key.
+
+Consensus permits the NameState resource field to contain any byte string up
+to 512 bytes. The state codec therefore preserves those bytes without
+interpreting them. Typed resource decoding is a separate operation that fully
+consumes known version-zero records and fails closed on malformed compression,
+unknown record tags, truncation, or oversize input.
+
 The canonical marketplace and native-HNS settlement boundary is versioned by
 `fixtures/protocol-v1/`. Its source-independent generator implements the wire
 encoding and RFC6979 signatures without calling Rust code, and cross-checks its

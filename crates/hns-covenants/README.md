@@ -1,9 +1,12 @@
 # hns-covenants
 
-Canonical Handshake name covenant types, encodings, and commitments.
+Canonical Handshake name covenant, authenticated-state, and resource values.
 
 This crate covers every assigned covenant wire tag, HNS name hashing, blind
-bids, resource bounds, and covenant value validation. It is part of the
+bids, HSD's exact NameState value encoding, mandatory authenticated key/name
+binding, owner-outpoint semantics, and lossless typed version-zero resource
+decoding. NameState resource bytes remain opaque until the caller explicitly
+requests the fallible resource projection. It is part of the
 [`hns-rs`](https://github.com/handshake-rs/hns-rs) protocol workspace.
 
 ```bash

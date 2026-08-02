@@ -1,7 +1,7 @@
 #![doc = "Bounded cross-protocol mutation and parser conformance harnesses."]
 #![forbid(unsafe_code)]
 
-use hns_covenants::Covenant;
+use hns_covenants::{Covenant, NameState, Resource, hash_name};
 use hns_dns_relay_protocol::{DnsRelay, GetDnsRelay};
 use hns_header_consensus::Header;
 use hns_hnsr_protocol::HnsrPacket;
@@ -27,36 +27,38 @@ pub const MAX_MUTATION_CORPUS_BYTES: usize = 4 * 1024 * 1024;
 
 /// Bitset reporting which production parsers accepted an input.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct AcceptanceMask(u16);
+pub struct AcceptanceMask(u32);
 
 impl AcceptanceMask {
-    pub const HEADER: u16 = 1 << 0;
-    pub const BLOCK: u16 = 1 << 1;
-    pub const TRANSACTION: u16 = 1 << 2;
-    pub const SCRIPT: u16 = 1 << 3;
-    pub const COVENANT: u16 = 1 << 4;
-    pub const STANDARD_FRAME: u16 = 1 << 5;
-    pub const DENUO_ENVELOPE: u16 = 1 << 6;
-    pub const HIP76_REQUEST: u16 = 1 << 7;
-    pub const HIP76_RESPONSE: u16 = 1 << 8;
-    pub const HIP77_ENVELOPE: u16 = 1 << 9;
-    pub const HIP78_ENVELOPE: u16 = 1 << 10;
-    pub const URKEL_PROOF: u16 = 1 << 11;
-    pub const SWAP_PROOF: u16 = 1 << 12;
-    pub const DENUO_NAME_MARKET: u16 = 1 << 13;
-    pub const DENUO_CROSS_CHAIN_MARKET: u16 = 1 << 14;
+    pub const HEADER: u32 = 1 << 0;
+    pub const BLOCK: u32 = 1 << 1;
+    pub const TRANSACTION: u32 = 1 << 2;
+    pub const SCRIPT: u32 = 1 << 3;
+    pub const COVENANT: u32 = 1 << 4;
+    pub const STANDARD_FRAME: u32 = 1 << 5;
+    pub const DENUO_ENVELOPE: u32 = 1 << 6;
+    pub const HIP76_REQUEST: u32 = 1 << 7;
+    pub const HIP76_RESPONSE: u32 = 1 << 8;
+    pub const HIP77_ENVELOPE: u32 = 1 << 9;
+    pub const HIP78_ENVELOPE: u32 = 1 << 10;
+    pub const URKEL_PROOF: u32 = 1 << 11;
+    pub const SWAP_PROOF: u32 = 1 << 12;
+    pub const DENUO_NAME_MARKET: u32 = 1 << 13;
+    pub const DENUO_CROSS_CHAIN_MARKET: u32 = 1 << 14;
+    pub const NAME_STATE: u32 = 1 << 15;
+    pub const NAME_RESOURCE: u32 = 1 << 16;
 
     /// Whether the named parser bit accepted the input.
-    pub const fn contains(self, parser: u16) -> bool {
+    pub const fn contains(self, parser: u32) -> bool {
         self.0 & parser != 0
     }
 
     /// Raw stable bit representation for fuzzing feedback and diagnostics.
-    pub const fn bits(self) -> u16 {
+    pub const fn bits(self) -> u32 {
         self.0
     }
 
-    fn record(&mut self, parser: u16, accepted: bool) {
+    fn record(&mut self, parser: u32, accepted: bool) {
         if accepted {
             self.0 |= parser;
         }
@@ -84,6 +86,16 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     );
     accepted.record(AcceptanceMask::SCRIPT, parse_script(input).is_ok());
     accepted.record(AcceptanceMask::COVENANT, Covenant::decode(input).is_ok());
+    accepted.record(
+        AcceptanceMask::NAME_STATE,
+        hash_name(b"alpha")
+            .and_then(|name_hash| NameState::decode(name_hash, input))
+            .is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::NAME_RESOURCE,
+        Resource::decode(input).is_ok(),
+    );
     accepted.record(
         AcceptanceMask::STANDARD_FRAME,
         Frame::decode_exact(NetworkMagic::Regtest, input).is_ok(),
@@ -217,10 +229,11 @@ pub enum ConformanceError {
 mod tests {
     use super::*;
 
-    const SWAP_V1_FIXTURES: &str =
-        include_str!("../../../fixtures/protocol-v1/hns-swap-v1.txt");
+    const SWAP_V1_FIXTURES: &str = include_str!("../../../fixtures/protocol-v1/hns-swap-v1.txt");
     const MARKETPLACE_V1_FIXTURES: &str =
         include_str!("../../../fixtures/protocol-v1/hns-marketplace-v1.txt");
+    const HSD_NAME_STATE_RESOURCE_FIXTURES: &str =
+        include_str!("../../../fixtures/hsd/name-state-resource-v1.txt");
 
     fn fixture_bytes(document: &str, name: &str) -> Vec<u8> {
         let value = document
@@ -265,6 +278,15 @@ mod tests {
             assert!(accepted.contains(parser), "parser bit {parser:#x}");
         }
 
+        for (name, parser) in [
+            ("name_state_minimal", AcceptanceMask::NAME_STATE),
+            ("resource_all_records", AcceptanceMask::NAME_RESOURCE),
+        ] {
+            let bytes = fixture_bytes(HSD_NAME_STATE_RESOURCE_FIXTURES, name);
+            let accepted = exercise_production_parsers(&bytes).expect("bounded");
+            assert!(accepted.contains(parser), "parser bit {parser:#x}");
+        }
+
         let swap_proof = fixture_bytes(SWAP_V1_FIXTURES, "swap_proof");
         assert!(
             exercise_production_parsers(&swap_proof)
@@ -292,18 +314,19 @@ mod tests {
     #[test]
     fn deterministic_mutation_smoke_exercises_every_parser_without_panics() {
         let seeds = [
-            TRANSACTION,
-            REGTEST_PING,
-            DENUO,
-            DENUO_NAME_MARKET,
-            DENUO_CROSS_CHAIN_MARKET,
-            HIP76,
-            HIP77,
-            HIP78,
+            hex::decode(TRANSACTION).expect("static hex"),
+            hex::decode(REGTEST_PING).expect("static hex"),
+            hex::decode(DENUO).expect("static hex"),
+            hex::decode(DENUO_NAME_MARKET).expect("static hex"),
+            hex::decode(DENUO_CROSS_CHAIN_MARKET).expect("static hex"),
+            hex::decode(HIP76).expect("static hex"),
+            hex::decode(HIP77).expect("static hex"),
+            hex::decode(HIP78).expect("static hex"),
+            fixture_bytes(HSD_NAME_STATE_RESOURCE_FIXTURES, "name_state_minimal"),
+            fixture_bytes(HSD_NAME_STATE_RESOURCE_FIXTURES, "resource_all_records"),
         ];
         let mut mutations = 0_usize;
         for seed in seeds {
-            let seed = hex::decode(seed).expect("static hex");
             for mutation in bounded_mutations(&seed, MAX_MUTATION_CASES).expect("bounded") {
                 let _ = exercise_production_parsers(&mutation).expect("bounded");
                 mutations += 1;

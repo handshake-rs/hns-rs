@@ -16,8 +16,10 @@ The implemented protocol layer contains:
 - 236-byte headers, PoW/share hashing, compact targets, chainwork, retargeting,
   network parameters, and genesis vectors;
 - canonical transactions, witness hashing, addresses, outputs, and coins;
-- all assigned name-covenant wire tags, HNS name hashing, blind bids, resource
-  bounds, and non-coinbase covenant-link validation;
+- all assigned name-covenant wire tags, HNS name hashing, blind bids, exact
+  HSD NameState values, typed lossless resource decoding, authenticated
+  name/key and owner-outpoint semantics, and non-coinbase covenant-link
+  validation;
 - HSD-compatible signature hashing and absolute/relative lock predicates;
 - a production script interpreter differentially matched to all 876 pinned HSD
   script vectors, including Handshake `OP_TYPE`;
@@ -39,6 +41,9 @@ The implemented protocol layer contains:
 
 Source-independent exact V1 settlement and marketplace vectors live in
 `fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.
+Pinned-HSD NameState and compressed resource vectors live in
+`fixtures/hsd/name-state-resource-v1.txt` with their own deterministic oracle
+generator and SHA-256 sidecar.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and

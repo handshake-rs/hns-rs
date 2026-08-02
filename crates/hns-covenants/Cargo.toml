@@ -1,6 +1,6 @@
 [package]
 name = "hns-covenants"
-description = "Canonical Handshake name covenant types and encodings"
+description = "Canonical Handshake name covenant, NameState, and resource encodings"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

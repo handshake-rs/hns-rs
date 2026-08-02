@@ -1,4 +1,12 @@
-#![doc = "Handshake name covenant wire values and commitments."]
+#![doc = "Handshake name covenants, authenticated state, and resource values."]
+
+mod name_state;
+mod resource;
+
+pub use name_state::{
+    HSD_MAX_SAFE_INTEGER, MAX_NAME_STATE_SIZE, NameState, decode_name_state, encode_name_state,
+};
+pub use resource::{Resource, ResourceName, ResourceRecord};
 
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
@@ -301,34 +309,6 @@ pub fn blind_bid(value: u64, nonce: &[u8; 32]) -> [u8; 32] {
     output
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Resource {
-    raw: Vec<u8>,
-}
-
-impl Resource {
-    pub fn new(raw: Vec<u8>) -> Result<Self, CovenantError> {
-        if raw.len() > MAX_RESOURCE_SIZE {
-            return Err(CovenantError::TooLarge {
-                actual: raw.len(),
-                maximum: MAX_RESOURCE_SIZE,
-            });
-        }
-        if raw.first().copied() != Some(0) {
-            return Err(CovenantError::UnsupportedResourceVersion);
-        }
-        Ok(Self { raw })
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.raw
-    }
-
-    pub fn into_bytes(self) -> Vec<u8> {
-        self.raw
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum CovenantError {
     #[error(transparent)]
@@ -339,6 +319,16 @@ pub enum CovenantError {
     InvalidName,
     #[error("unsupported Handshake resource version")]
     UnsupportedResourceVersion,
+    #[error("unsupported Handshake resource record type {kind}")]
+    UnsupportedResourceRecord { kind: u8 },
+    #[error("invalid Handshake resource: {0}")]
+    InvalidResource(&'static str),
+    #[error("invalid Handshake name state: {0}")]
+    InvalidNameState(&'static str),
+    #[error("noncanonical Handshake name-state encoding")]
+    NonCanonicalNameState,
+    #[error("name-state name does not match its authenticated-tree key")]
+    NameStateHashMismatch,
 }
 
 #[cfg(test)]
