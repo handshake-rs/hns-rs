@@ -19,6 +19,7 @@ Current canonical protocol coverage:
 | HIP #76 | `hns-dns-relay-protocol` | exact draft envelope and policy tests |
 | HIP #77 | `hns-odoh-protocol` | exact draft/RFC cryptographic vectors |
 | HIP #78 | `hns-hnsr-protocol` | exact draft records, signatures, store, and envelope vectors |
+| HNSA/HNSR named routes | `hns-service-authority`, `hns-hnsr-protocol`, `hns-conformance` | version-2 route round trip, complete authority validation, stable identity key, capabilities, ticket binding, bounded storage admission, and parser mutation coverage |
 | HIP-0001/Shakedex v2 | `hns-swap` | exact proof, seller digest, presigned transaction, buyer fulfillment, recovery transfer, later FINALIZE transaction/witness, IDs, script, price, and locktime vectors |
 | signed name listings and native HNS HTLC | `hns-swap` | complete fixed listing/cancellation envelopes plus exact descriptor, script, address, funding, redeem, refund, sighash, TXID, and preimage vectors |
 | market intents, price rounds, fill grants, and swap sessions | `hns-marketplace-protocol` | externally generated exact signed bytes plus arithmetic, quorum/outlier/circuit-breaker, identity, timeout, status, and replay negatives |

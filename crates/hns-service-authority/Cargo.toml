@@ -1,12 +1,12 @@
 [package]
-name = "hns-hnsr-protocol"
-description = "Draft HIP 78 Handshake rendezvous and authenticated relay protocol"
+name = "hns-service-authority"
+description = "Transport-independent named service authority for Handshake"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation = "https://docs.rs/hns-hnsr-protocol"
+documentation = "https://docs.rs/hns-service-authority"
 readme = "README.md"
 keywords.workspace = true
 categories.workspace = true
@@ -15,7 +15,6 @@ publish.workspace = true
 [dependencies]
 blake2.workspace = true
 hns-encoding.workspace = true
-hns-service-authority.workspace = true
 k256.workspace = true
 thiserror.workspace = true
 zeroize.workspace = true

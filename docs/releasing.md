@@ -13,16 +13,17 @@ The release script publishes only these packages, in dependency order:
 3. `hns-covenants`
 4. `hns-dns-relay-protocol`
 5. `hns-header-consensus`
-6. `hns-hnsr-protocol`
-7. `hns-odoh-protocol`
-8. `hns-p2p-experimental`
-9. `hns-urkel-proof`
-10. `hns-transaction`
-11. `hns-script`
-12. `hns-mining`
-13. `hns-swap`
-14. `hns-marketplace-protocol`
-15. `hns-p2p-wire`
+6. `hns-service-authority`
+7. `hns-hnsr-protocol`
+8. `hns-odoh-protocol`
+9. `hns-p2p-experimental`
+10. `hns-urkel-proof`
+11. `hns-transaction`
+12. `hns-script`
+13. `hns-mining`
+14. `hns-swap`
+15. `hns-marketplace-protocol`
+16. `hns-p2p-wire`
 
 Internal dependencies carry both a workspace path and the shared crates.io
 version. Cargo removes each path when it creates the published package.
@@ -56,8 +57,9 @@ No `0.2.0` package or tag has been published by the preparation commit. The
 full gate, source review, intentional commit, authenticated upload, tag, and
 post-publication verification remain separate release actions.
 
-The release candidate includes exact protocol-V1 marketplace/settlement
-fixtures, independent maker settlement delegation, native-HNS hello binding,
+The release candidate includes HNSA named-service authority objects and the
+versioned HNSA-to-HNSR named-route adapter. It also includes exact protocol-V1
+marketplace/settlement fixtures, independent maker settlement delegation, native-HNS hello binding,
 Shakedex fulfillment and cancellation APIs, exact Denuo version/flag handling,
 post-deadline recovery-status validation, and resumable publication identity
 checks. It also includes the exact HSD NameState/resource codec, shared

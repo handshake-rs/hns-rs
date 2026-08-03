@@ -3,7 +3,9 @@
 Runtime-independent wire types for draft HIP #78 HNSR.
 
 This crate provides bounded rendezvous records, routing state, authenticated
-relay tickets, and message envelopes.
+relay tickets, message envelopes, and the versioned HNSA named-service route
+adapter. Unnamed `HNS_NODE_V1` records retain their existing encoding; named
+records carry and validate the transport-independent `hsa1` authority chain.
 
 **The associated Denuo wire assignments are experimental and are not official
 Handshake protocol assignments.**

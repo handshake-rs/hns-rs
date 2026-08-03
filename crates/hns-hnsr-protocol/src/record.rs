@@ -61,7 +61,15 @@ impl ReserveRequest {
     }
 
     pub fn validate_limits(&self) -> Result<(), HnsrProtocolError> {
-        if self.profile != HNS_NODE_V1
+        self.validate_limits_for_profile(HNS_NODE_V1)
+    }
+
+    pub fn validate_limits_for_profile(
+        &self,
+        expected_profile: u16,
+    ) -> Result<(), HnsrProtocolError> {
+        if expected_profile == 0
+            || self.profile != expected_profile
             || !(300..=MAX_TICKET_LIFETIME as u32).contains(&self.lifetime)
             || !(1..=MAX_CIRCUITS).contains(&self.max_circuits)
             || self.max_bytes == 0
@@ -278,8 +286,19 @@ impl RelayTicket {
         now: u64,
         allow_private: bool,
     ) -> Result<(), HnsrProtocolError> {
+        self.verify_for_profile(expected_network_magic, HNS_NODE_V1, now, allow_private)
+    }
+
+    pub fn verify_for_profile(
+        &self,
+        expected_network_magic: u32,
+        expected_profile: u16,
+        now: u64,
+        allow_private: bool,
+    ) -> Result<(), HnsrProtocolError> {
         if self.network_magic != expected_network_magic
-            || self.profile != HNS_NODE_V1
+            || expected_profile == 0
+            || self.profile != expected_profile
             || self.transport != 0
             || self.flags != 0
             || self.relay_key == self.endpoint_key
@@ -745,7 +764,7 @@ pub(crate) fn blake2b_256(parts: &[&[u8]]) -> [u8; 32] {
     output
 }
 
-fn sign(
+pub(crate) fn sign(
     domain: &[u8],
     parts: &[&[u8]],
     private_key: &[u8; 32],
@@ -762,7 +781,7 @@ fn sign(
     Ok(signature.to_der().as_bytes().to_vec())
 }
 
-fn verify(
+pub(crate) fn verify(
     domain: &[u8],
     parts: &[&[u8]],
     signature: &[u8],

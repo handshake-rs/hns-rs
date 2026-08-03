@@ -22,6 +22,7 @@ hns-primitives
 hns-covenants
 hns-dns-relay-protocol
 hns-header-consensus
+hns-service-authority
 hns-hnsr-protocol
 hns-odoh-protocol
 hns-p2p-experimental
