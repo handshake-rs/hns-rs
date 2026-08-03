@@ -1,10 +1,15 @@
 use std::collections::HashSet;
 
+use hns_chat_protocol::{
+    ChatIdentityBindingV1, HNS_CHAT_PROFILE_V1, HNS_CHAT_SERVICE_NAME, owner_authority_record,
+    verify_current_owner_binding,
+};
 use hns_encoding::{Decoder, Encoder};
 use hns_service_authority::{
     AuthorityRecord, EndpointDelegationV1, MAX_ENDPOINT_LIFETIME, MIN_ENDPOINT_LIFETIME,
     ServiceAuthorizationV1, ServiceIdentity,
 };
+use hns_transaction::Output;
 use k256::ecdsa::Signature;
 
 use crate::record::{RelayTicket, blake2b_256, decode_signature, encode_signature, sign, verify};
@@ -50,6 +55,15 @@ pub struct NamedRouteTrust<'a> {
     pub policy: NamedRoutePolicy,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct OwnerBoundChatRouteTrust<'a> {
+    pub binding: &'a ChatIdentityBindingV1,
+    pub owner_output: &'a Output,
+    pub identity: &'a ServiceIdentity,
+    pub current_height: u32,
+    pub policy: NamedRoutePolicy,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NamedRouteRecordV2 {
     pub route_key: [u8; 32],
@@ -81,6 +95,33 @@ pub fn named_route_key(identity: &ServiceIdentity) -> Result<[u8; 32], HnsrProto
         service_name,
         &identity.profile_id.to_le_bytes(),
     ]))
+}
+
+pub fn verify_owner_bound_chat_route(
+    record: &NamedRouteRecordV2,
+    trust: &OwnerBoundChatRouteTrust<'_>,
+    now: u64,
+) -> Result<(), HnsrProtocolError> {
+    if trust.identity.service_name != HNS_CHAT_SERVICE_NAME
+        || trust.identity.profile_id != HNS_CHAT_PROFILE_V1
+        || record.authorization.service_name != HNS_CHAT_SERVICE_NAME
+        || record.profile != HNS_CHAT_PROFILE_V1
+    {
+        return Err(HnsrProtocolError::Invalid(
+            "owner-bound trust is restricted to the hns.chat profile",
+        ));
+    }
+    let verified = verify_current_owner_binding(trust.binding, trust.owner_output)?;
+    let authority = owner_authority_record(&verified)?;
+    record.verify(
+        &NamedRouteTrust {
+            authority: &authority,
+            identity: trust.identity,
+            current_height: trust.current_height,
+            policy: trust.policy,
+        },
+        now,
+    )
 }
 
 impl NamedRouteRecordV2 {
@@ -359,6 +400,12 @@ fn validate_der_low_s(signature: &[u8]) -> Result<(), HnsrProtocolError> {
 
 #[cfg(test)]
 mod tests {
+    use hns_chat_protocol::{
+        ChatIdentityBindingV1, ChatKeyMode, ChatProtocolError, HNS_CHAT_PROFILE_V1,
+        HNS_CHAT_SERVICE_NAME, xonly_from_compressed_public_key,
+    };
+    use hns_covenants::{Covenant, CovenantKind};
+    use hns_primitives::Dollarydoos;
     use hns_service_authority::{
         AuthorityRecord, EndpointDelegationV1, ServiceAuthorizationV1, ServiceIdentity,
         public_key as authority_public_key,
@@ -541,6 +588,83 @@ mod tests {
                 .verify(&trust(&authority, &identity), now)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn owner_bound_chat_admission_uses_current_owner_parity_and_generation() {
+        let now = 1_700_000_000;
+        let root_private = [11; 32];
+        let service_private = [12; 32];
+        let endpoint_private = [13; 32];
+        let relay_private = [14; 32];
+        let (mut route, authority, mut identity) = route(now);
+        identity.service_name = HNS_CHAT_SERVICE_NAME.to_owned();
+        identity.profile_id = HNS_CHAT_PROFILE_V1;
+        route.authorization.service_name = identity.service_name.clone();
+        route.authorization.profile_id = identity.profile_id;
+        route.authorization.root_signature.clear();
+        route
+            .authorization
+            .sign(&root_private)
+            .expect("chat authorization");
+        route.delegation.authorization_id = route.authorization.id().expect("authorization ID");
+        route.delegation.service_signature.clear();
+        route
+            .delegation
+            .sign(&service_private)
+            .expect("chat delegation");
+        route.tickets[0].profile = HNS_CHAT_PROFILE_V1;
+        route.tickets[0].relay_signature.clear();
+        route.tickets[0].endpoint_signature.clear();
+        route.tickets[0]
+            .sign_relay(&relay_private)
+            .expect("chat relay ticket");
+        route.tickets[0]
+            .sign_endpoint(&endpoint_private)
+            .expect("chat ticket confirmation");
+        route.profile = HNS_CHAT_PROFILE_V1;
+        route.route_key = named_route_key(&identity).expect("chat route key");
+        route.endpoint_signature.clear();
+        route.sign(&endpoint_private).expect("chat route");
+
+        let owner_key = authority.root_key;
+        let owner_output = Output {
+            value: Dollarydoos::new(1),
+            address: hns_transaction::Address::from_compressed_public_key(&owner_key)
+                .expect("owner address"),
+            covenant: Covenant {
+                kind: CovenantKind::Update,
+                items: Vec::new(),
+            },
+        };
+        let binding = ChatIdentityBindingV1 {
+            key_mode: ChatKeyMode::Owner,
+            xonly_public_key: xonly_from_compressed_public_key(&owner_key).expect("x-only"),
+            generation: authority.epoch,
+        };
+        let chat_trust = OwnerBoundChatRouteTrust {
+            binding: &binding,
+            owner_output: &owner_output,
+            identity: &identity,
+            current_height: 150,
+            policy: trust(&authority, &identity).policy,
+        };
+        verify_owner_bound_chat_route(&route, &chat_trust, now).expect("owner-bound chat route");
+
+        let other_key = authority_public_key(&[21; 32]).expect("other owner key");
+        let mut stale_output = owner_output.clone();
+        stale_output.address = hns_transaction::Address::from_compressed_public_key(&other_key)
+            .expect("other owner address");
+        let stale_trust = OwnerBoundChatRouteTrust {
+            owner_output: &stale_output,
+            ..chat_trust
+        };
+        assert!(matches!(
+            verify_owner_bound_chat_route(&route, &stale_trust, now),
+            Err(HnsrProtocolError::OwnerBinding(
+                ChatProtocolError::StaleOwner
+            ))
+        ));
     }
 
     #[test]

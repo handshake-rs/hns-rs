@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/hns-chat-protocol",
     "crates/hns-conformance",
     "crates/hns-covenants",
     "crates/hns-dns-relay-protocol",
@@ -37,6 +38,7 @@ blake2 = "0.10.6"
 hex = "0.4.3"
 getrandom = "0.4.3"
 hkdf = "0.12.4"
+hns-chat-protocol = { version = "0.2.0", path = "crates/hns-chat-protocol" }
 hns-covenants = { version = "0.2.0", path = "crates/hns-covenants" }
 hns-dns-relay-protocol = { version = "0.2.0", path = "crates/hns-dns-relay-protocol" }
 hns-encoding = { version = "0.2.0", path = "crates/hns-encoding" }

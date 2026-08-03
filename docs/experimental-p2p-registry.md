@@ -48,6 +48,25 @@ Version 1 fingerprint:
 Version 2 fingerprint:
 `734226e866435821e40be7bde85fb19dd6eb867c5620abb8347ac8cd23da4f2c`.
 
+## HNSR service profiles
+
+HNSR named routes use a separate generated service-profile registry so adding
+a profile cannot change either Denuo packet-registry fingerprint or reinterpret
+an existing packet assignment.
+
+| Semantic profile | Kind | Value |
+|---|---:|---:|
+| Native HNS node v1 | HNSR service profile | `0x0001` |
+| HNS web v1 | HNSR service profile | `0x0002` |
+| Owner-bound `hns.chat` v1 | HNSR service profile | `0x0003` |
+| Reserved | HNSR service profile range | `0x0004..=0xffff` |
+
+The machine-readable authority is
+`registry/hnsr-service-profiles-v1.toml`; its canonical fingerprint is
+`36614e9dd0c47a2c59886406909a9b1e23ed6bd539376d2f553b62e1ca79351b`.
+These are private Denuo Experimental profile assignments, not official
+Handshake assignments.
+
 Consumers obtain the name, versions, profile, fingerprint, and limits from
 `hns-p2p-experimental`; they do not copy the digest or private message numbers.
 The canonical full `DENUO_EXT` packet payload limit is 1,048,576 bytes. Its

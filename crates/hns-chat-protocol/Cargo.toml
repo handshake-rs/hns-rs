@@ -1,31 +1,27 @@
 [package]
-name = "hns-hnsr-protocol"
-description = "Draft HIP 78 Handshake rendezvous and authenticated relay protocol"
+name = "hns-chat-protocol"
+description = "Owner-bound HNS Chat identity and opaque mailbox protocol values"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-documentation = "https://docs.rs/hns-hnsr-protocol"
+documentation = "https://docs.rs/hns-chat-protocol"
 readme = "README.md"
 keywords.workspace = true
 categories.workspace = true
 publish.workspace = true
 
 [dependencies]
-blake2.workspace = true
-getrandom.workspace = true
-hns-chat-protocol.workspace = true
+hex.workspace = true
+hns-covenants.workspace = true
 hns-encoding.workspace = true
 hns-service-authority.workspace = true
 hns-transaction.workspace = true
 k256.workspace = true
 thiserror.workspace = true
-zeroize.workspace = true
 
 [dev-dependencies]
-hex.workspace = true
-hns-covenants.workspace = true
 hns-primitives.workspace = true
 
 [lints]

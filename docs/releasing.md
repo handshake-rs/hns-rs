@@ -14,16 +14,17 @@ The release script publishes only these packages, in dependency order:
 4. `hns-dns-relay-protocol`
 5. `hns-header-consensus`
 6. `hns-service-authority`
-7. `hns-hnsr-protocol`
-8. `hns-odoh-protocol`
-9. `hns-p2p-experimental`
-10. `hns-urkel-proof`
-11. `hns-transaction`
-12. `hns-script`
-13. `hns-mining`
-14. `hns-swap`
-15. `hns-marketplace-protocol`
-16. `hns-p2p-wire`
+7. `hns-odoh-protocol`
+8. `hns-p2p-experimental`
+9. `hns-urkel-proof`
+10. `hns-transaction`
+11. `hns-chat-protocol`
+12. `hns-hnsr-protocol`
+13. `hns-script`
+14. `hns-mining`
+15. `hns-swap`
+16. `hns-marketplace-protocol`
+17. `hns-p2p-wire`
 
 Internal dependencies carry both a workspace path and the shared crates.io
 version. Cargo removes each path when it creates the published package.
@@ -34,8 +35,8 @@ The original 14 allowlisted crates were published to crates.io on 2026-07-29 and
 non-yanked. Every published package embeds release-source commit
 `0ea5994c336642ea7d01c51c0e22df2008985426` in its Cargo VCS metadata.
 
-`hns-marketplace-protocol` was added after that publication and has no 0.1.0
-publication record in this repository.
+`hns-marketplace-protocol` and `hns-chat-protocol` were added after that
+publication and have no 0.1.0 publication record in this repository.
 
 The annotated local and `origin` `v0.1.0` tag object
 `354b286ff623424d24376f20885fb05407561d70` points to the follow-up publication
@@ -57,18 +58,24 @@ No `0.2.0` package or tag has been published by the preparation commit. The
 full gate, source review, intentional commit, authenticated upload, tag, and
 post-publication verification remain separate release actions.
 
-The release candidate includes HNSA named-service authority objects and the
-versioned HNSA-to-HNSR named-route adapter. It also includes exact protocol-V1
-marketplace/settlement fixtures, independent maker settlement delegation, native-HNS hello binding,
+The release candidate includes HNSA named-service authority objects, the
+versioned HNSA-to-HNSR named-route adapter, owner-bound HNS Chat resource and
+opaque mailbox values, a generated HNSR service-profile assignment, and
+bounded live HNSR reservation and route-service state machines. The live
+service boundary remains transport- and persistence-independent; it does not
+qualify a deployed relay. The candidate also includes exact protocol-V1
+marketplace/settlement fixtures, independent
+maker settlement delegation, native-HNS hello binding,
 Shakedex fulfillment and cancellation APIs, exact Denuo version/flag handling,
 post-deadline recovery-status validation, and resumable publication identity
 checks. It also includes the exact HSD NameState/resource codec, shared
 owner-outpoint semantics, sigop-adjusted fee-policy arithmetic with explicit
 units, strict TRANSFER/FINALIZE construction, listing-independent Shakedex
 recovery, canonical empty offer-inventory responses, and pinned
-source-verified HSD vectors. These post-vector source additions have not yet
-passed this document's full locked gate. No downstream release may claim the
-API until that gate passes and the shared `0.2.0` packages are published.
+source-verified HSD vectors. These post-vector source additions and the
+converged HNSR/chat dependency graph have not yet passed this document's full
+locked gate. No downstream release may claim the API until that gate passes
+and the shared `0.2.0` packages are published.
 
 ## Private packages
 

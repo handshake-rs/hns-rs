@@ -37,6 +37,19 @@ pub const DENUO_V2_REGISTRY_ID: ExperimentalRegistryId =
 pub const DENUO_V2_REGISTRY_FINGERPRINT: RegistryFingerprint =
     RegistryFingerprint::new(DENUO_V2_REGISTRY_FINGERPRINT_BYTES);
 
+pub const HNSR_PROFILE_REGISTRY_NAME: &str = "Denuo Experimental HNSR Service Profile Registry";
+pub const HNSR_PROFILE_REGISTRY_VERSION: u16 = 1;
+pub const HNSR_PROFILE_REGISTRY_PROTOCOL_VERSION: u16 = 1;
+pub const HNSR_PROFILE_WIRE_PROFILE: &str = "hnsr-service-profiles-v1";
+const HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
+    0x36, 0x61, 0x4e, 0x9d, 0xd0, 0xc4, 0x7a, 0x2c, 0x59, 0x88, 0x64, 0x06, 0x90, 0x9a, 0x9b, 0x1e,
+    0x23, 0xed, 0x6b, 0xd5, 0x39, 0x37, 0x6d, 0x2f, 0x55, 0x3b, 0x62, 0xe1, 0xca, 0x79, 0x35, 0x1b,
+];
+pub const HNSR_PROFILE_REGISTRY_ID: ExperimentalRegistryId =
+    ExperimentalRegistryId::new(HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES);
+pub const HNSR_PROFILE_REGISTRY_FINGERPRINT: RegistryFingerprint =
+    RegistryFingerprint::new(HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES);
+
 const REGISTRY_MAGIC: [u8; 4] = *b"DNR1";
 const CANONICAL_FORMAT_VERSION: u16 = 1;
 const MAX_REGISTRY_TEXT: usize = 256 * 1024;
@@ -191,6 +204,33 @@ impl RegistryDocument {
                     ));
                 }
             }
+        }
+        if self.registry.name == HNSR_PROFILE_REGISTRY_NAME {
+            self.require_assignment(
+                "hnsr-profile-hns-node-v1",
+                AssignmentKind::ServiceProfile,
+                1,
+            )?;
+            self.require_assignment("hnsr-profile-hns-web-v1", AssignmentKind::ServiceProfile, 2)?;
+            self.require_assignment(
+                "hnsr-profile-hns-chat-v1",
+                AssignmentKind::ServiceProfile,
+                3,
+            )?;
+            self.require_assignment_range(
+                "reserved-hnsr-profiles-0x0004-0xffff",
+                AssignmentKind::ServiceProfile,
+                4,
+                u16::MAX as u64,
+            )?;
+            if self
+                .assignments
+                .iter()
+                .any(|assignment| assignment.kind != AssignmentKind::ServiceProfile)
+            {
+                return Err(RegistryError::InvalidProfileRegistryAssignment);
+            }
+            return Ok(());
         }
         self.require_assignment(
             "hnsr-rendezvous-service",
@@ -379,13 +419,23 @@ impl RegistryMetadata {
         validate_field("registry.name", &self.name)?;
         validate_field("registry.owner", &self.owner)?;
         validate_field("registry.wire_profile", &self.wire_profile)?;
-        let expected_wire_profile = match (self.version, self.protocol_version) {
-            (DENUO_V1_REGISTRY_VERSION, DENUO_V1_REGISTRY_PROTOCOL_VERSION) => {
-                DENUO_V1_WIRE_PROFILE
-            }
-            (DENUO_V2_REGISTRY_VERSION, DENUO_V2_REGISTRY_PROTOCOL_VERSION) => {
-                DENUO_V2_WIRE_PROFILE
-            }
+        let expected_wire_profile = match (self.name.as_str(), self.version, self.protocol_version)
+        {
+            (
+                DENUO_V1_REGISTRY_NAME,
+                DENUO_V1_REGISTRY_VERSION,
+                DENUO_V1_REGISTRY_PROTOCOL_VERSION,
+            ) => DENUO_V1_WIRE_PROFILE,
+            (
+                DENUO_V2_REGISTRY_NAME,
+                DENUO_V2_REGISTRY_VERSION,
+                DENUO_V2_REGISTRY_PROTOCOL_VERSION,
+            ) => DENUO_V2_WIRE_PROFILE,
+            (
+                HNSR_PROFILE_REGISTRY_NAME,
+                HNSR_PROFILE_REGISTRY_VERSION,
+                HNSR_PROFILE_REGISTRY_PROTOCOL_VERSION,
+            ) => HNSR_PROFILE_WIRE_PROFILE,
             _ => {
                 return Err(RegistryError::UnsupportedRegistryVersion {
                     registry: self.version,
@@ -456,7 +506,7 @@ impl RegistryAssignment {
         let maximum = match self.kind {
             AssignmentKind::ServiceBit => u64::MAX,
             AssignmentKind::PacketType => u8::MAX as u64,
-            AssignmentKind::ProtocolId => u16::MAX as u64,
+            AssignmentKind::ProtocolId | AssignmentKind::ServiceProfile => u16::MAX as u64,
         };
         if self.end() > maximum {
             return Err(RegistryError::ValueOutsideKind {
@@ -496,6 +546,7 @@ pub enum AssignmentKind {
     ServiceBit = 1,
     PacketType = 2,
     ProtocolId = 3,
+    ServiceProfile = 4,
 }
 
 impl TryFrom<u8> for AssignmentKind {
@@ -506,6 +557,7 @@ impl TryFrom<u8> for AssignmentKind {
             1 => Ok(Self::ServiceBit),
             2 => Ok(Self::PacketType),
             3 => Ok(Self::ProtocolId),
+            4 => Ok(Self::ServiceProfile),
             _ => Err(RegistryError::UnknownAssignmentKind(value)),
         }
     }
@@ -628,6 +680,8 @@ pub enum RegistryError {
     AssignmentCollision { first: String, second: String },
     #[error("semantic assignment name {0} is duplicated")]
     DuplicateSemanticName(String),
+    #[error("HNSR service-profile registry contains a non-profile assignment")]
+    InvalidProfileRegistryAssignment,
     #[error("missing required {kind:?} assignment {semantic_name}={value:#x}")]
     MissingRequiredAssignment {
         semantic_name: &'static str,
@@ -710,6 +764,9 @@ mod tests {
     const REGISTRY_V2_TOML: &str = include_str!("../registry/denuo-experimental-v2.toml");
     const REGISTRY_V2_BINARY: &[u8] = include_bytes!("../registry/denuo-experimental-v2.bin");
     const REGISTRY_V2_SHA256: &str = include_str!("../registry/denuo-experimental-v2.sha256");
+    const HNSR_PROFILE_TOML: &str = include_str!("../registry/hnsr-service-profiles-v1.toml");
+    const HNSR_PROFILE_BINARY: &[u8] = include_bytes!("../registry/hnsr-service-profiles-v1.bin");
+    const HNSR_PROFILE_SHA256: &str = include_str!("../registry/hnsr-service-profiles-v1.sha256");
 
     #[test]
     fn canonical_registry_artifacts_and_exports_have_one_stable_identity() {
@@ -881,6 +938,52 @@ mod tests {
         assert_eq!(
             (reserved.value, reserved.range_end),
             (3, Some(u16::MAX as u64))
+        );
+    }
+
+    #[test]
+    fn canonical_hnsr_profile_registry_assigns_chat_without_changing_denuo_identity() {
+        let registry =
+            RegistryDocument::from_toml(HNSR_PROFILE_TOML).expect("valid profile registry");
+        assert_eq!(
+            registry.canonical_bytes().expect("encodes"),
+            HNSR_PROFILE_BINARY
+        );
+        assert_eq!(
+            RegistryDocument::from_canonical_bytes(HNSR_PROFILE_BINARY).expect("decodes"),
+            registry
+        );
+        assert_eq!(registry.id().expect("hashes"), HNSR_PROFILE_REGISTRY_ID);
+        assert_eq!(
+            RegistryFingerprint::from(registry.id().expect("hashes")),
+            HNSR_PROFILE_REGISTRY_FINGERPRINT
+        );
+        assert_eq!(registry.registry.name, HNSR_PROFILE_REGISTRY_NAME);
+        assert_eq!(registry.registry.version, HNSR_PROFILE_REGISTRY_VERSION);
+        assert_eq!(
+            registry.registry.protocol_version,
+            HNSR_PROFILE_REGISTRY_PROTOCOL_VERSION
+        );
+        assert_eq!(registry.registry.wire_profile, HNSR_PROFILE_WIRE_PROFILE);
+        assert_eq!(
+            HNSR_PROFILE_SHA256,
+            format!("{HNSR_PROFILE_REGISTRY_ID}  hnsr-service-profiles-v1.bin\n")
+        );
+        let chat = registry
+            .assignments
+            .iter()
+            .find(|assignment| assignment.semantic_name == "hnsr-profile-hns-chat-v1")
+            .expect("chat profile");
+        assert_eq!(chat.kind, AssignmentKind::ServiceProfile);
+        assert_eq!(chat.value, 3);
+        assert_eq!(chat.maximum_payload, 8_192);
+        assert_eq!(
+            DENUO_V1_REGISTRY_ID.to_string(),
+            "95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d"
+        );
+        assert_eq!(
+            DENUO_V2_REGISTRY_ID.to_string(),
+            "734226e866435821e40be7bde85fb19dd6eb867c5620abb8347ac8cd23da4f2c"
         );
     }
 

@@ -17,6 +17,7 @@ assert_same_file() {
 }
 
 public_crates="
+hns-chat-protocol
 hns-encoding
 hns-primitives
 hns-covenants
@@ -59,6 +60,10 @@ assert_same_file fixtures/protocol-v1/hns-marketplace-v1.txt \
   crates/hns-marketplace-protocol/fixtures/protocol-v1/hns-marketplace-v1.txt
 assert_same_file fixtures/protocol-v1/hns-marketplace-v1.txt.sha256 \
   crates/hns-marketplace-protocol/fixtures/protocol-v1/hns-marketplace-v1.txt.sha256
+assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt \
+  crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt
+assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \
+  crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt.sha256
 assert_same_file registry/denuo-experimental-v1.toml \
   crates/hns-p2p-experimental/registry/denuo-experimental-v1.toml
 assert_same_file registry/denuo-experimental-v1.bin \
@@ -71,6 +76,12 @@ assert_same_file registry/denuo-experimental-v2.bin \
   crates/hns-p2p-experimental/registry/denuo-experimental-v2.bin
 assert_same_file registry/denuo-experimental-v2.sha256 \
   crates/hns-p2p-experimental/registry/denuo-experimental-v2.sha256
+assert_same_file registry/hnsr-service-profiles-v1.toml \
+  crates/hns-p2p-experimental/registry/hnsr-service-profiles-v1.toml
+assert_same_file registry/hnsr-service-profiles-v1.bin \
+  crates/hns-p2p-experimental/registry/hnsr-service-profiles-v1.bin
+assert_same_file registry/hnsr-service-profiles-v1.sha256 \
+  crates/hns-p2p-experimental/registry/hnsr-service-profiles-v1.sha256
 
 PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-marketplace-v1-fixtures.py --check

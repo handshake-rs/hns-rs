@@ -14,6 +14,7 @@ pub use body::{
 };
 pub use envelope::{HnsrOpcode, HnsrPacket};
 pub use named::{NamedRoutePolicy, NamedRouteRecordV2, NamedRouteTrust, named_route_key};
+pub use named::{OwnerBoundChatRouteTrust, verify_owner_bound_chat_route};
 pub use record::{
     EndpointDelegation, RelayTicket, ReserveRequest, RouteRecord, public_key, sign_withdrawal,
     verify_withdrawal,
@@ -36,6 +37,7 @@ pub const HNSR_PACKET_TYPE: u8 = 0xf3;
 pub const HNSR_VERSION: u8 = 1;
 pub const HNS_NODE_V1: u16 = 1;
 pub const HNS_WEB_V1: u16 = 2;
+pub const HNS_CHAT_V1: u16 = hns_chat_protocol::HNS_CHAT_PROFILE_V1;
 
 pub const MAX_PACKET_SIZE: usize = 65_535;
 pub const MAX_RECORD_SIZE: usize = 8192;
@@ -67,6 +69,8 @@ pub enum HnsrProtocolError {
     TooLarge { actual: usize, maximum: usize },
     #[error("HNSR signature operation failed")]
     Cryptography,
+    #[error("invalid owner-bound HNS Chat identity: {0}")]
+    OwnerBinding(#[from] hns_chat_protocol::ChatProtocolError),
     #[error("HNSR route store capacity reached")]
     Capacity,
     #[error("stale HNSR route sequence")]

@@ -7,6 +7,13 @@ The workspace crates use a shared version and follow Semantic Versioning.
 
 Release-candidate source for the modular wallet and marketplace boundary:
 
+- bounded live HNSR reservation, renewal, confirmation, withdrawal,
+  named-route publication, and lookup state machines with transport and
+  persistence left to the embedding product;
+- owner-bound HNS Chat resource parsing, both-parity current-owner proof,
+  owner-derived `hns.chat` HNSA verification, bounded opaque HIP-78 mailbox
+  values, canonical profile assignment, fixtures, and fuzz/conformance parser
+  coverage without a separate long-term chat key;
 - exact HSD sigop-adjusted policy virtual size and minimum-policy-fee
   arithmetic with public weight, sigop, virtual-byte, and fee-rate units,
   checked bounds, input-coin binding, and source-hash-pinned vectors;
@@ -46,9 +53,10 @@ Release-candidate source for the modular wallet and marketplace boundary:
 
 All public workspace packages advance together so changed crates never attempt
 to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is
-published by this source commit. The fee-policy and later
-name-transition/recovery additions are source- and, where applicable,
-fixture-reviewed only until the consolidated locked qualification gate passes.
+published by this source commit. The fee-policy, name-transition/recovery,
+live HNSR, and owner-bound chat additions are source- and, where applicable,
+fixture-reviewed only until the converged commit passes the consolidated
+locked qualification gate.
 
 ## 0.1.0 - 2026-07-29
 

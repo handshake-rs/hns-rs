@@ -1,6 +1,7 @@
 #![doc = "Bounded cross-protocol mutation and parser conformance harnesses."]
 #![forbid(unsafe_code)]
 
+use hns_chat_protocol::{ChatAcknowledgementV1, ChatEnvelopeV1, parse_chat_binding};
 use hns_covenants::{Covenant, NameState, Resource, hash_name};
 use hns_dns_relay_protocol::{DnsRelay, GetDnsRelay};
 use hns_header_consensus::Header;
@@ -51,6 +52,9 @@ impl AcceptanceMask {
     pub const HIP79_SERVICE_AUTHORIZATION: u32 = 1 << 17;
     pub const HIP79_ENDPOINT_DELEGATION: u32 = 1 << 18;
     pub const HNSA_HNSR_NAMED_ROUTE: u32 = 1 << 19;
+    pub const HNS_CHAT_ENVELOPE: u32 = 1 << 20;
+    pub const HNS_CHAT_ACKNOWLEDGEMENT: u32 = 1 << 21;
+    pub const HNS_CHAT_BINDING: u32 = 1 << 22;
 
     /// Whether the named parser bit accepted the input.
     pub const fn contains(self, parser: u32) -> bool {
@@ -135,6 +139,20 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     accepted.record(
         AcceptanceMask::HNSA_HNSR_NAMED_ROUTE,
         NamedRouteRecordV2::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HNS_CHAT_ENVELOPE,
+        ChatEnvelopeV1::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HNS_CHAT_ACKNOWLEDGEMENT,
+        ChatAcknowledgementV1::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HNS_CHAT_BINDING,
+        std::str::from_utf8(input)
+            .map(parse_chat_binding)
+            .is_ok_and(|binding| binding.is_ok()),
     );
     accepted.record(
         AcceptanceMask::URKEL_PROOF,
@@ -243,6 +261,10 @@ pub enum ConformanceError {
 
 #[cfg(test)]
 mod tests {
+    use hns_chat_protocol::HNS_CHAT_PROFILE_V1;
+    use hns_hnsr_protocol::{HNS_CHAT_V1, HNS_NODE_V1, HNS_WEB_V1};
+    use hns_p2p_experimental::{AssignmentKind, RegistryDocument};
+
     use super::*;
 
     const SWAP_V1_FIXTURES: &str = include_str!("../../../fixtures/protocol-v1/hns-swap-v1.txt");
@@ -250,6 +272,10 @@ mod tests {
         include_str!("../../../fixtures/protocol-v1/hns-marketplace-v1.txt");
     const HSD_NAME_STATE_RESOURCE_FIXTURES: &str =
         include_str!("../../../fixtures/hsd/name-state-resource-v1.txt");
+    const CHAT_RESOURCE_FIXTURES: &str =
+        include_str!("../../../fixtures/chat-v1/hns-chat-resource-v1.txt");
+    const HNSR_PROFILE_REGISTRY: &str =
+        include_str!("../../../registry/hnsr-service-profiles-v1.toml");
 
     fn fixture_bytes(document: &str, name: &str) -> Vec<u8> {
         let value = document
@@ -258,6 +284,14 @@ mod tests {
             .find_map(|(key, value)| (key == name).then_some(value))
             .unwrap_or_else(|| panic!("missing fixture {name}"));
         hex::decode(value).expect("fixture hex")
+    }
+
+    fn fixture_value<'a>(document: &'a str, name: &str) -> &'a str {
+        document
+            .lines()
+            .filter_map(|line| line.split_once('='))
+            .find_map(|(key, value)| (key == name).then_some(value))
+            .unwrap_or_else(|| panic!("missing fixture {name}"))
     }
 
     const TRANSACTION: &str = "0100000001080808080808080808080808080808080808080808080808080808080808080802000000feffffff012a0000000000000000140909090909090909090909090909090909090909020103616263630000000203010203020405";
@@ -325,6 +359,44 @@ mod tests {
                 "cross-chain fixture {name}"
             );
         }
+
+        let chat_envelope = ChatEnvelopeV1 {
+            message_id: [1; 32],
+            recipient_public_key: hex::decode(
+                "17162c921dc4d2518f9a101db33695df1afb56ab82f5ff3e5da6eec3ca5cd917",
+            )
+            .expect("hex")
+            .try_into()
+            .expect("x-only key"),
+            created_at: 1_700_000_000,
+            expires_at: 1_700_000_600,
+            gift_wrap: b"opaque gift wrap".to_vec(),
+        }
+        .encode()
+        .expect("chat envelope");
+        assert!(
+            exercise_production_parsers(&chat_envelope)
+                .expect("bounded")
+                .contains(AcceptanceMask::HNS_CHAT_ENVELOPE)
+        );
+        let acknowledgement = ChatAcknowledgementV1 {
+            message_id: [1; 32],
+            received_at: 1_700_000_100,
+            encrypted_receipt: b"opaque receipt".to_vec(),
+        }
+        .encode()
+        .expect("chat acknowledgement");
+        assert!(
+            exercise_production_parsers(&acknowledgement)
+                .expect("bounded")
+                .contains(AcceptanceMask::HNS_CHAT_ACKNOWLEDGEMENT)
+        );
+        let binding = fixture_value(CHAT_RESOURCE_FIXTURES, "valid_explicit").as_bytes();
+        assert!(
+            exercise_production_parsers(binding)
+                .expect("bounded")
+                .contains(AcceptanceMask::HNS_CHAT_BINDING)
+        );
     }
 
     #[test]
@@ -368,5 +440,25 @@ mod tests {
                 .len()
                 <= MAX_MUTATION_CASES
         );
+    }
+
+    #[test]
+    fn exported_hnsr_profile_constants_match_the_generated_registry() {
+        let registry =
+            RegistryDocument::from_toml(HNSR_PROFILE_REGISTRY).expect("profile registry");
+        for (semantic_name, expected) in [
+            ("hnsr-profile-hns-node-v1", HNS_NODE_V1),
+            ("hnsr-profile-hns-web-v1", HNS_WEB_V1),
+            ("hnsr-profile-hns-chat-v1", HNS_CHAT_PROFILE_V1),
+        ] {
+            let assignment = registry
+                .assignments
+                .iter()
+                .find(|assignment| assignment.semantic_name == semantic_name)
+                .unwrap_or_else(|| panic!("missing profile {semantic_name}"));
+            assert_eq!(assignment.kind, AssignmentKind::ServiceProfile);
+            assert_eq!(assignment.value, u64::from(expected));
+        }
+        assert_eq!(HNS_CHAT_V1, HNS_CHAT_PROFILE_V1);
     }
 }

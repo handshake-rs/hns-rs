@@ -15,9 +15,10 @@ tests.
 | DNS relay | HIP PR 76 at `25f6d99cdd2b766f9eb6bb3b72d9dc804efd6131`; HSD PR 958 at `ea31be1554f3235bfa96bdd394e6d33e7dda8080` | draft; Denuo Experimental V1 |
 | ODoH relay | HIP PR 77 at `d3ae6be483663ed6cf0ead4f4b4f17a80b1d1162`; HSD PR 959 at `909311d97c794eb59ed2eb0b095a122607ae078e` | draft; Denuo Experimental V1 |
 | HNSR | HIP PR 78 at `53b962e901ffa796f4ccf66a5d53956d7421c58c`; HSD PR 960 at `2fc40f1c61ff16a2f39d9514cd950d1560430ced` | draft; Denuo Experimental V1 |
-| HNSA | HIP PR 79 at `c0487e5af779158cbef0591ac363b7e956255c7d` | draft; transport-independent authority objects with no permanent profile assignment |
-| HNSA/HNSR named routes | local `HIP-xxxx-HNSA-HNSR.md`, based on HIP PRs 78 and 79 at the commits above | draft; private profiles only, route version 2, no permanent assignment |
-| Private assignment registries | `registry/denuo-experimental-v1.toml` and `registry/denuo-experimental-v2.toml`, with their canonical binaries/hashes | production-supported Denuo Experimental V1/V2; not official assignments |
+| HNSA | HIP PR 79 at `c0487e5af779158cbef0591ac363b7e956255c7d` | draft; transport-independent authority objects |
+| HNSA/HNSR named routes | local `HIP-xxxx-HNSA-HNSR.md`, based on HIP PRs 78 and 79 at the commits above | draft; route version 2 with canonical private service profiles |
+| HNS Chat owner binding | `docs/hns-chat-owner-identity.md` and `fixtures/chat-v1/hns-chat-resource-v1.txt` | workspace-defined owner-key identity and opaque HIP-78 payload boundary; downstream NIP cryptography remains separately qualified |
+| Private assignment registries | `registry/denuo-experimental-v1.toml`, `registry/denuo-experimental-v2.toml`, and `registry/hnsr-service-profiles-v1.toml`, with their canonical binaries/hashes | production-supported Denuo Experimental packet and HNSR service-profile registries; not official assignments |
 
 Source archives named in the assignment were not present in the supplied
 workspace. The integration source audit records that absence and the exact

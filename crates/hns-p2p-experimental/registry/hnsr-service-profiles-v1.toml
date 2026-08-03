@@ -1,0 +1,72 @@
+[registry]
+name = "Denuo Experimental HNSR Service Profile Registry"
+version = 1
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+wire_profile = "hnsr-service-profiles-v1"
+
+[[assignment]]
+semantic_name = "hnsr-profile-hns-node-v1"
+kind = "service_profile"
+value = 0x0001
+registry_version = 1
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/78"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-hnsr-protocol"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "authenticated-native-node-rendezvous-profile"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "hnsr-profile-hns-web-v1"
+kind = "service_profile"
+value = 0x0002
+registry_version = 1
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/78"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-hnsr-protocol"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "authenticated-web-rendezvous-profile"
+first_supported_release = "0.1.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "hnsr-profile-hns-chat-v1"
+kind = "service_profile"
+value = 0x0003
+registry_version = 1
+protocol_version = 1
+status = "stable-experimental"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/hns-chat-owner-identity.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-chat-protocol"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 8192
+security_classification = "owner-authorized-opaque-encrypted-chat-rendezvous"
+first_supported_release = "0.2.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "reserved-hnsr-profiles-0x0004-0xffff"
+kind = "service_profile"
+value = 0x0004
+range_end = 0xffff
+registry_version = 1
+protocol_version = 1
+status = "reserved"
+owner = "Denuo Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-rs/hns-rs/blob/main/docs/experimental-p2p-registry.md"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/registry"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 0
+security_classification = "reserved-no-profile-semantics"
+first_supported_release = "0.2.0"
+deprecation_state = "reserved"

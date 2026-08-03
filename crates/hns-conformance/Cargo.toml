@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+hns-chat-protocol.workspace = true
 hns-covenants.workspace = true
 hns-dns-relay-protocol.workspace = true
 hns-header-consensus.workspace = true

@@ -29,6 +29,9 @@ The crate provides:
 - authenticated, age-limited public rendezvous contacts and XOR ordering;
 - route expiry, increasing-sequence replacement, deterministic sampling, and
   bounded total/per-key/per-source in-memory storage;
+- bounded synchronous reservation, renewal, confirmation, withdrawal,
+  route-publication, and route-lookup services that accept canonical packets
+  from an embedding transport;
 - version-2 HNSA named routes with stable service-derived keys, profile-aware
   relay tickets, full-client verification, bounded rendezvous admission, and
   exclusion from unnamed route sampling; and
@@ -53,11 +56,12 @@ authenticated HNS state from the consuming node or browser; it is never
 inferred from a rendezvous response.
 
 This crate deliberately contains no socket runtime, Tokio, persistent
-database, wallet, browser, mobile, or MeshMine dependency. Consumers remain
-responsible for iterative lookup scheduling, three-store publication quorum,
-replication, reservations bound to live peers, disconnect revocation, circuit
-queues, directional credit, rate limits, deadlines, inner Brontide, and
-priority below direct blockchain traffic.
+database, wallet, browser, mobile, or MeshMine dependency. Its service state
+is in-memory. Consumers remain responsible for binding the supplied source
+identity to an authenticated live peer, durable restart recovery, iterative
+lookup scheduling, three-store publication quorum, replication, disconnect
+revocation, circuit queues, directional credit, rate limits, deadlines, inner
+Brontide, and priority below direct blockchain traffic.
 
 Opaque relay participation defaults on and has an independent persistent
 opt-out. Endpoint/output-node and rendezvous-directory participation default
@@ -78,4 +82,5 @@ Tests cover the exact envelope and hash derivations, network/relay/context
 signature binding, renewal predecessor binding, ticket and route authorization
 chains, wrong network, expiry, high-S rejection, public-contact policy, XOR
 ordering, sequence replacement, expiry, source quotas, deterministic sampling,
-flow-control bounds, and trailing-data rejection.
+reservation replay and cross-source rejection, complete live
+reservation-to-route lookup, flow-control bounds, and trailing-data rejection.

@@ -450,9 +450,15 @@ fn validate_service_name(name: &str) -> Result<(), AuthorityError> {
     if !(1..=MAX_SERVICE_NAME).contains(&bytes.len())
         || bytes.first() == Some(&b'-')
         || bytes.last() == Some(&b'-')
-        || !bytes
-            .iter()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
+        || bytes.first() == Some(&b'.')
+        || bytes.last() == Some(&b'.')
+        || bytes.windows(2).any(|pair| pair == b"..")
+        || !bytes.iter().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(*byte, b'-' | b'.')
+        })
+        || name
+            .split('.')
+            .any(|label| label.starts_with('-') || label.ends_with('-'))
     {
         return Err(AuthorityError::Invalid("noncanonical service name"));
     }

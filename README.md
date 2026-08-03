@@ -43,7 +43,13 @@ The implemented protocol layer contains:
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
   #79 HNSA service-authority objects, and the local versioned HNSA/HNSR named
-  route adapter.
+  route adapter;
+- bounded in-process HNSR reservation, renewal, confirmation, withdrawal,
+  named-route publication, and lookup state machines for composition by an
+  authenticated transport owner;
+- strict owner-bound HNS Chat resource identity, original owner-key parity
+  recovery, HNSA authority synthesis for `hns.chat`, and bounded opaque NIP-59
+  gift-wrap and encrypted-acknowledgement values for HIP-78 transport.
 
 Source-independent exact V1 settlement and marketplace vectors live in
 `fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.
@@ -51,6 +57,8 @@ Pinned-HSD NameState and compressed resource vectors live in
 `fixtures/hsd/name-state-resource-v1.txt` with their own deterministic oracle
 generator and SHA-256 sidecar. Pinned sigop-size and minimum-policy-fee vectors
 live beside them in `fixtures/hsd/fee-policy-v1.txt`.
+Source-independent HNS Chat resource grammar fixtures live in
+`fixtures/chat-v1/`.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and
@@ -65,7 +73,8 @@ The public crates are:
   `hns-urkel-proof`, and `hns-script`;
 - `hns-swap`, `hns-marketplace-protocol`, `hns-mining`, and `hns-p2p-wire`;
 - `hns-p2p-experimental`, `hns-dns-relay-protocol`,
-  `hns-odoh-protocol`, `hns-hnsr-protocol`, and `hns-service-authority`.
+  `hns-odoh-protocol`, `hns-hnsr-protocol`, `hns-service-authority`, and
+  `hns-chat-protocol`.
 
 The conformance harness, fuzz package, and deterministic registry generator are
 development tooling and are intentionally private. See `docs/releasing.md` for
@@ -83,3 +92,8 @@ with:
 
 CI also audits the root and independent fuzz lockfiles with a pinned RustSec
 scanner.
+
+The HNSR service state machines are an embeddable protocol boundary, not a
+durable daemon or network transport. Persistence, restart recovery, peer
+policy, and deployment qualification remain responsibilities of the embedding
+node and must pass that product's release gate.

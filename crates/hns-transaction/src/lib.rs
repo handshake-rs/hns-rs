@@ -139,6 +139,21 @@ impl Address {
         self.version == 31
     }
 
+    /// Construct HSD's version-zero single-key witness program from an
+    /// original compressed secp256k1 public key.
+    ///
+    /// This performs the canonical BLAKE2b-160 address hash. Callers making a
+    /// cryptographic trust decision must separately validate that the SEC1
+    /// bytes encode a curve point.
+    pub fn from_compressed_public_key(public_key: &[u8; 33]) -> Result<Self, TransactionError> {
+        if !matches!(public_key[0], 0x02 | 0x03) {
+            return Err(TransactionError::InvalidAddress(
+                "compressed public key must begin with 02 or 03",
+            ));
+        }
+        Self::new(0, blake2b_160(public_key).to_vec())
+    }
+
     pub fn validate(&self) -> Result<(), TransactionError> {
         if self.version > 31 {
             return Err(TransactionError::InvalidAddress("version exceeds 31"));
@@ -463,6 +478,16 @@ fn blake2b_256(input: &[u8]) -> [u8; 32] {
     blake2b_256_many(&[input])
 }
 
+fn blake2b_160(input: &[u8]) -> [u8; 20] {
+    let mut hasher = Blake2bVar::new(20).expect("valid BLAKE2b output length");
+    hasher.update(input);
+    let mut output = [0_u8; 20];
+    hasher
+        .finalize_variable(&mut output)
+        .expect("valid BLAKE2b output buffer");
+    output
+}
+
 fn remaining_decode_budget(
     decoder: &Decoder<'_>,
     start: usize,
@@ -562,6 +587,26 @@ mod tests {
             hex::encode(transaction.witness_hash().expect("valid")),
             "fba6fa32ac4b157d754c951d98d1e6e5e13c8d705a72621cd944e835597980a2"
         );
+    }
+
+    #[test]
+    fn compressed_public_key_address_uses_hsd_blake2b_160() {
+        let public_key: [u8; 33] = hex::decode(
+            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+        )
+        .expect("hex")
+        .try_into()
+        .expect("compressed public key");
+        let address = Address::from_compressed_public_key(&public_key).expect("address");
+        assert_eq!(address.version, 0);
+        assert_eq!(
+            hex::encode(address.hash),
+            "1fa94914d5d30512c4de09199b4018133f485e60"
+        );
+
+        let mut uncompressed_marker = public_key;
+        uncompressed_marker[0] = 0x04;
+        assert!(Address::from_compressed_public_key(&uncompressed_marker).is_err());
     }
 
     #[test]

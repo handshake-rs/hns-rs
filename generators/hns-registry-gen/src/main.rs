@@ -5,7 +5,11 @@ use std::path::{Path, PathBuf};
 
 use hns_p2p_experimental::RegistryDocument;
 
-const REGISTRY_STEMS: [&str; 2] = ["denuo-experimental-v1", "denuo-experimental-v2"];
+const REGISTRY_STEMS: [&str; 3] = [
+    "denuo-experimental-v1",
+    "denuo-experimental-v2",
+    "hnsr-service-profiles-v1",
+];
 
 fn main() -> Result<(), Box<dyn Error>> {
     let check = match env::args().nth(1).as_deref() {

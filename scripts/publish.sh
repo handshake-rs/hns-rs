@@ -25,11 +25,12 @@ hns-covenants
 hns-dns-relay-protocol
 hns-header-consensus
 hns-service-authority
-hns-hnsr-protocol
 hns-odoh-protocol
 hns-p2p-experimental
 hns-urkel-proof
 hns-transaction
+hns-chat-protocol
+hns-hnsr-protocol
 hns-script
 hns-mining
 hns-swap
@@ -82,10 +83,22 @@ dry_run_with_local_dependencies() {
             dry_run_package "$package" \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"'
             ;;
+        hns-chat-protocol)
+            dry_run_package "$package" \
+                --config 'patch.crates-io.hns-covenants.path="crates/hns-covenants"' \
+                --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
+                --config 'patch.crates-io.hns-service-authority.path="crates/hns-service-authority"' \
+                --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
+            ;;
         hns-hnsr-protocol)
             dry_run_package "$package" \
+                --config 'patch.crates-io.hns-chat-protocol.path="crates/hns-chat-protocol"' \
+                --config 'patch.crates-io.hns-covenants.path="crates/hns-covenants"' \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
-                --config 'patch.crates-io.hns-service-authority.path="crates/hns-service-authority"'
+                --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
+                --config 'patch.crates-io.hns-service-authority.path="crates/hns-service-authority"' \
+                --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
             ;;
         hns-p2p-experimental)
             dry_run_package "$package" \
