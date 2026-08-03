@@ -1,10 +1,15 @@
 #![doc = "Handshake name covenants, authenticated state, and resource values."]
 
 mod name_state;
+mod name_transition;
 mod resource;
 
 pub use name_state::{
     HSD_MAX_SAFE_INTEGER, MAX_NAME_STATE_SIZE, NameState, decode_name_state, encode_name_state,
+};
+pub use name_transition::{
+    FINALIZE_COVENANT_ITEMS, FinalizeCovenant, MAX_TRANSFER_ADDRESS_HASH_SIZE,
+    MIN_TRANSFER_ADDRESS_HASH_SIZE, TRANSFER_COVENANT_ITEMS, TransferCovenant,
 };
 pub use resource::{Resource, ResourceName, ResourceRecord};
 
@@ -329,6 +334,12 @@ pub enum CovenantError {
     NonCanonicalNameState,
     #[error("name-state name does not match its authenticated-tree key")]
     NameStateHashMismatch,
+    #[error("invalid TRANSFER covenant: {0}")]
+    InvalidTransferCovenant(&'static str),
+    #[error("invalid FINALIZE covenant: {0}")]
+    InvalidFinalizeCovenant(&'static str),
+    #[error("FINALIZE name does not match its covenant name hash")]
+    FinalizeNameHashMismatch,
 }
 
 #[cfg(test)]

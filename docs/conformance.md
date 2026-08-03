@@ -37,7 +37,9 @@ vectors and their transaction/policy/consensus source hashes live in
 conformance mutation harness also routes NameState and resource inputs through
 the same public decoders.
 
-The NameState/resource and fee-policy tranches are currently source- and
-vector-reviewed only. The repository's full locked qualification gate was not
+The NameState/resource, fee-policy, typed TRANSFER/FINALIZE,
+listing-independent Shakedex recovery, and empty name-market inventory
+tranches are currently source-reviewed only (with existing vectors retained
+where applicable). The repository's full locked qualification gate was not
 rerun for them; that remains required before the unreleased 0.2.0 line can be
 published.

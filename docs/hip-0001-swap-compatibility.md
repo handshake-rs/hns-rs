@@ -38,6 +38,16 @@ metadata; the caller must supply the independently selected expected address.
 Recovery authenticates its own seller signature and therefore does not depend
 on retaining or publishing a separate `0x84` offer presign.
 
+`ShakedexLockDescriptor` is the narrower recovery authority. A wallet can
+reconstruct it from a seed-derived seller public key and a discovered exact
+FINALIZE coin; it contains no price, payment address, marketplace fee,
+deadline, listing envelope, or offer signature. Its recovery methods build and
+authenticate the same canonical TRANSFER path, while `finalize_witness`
+returns the exact one-item `[lock_script]` witness selected by the script's
+FINALIZE branch. Shared `hns-transaction` TRANSFER/FINALIZE builders own the
+value, address, covenant-field, and authenticated-NameState checks rather than
+duplicating those rules in a wallet or marketplace adapter.
+
 Handshake time locktimes are not literal Unix timestamps on wire. Proofs retain
 the Shakedex seconds value, while transaction reconstruction encodes
 `0x80000000 | floor(seconds / 512)`. Executability uses HSD's strict comparison:
@@ -71,3 +81,8 @@ transaction, canonical fulfillment, cancellation transfer, all transaction
 IDs, and the explicit transfer recipients. The generator cross-checks its
 RFC6979 signer against a pre-existing fixed-price listing signature before
 writing fixtures.
+
+The listing-independent descriptor, strict typed covenant fields, and shared
+name-transaction helpers are source-reviewed additions after the pinned V1
+oracle. The repository's consolidated locked qualification gate has not been
+rerun for those additions.

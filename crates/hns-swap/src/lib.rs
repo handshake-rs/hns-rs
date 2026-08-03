@@ -15,14 +15,19 @@ pub use listing::{
 
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
-use hns_covenants::{Covenant, CovenantKind, hash_name, validate_name};
+use hns_covenants::{
+    Covenant, CovenantKind, FinalizeCovenant, TransferCovenant, hash_name, validate_name,
+};
 use hns_encoding::{Decoder, Encoder};
 use hns_primitives::{BlockHash, Dollarydoos, OfferId, TransactionHash};
 use hns_script::{
     HIP1_SELLER_SIGHASH, LOCKTIME_FLAG, LOCKTIME_MASK, OP_9, OP_10, OP_CHECKSIG, OP_ELSE, OP_ENDIF,
     OP_EQUAL, OP_IF, OP_TYPE, SIGHASH_ANYONE_CAN_PAY, SIGHASH_SINGLE, signature_hash,
 };
-use hns_transaction::{Address, Coin, Input, Outpoint, Output, Transaction, Witness};
+use hns_transaction::{
+    Address, Coin, Input, Outpoint, Output, Transaction, Witness, build_transfer_output,
+    build_transfer_transaction,
+};
 use k256::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
 use k256::ecdsa::{Signature, SigningKey, VerifyingKey};
 use sha3::{Digest, Sha3_256};
@@ -83,6 +88,222 @@ pub enum ShakedexSpendKind {
     Recovery,
 }
 
+/// Listing-independent identity and recovery authority for one Shakedex name
+/// lock.
+///
+/// A wallet can reconstruct this descriptor from a seed-derived
+/// `HnsShakedex` public key and a discovered canonical FINALIZE coin without
+/// retaining any offer price, payment address, marketplace fee, deadline, or
+/// seller presign.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ShakedexLockDescriptor {
+    pub network: NetworkBinding,
+    pub locking_outpoint: Outpoint,
+    pub name: Vec<u8>,
+    pub seller_public_key: [u8; 33],
+}
+
+impl ShakedexLockDescriptor {
+    pub fn new(
+        network: NetworkBinding,
+        locking_outpoint: Outpoint,
+        name: Vec<u8>,
+        seller_public_key: [u8; 33],
+    ) -> Result<Self, SwapError> {
+        let descriptor = Self {
+            network,
+            locking_outpoint,
+            name,
+            seller_public_key,
+        };
+        descriptor.validate()?;
+        Ok(descriptor)
+    }
+
+    /// Reconstruct a descriptor from an exact on-chain Shakedex lock and a
+    /// seed-derived seller public key.
+    pub fn from_locking_coin(
+        network: NetworkBinding,
+        locking_coin: &Coin,
+        seller_public_key: [u8; 33],
+    ) -> Result<Self, SwapError> {
+        if locking_coin.covenant.kind != CovenantKind::Finalize {
+            return Err(SwapError::LockingCoinNotFinalize);
+        }
+        let finalize = FinalizeCovenant::try_from(&locking_coin.covenant)
+            .map_err(|_| SwapError::InvalidShakedexLockingCovenant)?;
+        let descriptor = Self::new(
+            network,
+            locking_coin.outpoint,
+            finalize.name,
+            seller_public_key,
+        )?;
+        descriptor.verify_locking_coin(locking_coin)?;
+        Ok(descriptor)
+    }
+
+    pub fn validate(&self) -> Result<(), SwapError> {
+        if self.locking_outpoint.is_null() {
+            return Err(SwapError::NullShakedexLockingOutpoint);
+        }
+        if !validate_name(&self.name) {
+            return Err(SwapError::InvalidName);
+        }
+        VerifyingKey::from_sec1_bytes(&self.seller_public_key)
+            .map_err(|_| SwapError::InvalidPublicKey)?;
+        Ok(())
+    }
+
+    pub fn lock_script(&self) -> Result<[u8; SWAP_LOCK_SCRIPT_SIZE], SwapError> {
+        self.validate()?;
+        Ok(create_lock_script(&self.seller_public_key))
+    }
+
+    pub fn lock_script_identifier(&self) -> Result<[u8; 32], SwapError> {
+        self.validate()?;
+        Ok(lock_script_hash(&self.seller_public_key))
+    }
+
+    pub fn verify_locking_coin(&self, locking_coin: &Coin) -> Result<(), SwapError> {
+        self.validate()?;
+        if locking_coin.outpoint.is_null() {
+            return Err(SwapError::NullShakedexLockingOutpoint);
+        }
+        if locking_coin.coinbase {
+            return Err(SwapError::CoinbaseShakedexLockingCoin);
+        }
+        if locking_coin.outpoint != self.locking_outpoint {
+            return Err(SwapError::OutpointMismatch);
+        }
+        if locking_coin.covenant.kind != CovenantKind::Finalize {
+            return Err(SwapError::LockingCoinNotFinalize);
+        }
+        if locking_coin.covenant.item(2) != Some(self.name.as_slice()) {
+            return Err(SwapError::NameMismatch);
+        }
+        let expected_name_hash = hash_name(&self.name)?;
+        if locking_coin.covenant.item_name_hash(0) != Some(expected_name_hash) {
+            return Err(SwapError::NameHashMismatch);
+        }
+        FinalizeCovenant::try_from(&locking_coin.covenant)
+            .map_err(|_| SwapError::InvalidShakedexLockingCovenant)?;
+        if locking_coin.address.version != 0
+            || locking_coin.address.hash.as_slice() != lock_script_hash(&self.seller_public_key)
+        {
+            return Err(SwapError::LockScriptMismatch);
+        }
+        Ok(())
+    }
+
+    pub fn verify_for_network(
+        &self,
+        expected_network: NetworkBinding,
+        locking_coin: &Coin,
+    ) -> Result<(), SwapError> {
+        if self.network != expected_network {
+            return Err(SwapError::NetworkMismatch);
+        }
+        self.verify_locking_coin(locking_coin)
+    }
+
+    /// Build the unsigned seller recovery TRANSFER without consulting an
+    /// offer. Funding inputs are required so the name's locked value remains
+    /// exact while the wallet pays transaction fees independently.
+    pub fn recovery_transaction(
+        &self,
+        locking_coin: &Coin,
+        recovery_recipient: &Address,
+        funding_inputs: Vec<Input>,
+        funding_outputs: Vec<Output>,
+    ) -> Result<Transaction, SwapError> {
+        self.verify_locking_coin(locking_coin)?;
+        if funding_inputs.is_empty() {
+            return Err(SwapError::MissingShakedexBuyerInputs);
+        }
+        if funding_inputs
+            .iter()
+            .any(|input| input.previous_output == locking_coin.outpoint)
+        {
+            return Err(SwapError::DuplicateShakedexSellerInput);
+        }
+        let transaction = build_transfer_transaction(
+            locking_coin,
+            recovery_recipient,
+            funding_inputs,
+            funding_outputs,
+        )?;
+        verify_recovery_layout(self, &transaction, locking_coin, recovery_recipient, false)?;
+        Ok(transaction)
+    }
+
+    /// Return the fixed `SIGHASH_SINGLE | ANYONECANPAY` digest for an exact
+    /// listing-independent recovery TRANSFER.
+    pub fn recovery_signature_hash(
+        &self,
+        transaction: &Transaction,
+        locking_coin: &Coin,
+        recovery_recipient: &Address,
+    ) -> Result<[u8; 32], SwapError> {
+        verify_recovery_layout(self, transaction, locking_coin, recovery_recipient, false)?;
+        Ok(signature_hash(
+            transaction,
+            0,
+            &create_lock_script(&self.seller_public_key),
+            locking_coin.value.get(),
+            SHAKEDEX_RECOVERY_SIGHASH,
+        )?)
+    }
+
+    /// Assemble the exact seller-signed TRANSFER witness.
+    pub fn recovery_witness(
+        &self,
+        signature: &[u8; COMPACT_SIGNATURE_SIZE],
+    ) -> Result<Witness, SwapError> {
+        self.validate()?;
+        validate_shakedex_signature(signature, SHAKEDEX_RECOVERY_SIGHASH as u8)?;
+        Ok(Witness {
+            items: vec![
+                signature.to_vec(),
+                create_lock_script(&self.seller_public_key).to_vec(),
+            ],
+        })
+    }
+
+    /// Return the exact no-signature witness for the script's FINALIZE branch:
+    /// one item containing only the lock script.
+    pub fn finalize_witness(&self) -> Result<Witness, SwapError> {
+        self.validate()?;
+        Ok(Witness {
+            items: vec![create_lock_script(&self.seller_public_key).to_vec()],
+        })
+    }
+
+    /// Authenticate a listing-independent recovery TRANSFER to the caller's
+    /// explicit recipient.
+    pub fn verify_recovery(
+        &self,
+        transaction: &Transaction,
+        locking_coin: &Coin,
+        recovery_recipient: &Address,
+    ) -> Result<(), SwapError> {
+        verify_recovery_layout(self, transaction, locking_coin, recovery_recipient, true)?;
+        let signature: &[u8; COMPACT_SIGNATURE_SIZE] = transaction.inputs[0].witness.items[0]
+            .as_slice()
+            .try_into()
+            .map_err(|_| SwapError::InvalidSignature)?;
+        let signature_value =
+            validate_shakedex_signature(signature, SHAKEDEX_RECOVERY_SIGHASH as u8)?;
+        let public_key = VerifyingKey::from_sec1_bytes(&self.seller_public_key)
+            .map_err(|_| SwapError::InvalidPublicKey)?;
+        public_key
+            .verify_prehash(
+                &self.recovery_signature_hash(transaction, locking_coin, recovery_recipient)?,
+                &signature_value,
+            )
+            .map_err(|_| SwapError::InvalidSignature)
+    }
+}
+
 impl SwapProof {
     pub fn validate(&self) -> Result<(), SwapError> {
         if !validate_name(&self.name) {
@@ -140,6 +361,20 @@ impl SwapProof {
             return Err(SwapError::ProofTooLarge(encoded.len()));
         }
         Ok(encoded)
+    }
+
+    /// Project the listing-independent lock and recovery authority committed
+    /// by this proof.
+    pub fn lock_descriptor(&self) -> Result<ShakedexLockDescriptor, SwapError> {
+        if !validate_name(&self.name) {
+            return Err(SwapError::InvalidName);
+        }
+        ShakedexLockDescriptor::new(
+            self.network,
+            self.locking_outpoint,
+            self.name.clone(),
+            self.seller_public_key,
+        )
     }
 
     pub fn decode(input: &[u8]) -> Result<Self, SwapError> {
@@ -370,9 +605,7 @@ impl SwapProof {
             .ok_or(SwapError::InvalidShakedexFulfillment(
                 "transfer output is missing",
             ))?;
-        transfer.value = locking_coin.value;
-        transfer.address = locking_coin.address.clone();
-        transfer.covenant = canonical_transfer_covenant(self, locking_coin, name_recipient)?;
+        *transfer = build_transfer_output(locking_coin, name_recipient)?;
 
         transaction.inputs.append(&mut buyer_inputs);
         let payment = transaction
@@ -440,11 +673,7 @@ impl SwapProof {
                 "transfer output is missing",
             ))?;
         let recipient = transfer_recipient(transfer, self, locking_coin)?;
-        let expected_transfer = canonical_transfer_covenant(self, locking_coin, &recipient)?;
-        if transfer.value != locking_coin.value
-            || transfer.address != locking_coin.address
-            || transfer.covenant != expected_transfer
-        {
+        if transfer != &build_transfer_output(locking_coin, &recipient)? {
             return Err(SwapError::InvalidShakedexFulfillment(
                 "transfer output differs from the locked name",
             ));
@@ -492,38 +721,15 @@ impl SwapProof {
         &self,
         locking_coin: &Coin,
         recovery_recipient: &Address,
-        mut funding_inputs: Vec<Input>,
+        funding_inputs: Vec<Input>,
         funding_outputs: Vec<Output>,
     ) -> Result<Transaction, SwapError> {
-        if funding_inputs.is_empty() {
-            return Err(SwapError::MissingShakedexBuyerInputs);
-        }
-        if funding_inputs
-            .iter()
-            .any(|input| input.previous_output == locking_coin.outpoint)
-        {
-            return Err(SwapError::DuplicateShakedexSellerInput);
-        }
-        let mut inputs = vec![Input {
-            previous_output: locking_coin.outpoint,
-            sequence: u32::MAX,
-            witness: Witness::default(),
-        }];
-        inputs.append(&mut funding_inputs);
-        let mut outputs = vec![Output {
-            value: locking_coin.value,
-            address: locking_coin.address.clone(),
-            covenant: canonical_transfer_covenant(self, locking_coin, recovery_recipient)?,
-        }];
-        outputs.extend(funding_outputs);
-        let transaction = Transaction {
-            version: 0,
-            inputs,
-            outputs,
-            locktime: 0,
-        };
-        verify_recovery_layout(self, &transaction, locking_coin, recovery_recipient, false)?;
-        Ok(transaction)
+        self.lock_descriptor()?.recovery_transaction(
+            locking_coin,
+            recovery_recipient,
+            funding_inputs,
+            funding_outputs,
+        )
     }
 
     /// Return the fixed `SIGHASH_SINGLE | ANYONECANPAY` digest for an exact
@@ -534,14 +740,11 @@ impl SwapProof {
         locking_coin: &Coin,
         recovery_recipient: &Address,
     ) -> Result<[u8; 32], SwapError> {
-        verify_recovery_layout(self, transaction, locking_coin, recovery_recipient, false)?;
-        Ok(signature_hash(
+        self.lock_descriptor()?.recovery_signature_hash(
             transaction,
-            0,
-            &create_lock_script(&self.seller_public_key),
-            locking_coin.value.get(),
-            SHAKEDEX_RECOVERY_SIGHASH,
-        )?)
+            locking_coin,
+            recovery_recipient,
+        )
     }
 
     /// Assemble the exact recovery witness after enforcing compact low-S
@@ -550,13 +753,7 @@ impl SwapProof {
         &self,
         signature: &[u8; COMPACT_SIGNATURE_SIZE],
     ) -> Result<Witness, SwapError> {
-        validate_shakedex_signature(signature, SHAKEDEX_RECOVERY_SIGHASH as u8)?;
-        Ok(Witness {
-            items: vec![
-                signature.to_vec(),
-                create_lock_script(&self.seller_public_key).to_vec(),
-            ],
-        })
+        self.lock_descriptor()?.recovery_witness(signature)
     }
 
     /// Authenticate a first-stage recovery transfer to the caller's explicit
@@ -567,23 +764,11 @@ impl SwapProof {
         locking_coin: &Coin,
         recovery_recipient: &Address,
     ) -> Result<(), SwapError> {
-        verify_recovery_layout(self, transaction, locking_coin, recovery_recipient, true)?;
-        let signature: &[u8; COMPACT_SIGNATURE_SIZE] = transaction.inputs[0].witness.items[0]
-            .as_slice()
-            .try_into()
-            .map_err(|_| SwapError::InvalidSignature)?;
-        let signature_value = validate_shakedex_signature(
-            signature,
-            SHAKEDEX_RECOVERY_SIGHASH as u8,
-        )?;
-        let public_key = VerifyingKey::from_sec1_bytes(&self.seller_public_key)
-            .map_err(|_| SwapError::InvalidPublicKey)?;
-        public_key
-            .verify_prehash(
-                &self.recovery_signature_hash(transaction, locking_coin, recovery_recipient)?,
-                &signature_value,
-            )
-            .map_err(|_| SwapError::InvalidSignature)
+        self.lock_descriptor()?.verify_recovery(
+            transaction,
+            locking_coin,
+            recovery_recipient,
+        )
     }
 
     /// Classify and authenticate a seller-authorized transfer of the exact
@@ -843,53 +1028,7 @@ impl DutchAuction {
 }
 
 fn verify_locking_coin(proof: &SwapProof, coin: &Coin) -> Result<(), SwapError> {
-    if coin.outpoint != proof.locking_outpoint {
-        return Err(SwapError::OutpointMismatch);
-    }
-    if coin.covenant.kind != CovenantKind::Finalize {
-        return Err(SwapError::LockingCoinNotFinalize);
-    }
-    if coin.covenant.item_u32(1).is_none() {
-        return Err(SwapError::InvalidShakedexLockingCovenant);
-    }
-    if coin.covenant.item(2) != Some(proof.name.as_slice()) {
-        return Err(SwapError::NameMismatch);
-    }
-    let expected_name_hash = hash_name(&proof.name)?;
-    if coin.covenant.item_name_hash(0) != Some(expected_name_hash) {
-        return Err(SwapError::NameHashMismatch);
-    }
-    if coin.address.version != 0
-        || coin.address.hash.as_slice() != lock_script_hash(&proof.seller_public_key)
-    {
-        return Err(SwapError::LockScriptMismatch);
-    }
-    Ok(())
-}
-
-fn canonical_transfer_covenant(
-    proof: &SwapProof,
-    locking_coin: &Coin,
-    recipient: &Address,
-) -> Result<Covenant, SwapError> {
-    let name_hash = hash_name(&proof.name)?;
-    if locking_coin.covenant.item_name_hash(0) != Some(name_hash) {
-        return Err(SwapError::NameHashMismatch);
-    }
-    let start_height = locking_coin
-        .covenant
-        .item_u32(1)
-        .ok_or(SwapError::InvalidShakedexLockingCovenant)?;
-    recipient.validate()?;
-    Ok(Covenant {
-        kind: CovenantKind::Transfer,
-        items: vec![
-            name_hash.into_bytes().to_vec(),
-            start_height.to_le_bytes().to_vec(),
-            vec![recipient.version],
-            recipient.hash.clone(),
-        ],
-    })
+    proof.lock_descriptor()?.verify_locking_coin(coin)
 }
 
 fn transfer_recipient(
@@ -897,29 +1036,25 @@ fn transfer_recipient(
     proof: &SwapProof,
     locking_coin: &Coin,
 ) -> Result<Address, SwapError> {
-    if transfer.covenant.kind != CovenantKind::Transfer
-        || transfer.covenant.items.len() != 4
-        || transfer.covenant.item_name_hash(0) != Some(hash_name(&proof.name)?)
-        || transfer.covenant.item_u32(1) != locking_coin.covenant.item_u32(1)
+    let transfer_fields = TransferCovenant::try_from(&transfer.covenant).map_err(|_| {
+        SwapError::InvalidShakedexFulfillment(
+            "TRANSFER covenant does not bind the locked name",
+        )
+    })?;
+    let locking_finalize = FinalizeCovenant::try_from(&locking_coin.covenant)
+        .map_err(|_| SwapError::InvalidShakedexLockingCovenant)?;
+    if transfer_fields.name_hash != hash_name(&proof.name)?
+        || transfer_fields.name_hash != locking_finalize.name_hash
+        || transfer_fields.start_height != locking_finalize.start_height
     {
         return Err(SwapError::InvalidShakedexFulfillment(
             "TRANSFER covenant does not bind the locked name",
         ));
     }
-    let version = transfer
-        .covenant
-        .item_u8(2)
-        .ok_or(SwapError::InvalidShakedexFulfillment(
-            "TRANSFER recipient version is malformed",
-        ))?;
-    let hash = transfer
-        .covenant
-        .item(3)
-        .ok_or(SwapError::InvalidShakedexFulfillment(
-            "TRANSFER recipient hash is missing",
-        ))?
-        .to_vec();
-    Ok(Address::new(version, hash)?)
+    Ok(Address::new(
+        transfer_fields.recipient_version,
+        transfer_fields.recipient_hash,
+    )?)
 }
 
 fn verify_seller_signature(
@@ -959,14 +1094,13 @@ fn validate_shakedex_signature(
 }
 
 fn verify_recovery_layout(
-    proof: &SwapProof,
+    descriptor: &ShakedexLockDescriptor,
     transaction: &Transaction,
     locking_coin: &Coin,
     recovery_recipient: &Address,
     require_witness: bool,
 ) -> Result<(), SwapError> {
-    proof.validate()?;
-    verify_locking_coin(proof, locking_coin)?;
+    descriptor.verify_locking_coin(locking_coin)?;
     recovery_recipient.validate()?;
     if transaction.version != 0 || transaction.locktime != 0 || transaction.inputs.len() < 2 {
         return Err(SwapError::InvalidShakedexRecovery(
@@ -991,7 +1125,9 @@ fn verify_recovery_layout(
                 "seller witness layout differs",
             ));
         };
-        if witness_script.as_slice() != create_lock_script(&proof.seller_public_key).as_slice() {
+        if witness_script.as_slice()
+            != create_lock_script(&descriptor.seller_public_key).as_slice()
+        {
             return Err(SwapError::InvalidShakedexRecovery(
                 "seller witness script differs",
             ));
@@ -1002,7 +1138,9 @@ fn verify_recovery_layout(
                 "seller witness is neither absent nor canonical",
             ));
         };
-        if witness_script.as_slice() != create_lock_script(&proof.seller_public_key).as_slice() {
+        if witness_script.as_slice()
+            != create_lock_script(&descriptor.seller_public_key).as_slice()
+        {
             return Err(SwapError::InvalidShakedexRecovery(
                 "seller witness script differs",
             ));
@@ -1011,11 +1149,7 @@ fn verify_recovery_layout(
     let transfer = transaction.outputs.first().ok_or(SwapError::InvalidShakedexRecovery(
         "recovery TRANSFER output is missing",
     ))?;
-    if transfer.value != locking_coin.value
-        || transfer.address != locking_coin.address
-        || transfer.covenant
-            != canonical_transfer_covenant(proof, locking_coin, recovery_recipient)?
-    {
+    if transfer != &build_transfer_output(locking_coin, recovery_recipient)? {
         return Err(SwapError::InvalidShakedexRecovery(
             "recovery TRANSFER output differs",
         ));
@@ -1056,6 +1190,8 @@ pub enum SwapError {
     Script(#[from] hns_script::ScriptError),
     #[error(transparent)]
     Transaction(#[from] hns_transaction::TransactionError),
+    #[error(transparent)]
+    NameTransaction(#[from] hns_transaction::NameTransactionError),
     #[error("unsupported swap proof version {0}")]
     UnsupportedVersion(u16),
     #[error("swap proof is {0} bytes, exceeding the configured bound")]
@@ -1090,6 +1226,10 @@ pub enum SwapError {
     HighSignature,
     #[error("locking coin outpoint differs from the proof")]
     OutpointMismatch,
+    #[error("Shakedex locking outpoint is HSD's null outpoint")]
+    NullShakedexLockingOutpoint,
+    #[error("Shakedex locking coin cannot be a coinbase output")]
+    CoinbaseShakedexLockingCoin,
     #[error("locking coin is not a FINALIZE covenant")]
     LockingCoinNotFinalize,
     #[error("locking coin name differs from the proof")]
@@ -1259,14 +1399,17 @@ mod tests {
             coinbase: false,
             address: Address::new(0, lock_script_hash(&proof.seller_public_key).to_vec())
                 .expect("address"),
-            covenant: Covenant {
-                kind: CovenantKind::Finalize,
-                items: vec![
-                    hash_name(&proof.name).expect("name").into_bytes().to_vec(),
-                    1_u32.to_le_bytes().to_vec(),
-                    proof.name.clone(),
-                ],
-            },
+            covenant: FinalizeCovenant::new(
+                proof.name.clone(),
+                Height::new(1),
+                false,
+                Height::new(0),
+                0,
+                BlockHash::new([0x44; 32]),
+            )
+            .expect("finalize")
+            .to_covenant()
+            .expect("covenant"),
         }
     }
 
@@ -1283,6 +1426,36 @@ mod tests {
             expected
         );
         let coin = locking_coin(&proof);
+        let descriptor = ShakedexLockDescriptor::from_locking_coin(
+            proof.network,
+            &coin,
+            proof.seller_public_key,
+        )
+        .expect("discovered lock descriptor");
+        assert!(matches!(
+            ShakedexLockDescriptor::new(
+                proof.network,
+                Outpoint::NULL,
+                proof.name.clone(),
+                proof.seller_public_key,
+            ),
+            Err(SwapError::NullShakedexLockingOutpoint)
+        ));
+        let mut coinbase_lock = coin.clone();
+        coinbase_lock.coinbase = true;
+        assert!(matches!(
+            ShakedexLockDescriptor::from_locking_coin(
+                proof.network,
+                &coinbase_lock,
+                proof.seller_public_key,
+            ),
+            Err(SwapError::CoinbaseShakedexLockingCoin)
+        ));
+        assert_eq!(descriptor, proof.lock_descriptor().expect("proof descriptor"));
+        assert_eq!(
+            descriptor.finalize_witness().expect("FINALIZE witness").items,
+            vec![create_lock_script(&proof.seller_public_key).to_vec()]
+        );
         proof.sign(&coin, &signing_key).expect("signed proof");
         proof.verify(&coin).expect("valid proof");
         let encoded = proof.encode().expect("encoded");
@@ -1402,9 +1575,21 @@ mod tests {
         );
         let mut recovery_without_offer = proof.clone();
         recovery_without_offer.signature = None;
+        recovery_without_offer.price = Dollarydoos::new(0);
+        recovery_without_offer.lock_time_seconds = MAX_HSD_TIME_LOCK;
+        recovery_without_offer.fee = Dollarydoos::new(1);
+        recovery_without_offer.fee_address = None;
         recovery_without_offer
             .verify_recovery(&recovery, &coin, &recovery_recipient)
-            .expect("seller recovery does not depend on a listing presign");
+            .expect("seller recovery does not depend on listing terms or a presign");
+        ShakedexLockDescriptor::from_locking_coin(
+            proof.network,
+            &coin,
+            proof.seller_public_key,
+        )
+        .expect("seed-restored descriptor")
+        .verify_recovery(&recovery, &coin, &recovery_recipient)
+        .expect("seller recovery does not depend on listing terms");
         assert!(matches!(
             proof.classify_spend(&recovery, &coin, None),
             Err(SwapError::MissingShakedexRecoveryRecipient)

@@ -17,7 +17,7 @@ name-market messages:
 | ---: | --- |
 | 1 | network-bound market hello |
 | 2 | empty inventory request |
-| 3 | sorted unique listing-content-hash inventory |
+| 3 | sorted unique listing-content-hash inventory; zero entries means the board is empty |
 | 4 | sorted unique batch request |
 | 5 | sorted unique batch of signed fixed-price listings |
 | 6 | one listing-content-hash request |
@@ -29,7 +29,9 @@ still verified locally; inventory is only discovery metadata. A hello must
 carry nonzero Handshake magic and genesis values as well as a bounded nonzero
 receive limit. The typed name-market layer enforces the same 512 KiB payload
 ceiling as the cross-chain market even though the outer registry assignment
-permits a larger atomic-market transport payload.
+permits a larger atomic-market transport payload. `OfferInventory` alone may
+carry a canonical zero count. `GetOffers` and `Offers` require at least one
+identifier or signed listing respectively.
 
 ## Cross-chain market (`0x0002`, protocol version 1)
 

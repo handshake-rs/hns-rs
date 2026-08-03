@@ -144,8 +144,8 @@ impl NameMarketMessage {
         let encoded = match self {
             Self::Hello(hello) => (1, hello.encode()?),
             Self::GetOfferInventory => (2, Vec::new()),
-            Self::OfferInventory(listing_hashes) => (3, encode_hashes(listing_hashes)?),
-            Self::GetOffers(listing_hashes) => (4, encode_hashes(listing_hashes)?),
+            Self::OfferInventory(listing_hashes) => (3, encode_hashes(listing_hashes, true)?),
+            Self::GetOffers(listing_hashes) => (4, encode_hashes(listing_hashes, false)?),
             Self::Offers(listings) => (5, encode_listings(listings)?),
             Self::GetOffer(listing_hash) => (6, encode_nonzero_hash(*listing_hash)?),
             Self::Offer(listing) => (7, listing.encode()?),
@@ -167,8 +167,8 @@ impl NameMarketMessage {
                 require_empty(payload)?;
                 Ok(Self::GetOfferInventory)
             }
-            3 => Ok(Self::OfferInventory(decode_hashes(payload)?)),
-            4 => Ok(Self::GetOffers(decode_hashes(payload)?)),
+            3 => Ok(Self::OfferInventory(decode_hashes(payload, true)?)),
+            4 => Ok(Self::GetOffers(decode_hashes(payload, false)?)),
             5 => Ok(Self::Offers(decode_listings(payload)?)),
             6 => Ok(Self::GetOffer(decode_nonzero_hash(payload)?)),
             7 => Ok(Self::Offer(FixedPriceListing::decode(payload)?)),
@@ -234,7 +234,7 @@ impl CrossChainMessage {
     fn encode_payload(&self) -> Result<(u16, Vec<u8>)> {
         let encoded = match self {
             Self::MarketIntentInventory(hashes) => {
-                (MARKET_INTENT_INV_MESSAGE_TYPE, encode_hashes(hashes)?)
+                (MARKET_INTENT_INV_MESSAGE_TYPE, encode_hashes(hashes, false)?)
             }
             Self::GetMarketIntent(hash) => {
                 (GET_MARKET_INTENT_MESSAGE_TYPE, encode_nonzero_hash(*hash)?)
@@ -244,7 +244,7 @@ impl CrossChainMessage {
                 (CANCEL_MARKET_INTENT_MESSAGE_TYPE, cancellation.encode()?)
             }
             Self::PriceObservationInventory(hashes) => {
-                (PRICE_OBSERVATION_INV_MESSAGE_TYPE, encode_hashes(hashes)?)
+                (PRICE_OBSERVATION_INV_MESSAGE_TYPE, encode_hashes(hashes, false)?)
             }
             Self::GetPriceObservation(hash) => (
                 GET_PRICE_OBSERVATION_MESSAGE_TYPE,
@@ -274,7 +274,7 @@ impl CrossChainMessage {
         }
         match message_type {
             MARKET_INTENT_INV_MESSAGE_TYPE => {
-                Ok(Self::MarketIntentInventory(decode_hashes(payload)?))
+                Ok(Self::MarketIntentInventory(decode_hashes(payload, false)?))
             }
             GET_MARKET_INTENT_MESSAGE_TYPE => {
                 Ok(Self::GetMarketIntent(decode_nonzero_hash(payload)?))
@@ -284,7 +284,7 @@ impl CrossChainMessage {
                 MarketIntentCancellation::decode(payload)?,
             )),
             PRICE_OBSERVATION_INV_MESSAGE_TYPE => {
-                Ok(Self::PriceObservationInventory(decode_hashes(payload)?))
+                Ok(Self::PriceObservationInventory(decode_hashes(payload, false)?))
             }
             GET_PRICE_OBSERVATION_MESSAGE_TYPE => {
                 Ok(Self::GetPriceObservation(decode_nonzero_hash(payload)?))
@@ -316,8 +316,8 @@ impl CrossChainMessage {
     }
 }
 
-fn encode_hashes(hashes: &[[u8; 32]]) -> Result<Vec<u8>> {
-    if hashes.is_empty() || hashes.len() > MAX_INVENTORY_ENTRIES {
+fn encode_hashes(hashes: &[[u8; 32]], permit_empty: bool) -> Result<Vec<u8>> {
+    if (!permit_empty && hashes.is_empty()) || hashes.len() > MAX_INVENTORY_ENTRIES {
         return Err(MarketplaceError::Invalid("invalid inventory length"));
     }
     if hashes.contains(&[0; 32]) || hashes.windows(2).any(|window| window[0] >= window[1]) {
@@ -333,10 +333,10 @@ fn encode_hashes(hashes: &[[u8; 32]]) -> Result<Vec<u8>> {
     ensure_size(encoder.into_bytes(), MAX_DENUO_MARKET_PAYLOAD)
 }
 
-fn decode_hashes(input: &[u8]) -> Result<Vec<[u8; 32]>> {
+fn decode_hashes(input: &[u8], permit_empty: bool) -> Result<Vec<[u8; 32]>> {
     let mut decoder = Decoder::new(input);
     let count = decoder.read_compact_usize(MAX_INVENTORY_ENTRIES, "market inventory")?;
-    if count == 0 {
+    if count == 0 && !permit_empty {
         return Err(MarketplaceError::Invalid("empty inventory"));
     }
     let mut hashes = Vec::with_capacity(count);
@@ -344,7 +344,7 @@ fn decode_hashes(input: &[u8]) -> Result<Vec<[u8; 32]>> {
         hashes.push(decoder.read_array()?);
     }
     decoder.finish()?;
-    encode_hashes(&hashes)?;
+    encode_hashes(&hashes, permit_empty)?;
     Ok(hashes)
 }
 
@@ -492,6 +492,28 @@ mod tests {
         let mut wrong_registry = DenuoExtensionEnvelope::decode_canonical(&encoded).unwrap();
         wrong_registry.registry_version = DENUO_V1_REGISTRY_VERSION;
         assert!(wrong_registry.encode_canonical().is_err());
+    }
+
+    #[test]
+    fn empty_offer_inventory_is_canonical_but_empty_requests_and_batches_are_not() {
+        let inventory = NameMarketMessage::OfferInventory(Vec::new());
+        let encoded = inventory
+            .encode_envelope(DenuoRegistryVersion::V2, 8)
+            .expect("empty inventory response");
+        assert_eq!(
+            NameMarketMessage::decode_envelope(&encoded).expect("empty inventory decoding"),
+            (DenuoRegistryVersion::V2, 8, inventory)
+        );
+        assert!(
+            NameMarketMessage::GetOffers(Vec::new())
+                .encode_envelope(DenuoRegistryVersion::V2, 9)
+                .is_err()
+        );
+        assert!(
+            NameMarketMessage::Offers(Vec::new())
+                .encode_envelope(DenuoRegistryVersion::V2, 10)
+                .is_err()
+        );
     }
 
     #[test]

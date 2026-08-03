@@ -113,3 +113,7 @@ payload bounds are documented in
 [`denuo-marketplace.md`](denuo-marketplace.md). All decoders require complete
 input and reject noncanonical compact lengths, rationals, sets, signatures, and
 presence/state values.
+
+The name-market `OfferInventory` response uses a canonical zero compact count
+when the board is empty. Empty `GetOffers` requests and empty `Offers` batches
+remain invalid; cross-chain inventories also remain nonempty.

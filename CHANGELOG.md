@@ -26,6 +26,12 @@ Release-candidate source for the modular wallet and marketplace boundary:
   primitives;
 - canonical Shakedex buyer fulfillment and explicit-recipient two-stage
   cancellation construction, authentication, and spend classification;
+- strict typed HSD TRANSFER/FINALIZE covenant parsing, owner-preserving linked
+  output and transaction construction, authenticated NameState finalization,
+  and listing-independent seed-restorable Shakedex lock recovery with the
+  exact FINALIZE-branch witness;
+- canonical zero-entry name-market offer inventories while empty offer
+  requests and object batches remain rejected;
 - an exact native-HNS HTLC/session join with deadline-safe upward conversion
   to HSD's 512-second time-lock granularity;
 - recovery-safe status validation after the new-funding window closes;
@@ -39,7 +45,8 @@ Release-candidate source for the modular wallet and marketplace boundary:
 
 All public workspace packages advance together so changed crates never attempt
 to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is
-published by this source commit. The fee-policy addition is source- and
+published by this source commit. The fee-policy and later
+name-transition/recovery additions are source- and, where applicable,
 fixture-reviewed only until the consolidated locked qualification gate passes.
 
 ## 0.1.0 - 2026-07-29

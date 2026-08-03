@@ -22,6 +22,15 @@ not require a retained marketplace presign. Safety-deadline helpers expose
 upward HSD time-lock conversion without changing Shakedex's floor-compatible
 proof reconstruction.
 
+`ShakedexLockDescriptor` separates the seed-derived seller key, network, name,
+and discovered lock outpoint from every listing term. It can be reconstructed
+from an exact on-chain FINALIZE coin, build and authenticate recovery without a
+price, payment address, fee, deadline, or offer signature, and produce the
+exact one-item `[lock_script]` witness for the later FINALIZE branch.
+Discovery must still be bound to a synchronized chain view that proves the
+coin is current and unspent; the descriptor does not turn an arbitrary decoded
+coin into chain evidence.
+
 Marketplace callers must still persist per-seller/name sequence state to reject
 replays, verify the embedded `SwapProof` against the current FINALIZE coin, and
 derive confirmation/reorg evidence from a synchronized Handshake chain. The

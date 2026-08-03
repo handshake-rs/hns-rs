@@ -455,7 +455,7 @@ fn domain_hash(domain: &[u8], encoded: &[u8]) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use hns_covenants::{Covenant, CovenantKind, hash_name};
+    use hns_covenants::FinalizeCovenant;
     use hns_primitives::{BlockHash, Dollarydoos, Height, TransactionHash};
     use hns_transaction::{Address, Coin, Outpoint};
 
@@ -494,17 +494,17 @@ mod tests {
             coinbase: false,
             address: Address::new(0, lock_script_hash(&proof.seller_public_key).to_vec())
                 .expect("lock address"),
-            covenant: Covenant {
-                kind: CovenantKind::Finalize,
-                items: vec![
-                    hash_name(&proof.name)
-                        .expect("name hash")
-                        .into_bytes()
-                        .to_vec(),
-                    1_u32.to_le_bytes().to_vec(),
-                    proof.name.clone(),
-                ],
-            },
+            covenant: FinalizeCovenant::new(
+                proof.name.clone(),
+                Height::new(1),
+                false,
+                Height::new(0),
+                0,
+                BlockHash::new([0x55; 32]),
+            )
+            .expect("finalize")
+            .to_covenant()
+            .expect("covenant"),
         };
         proof
             .sign(&coin, &signing_key)

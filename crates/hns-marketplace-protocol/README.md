@@ -15,6 +15,11 @@ timeouts; native HNS sides can be constructed and verified directly against
 `hns-swap::HnsHtlc`. New-funding admission is time-gated separately from
 historical status and reorganization validation.
 
+An empty `OfferInventory` is the canonical response when a name-market board
+has no listings. Empty `GetOffers` requests and empty `Offers` object batches
+remain invalid, so an empty response cannot be confused with an empty request
+or a malformed object transfer.
+
 It is part of the [`hns-rs`](https://github.com/handshake-rs/hns-rs) workspace
 and supports Rust 1.89 or later.
 

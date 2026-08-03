@@ -18,14 +18,15 @@ The implemented protocol layer contains:
 - canonical transactions, witness hashing, addresses, outputs, and coins;
 - all assigned name-covenant wire tags, HNS name hashing, blind bids, exact
   HSD NameState values, typed lossless resource decoding, authenticated
-  name/key and owner-outpoint semantics, and non-coinbase covenant-link
-  validation;
+  name/key and owner-outpoint semantics, strict TRANSFER/FINALIZE field and
+  linked-transaction construction, and non-coinbase covenant-link validation;
 - HSD-compatible signature hashing, absolute/relative lock predicates, and
   sigop-adjusted minimum-fee policy arithmetic with explicit units;
 - a production script interpreter differentially matched to all 876 pinned HSD
   script vectors, including Handshake `OP_TYPE`;
 - HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives,
-  including canonical buyer fulfillment and seller cancellation transactions;
+  including canonical buyer fulfillment, seller cancellation transactions,
+  and seed-restorable listing-independent lock recovery;
 - signed fixed-price listing/cancellation wrappers and native HNS HTLC
   primitives joined directly to bilateral session commitments;
 - canonical HNS/BTC and HNS/ETH asset, intent, price-round, fill-grant, and
