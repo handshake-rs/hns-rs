@@ -24,6 +24,7 @@ hns-primitives
 hns-covenants
 hns-dns-relay-protocol
 hns-header-consensus
+hns-service-authority
 hns-hnsr-protocol
 hns-odoh-protocol
 hns-p2p-experimental
@@ -77,9 +78,14 @@ dry_run_with_local_dependencies() {
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
                 --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"'
             ;;
-        hns-dns-relay-protocol|hns-hnsr-protocol|hns-odoh-protocol)
+        hns-dns-relay-protocol|hns-service-authority|hns-odoh-protocol)
             dry_run_package "$package" \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"'
+            ;;
+        hns-hnsr-protocol)
+            dry_run_package "$package" \
+                --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-service-authority.path="crates/hns-service-authority"'
             ;;
         hns-p2p-experimental)
             dry_run_package "$package" \

@@ -18,6 +18,7 @@ hns-odoh-protocol.workspace = true
 hns-p2p-experimental.workspace = true
 hns-p2p-wire.workspace = true
 hns-script.workspace = true
+hns-service-authority.workspace = true
 hns-swap.workspace = true
 hns-transaction.workspace = true
 hns-urkel-proof.workspace = true

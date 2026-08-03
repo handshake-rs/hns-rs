@@ -13,6 +13,7 @@ members = [
     "crates/hns-p2p-wire",
     "crates/hns-primitives",
     "crates/hns-script",
+    "crates/hns-service-authority",
     "crates/hns-swap",
     "crates/hns-transaction",
     "crates/hns-urkel-proof",
@@ -47,6 +48,7 @@ hns-p2p-experimental = { version = "0.2.0", path = "crates/hns-p2p-experimental"
 hns-p2p-wire = { version = "0.2.0", path = "crates/hns-p2p-wire" }
 hns-primitives = { version = "0.2.0", path = "crates/hns-primitives" }
 hns-script = { version = "0.2.0", path = "crates/hns-script" }
+hns-service-authority = { version = "0.2.0", path = "crates/hns-service-authority" }
 hns-swap = { version = "0.2.0", path = "crates/hns-swap" }
 hns-transaction = { version = "0.2.0", path = "crates/hns-transaction" }
 hns-urkel-proof = { version = "0.2.0", path = "crates/hns-urkel-proof" }

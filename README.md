@@ -41,7 +41,9 @@ The implemented protocol layer contains:
 - the canonical Denuo Experimental Handshake P2P Registries v1 and v2;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
-- HIP #76 DNS relay, HIP #77 ODoH/HPKE, and HIP #78 HNSR protocol values.
+- HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
+  #79 HNSA service-authority objects, and the local versioned HNSA/HNSR named
+  route adapter.
 
 Source-independent exact V1 settlement and marketplace vectors live in
 `fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.
@@ -63,7 +65,7 @@ The public crates are:
   `hns-urkel-proof`, and `hns-script`;
 - `hns-swap`, `hns-marketplace-protocol`, `hns-mining`, and `hns-p2p-wire`;
 - `hns-p2p-experimental`, `hns-dns-relay-protocol`,
-  `hns-odoh-protocol`, and `hns-hnsr-protocol`.
+  `hns-odoh-protocol`, `hns-hnsr-protocol`, and `hns-service-authority`.
 
 The conformance harness, fuzz package, and deterministic registry generator are
 development tooling and are intentionally private. See `docs/releasing.md` for

@@ -473,6 +473,7 @@ dependencies = [
  "hns-p2p-experimental",
  "hns-p2p-wire",
  "hns-script",
+ "hns-service-authority",
  "hns-swap",
  "hns-transaction",
  "hns-urkel-proof",
@@ -525,6 +526,7 @@ dependencies = [
  "blake2",
  "hex",
  "hns-encoding",
+ "hns-service-authority",
  "k256",
  "thiserror",
  "zeroize",
@@ -635,6 +637,18 @@ dependencies = [
  "sha2 0.10.9",
  "sha3",
  "thiserror",
+]
+
+[[package]]
+name = "hns-service-authority"
+version = "0.2.0"
+dependencies = [
+ "blake2",
+ "hex",
+ "hns-encoding",
+ "k256",
+ "thiserror",
+ "zeroize",
 ]
 
 [[package]]

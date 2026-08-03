@@ -28,7 +28,10 @@ The crate provides:
 - exact route-key and rendezvous-node-ID derivation;
 - authenticated, age-limited public rendezvous contacts and XOR ordering;
 - route expiry, increasing-sequence replacement, deterministic sampling, and
-  bounded total/per-key/per-source in-memory storage; and
+  bounded total/per-key/per-source in-memory storage;
+- version-2 HNSA named routes with stable service-derived keys, profile-aware
+  relay tickets, full-client verification, bounded rendezvous admission, and
+  exclusion from unnamed route sampling; and
 - the hsd Phase 2 regtest evidence artifact at
   `fixtures/hsd/hnsr-regtest-phase1.json`.
 
@@ -44,10 +47,10 @@ profile.
 The relay handles opaque bytes only; it is never consensus, DNS, DANE, or
 application authority and cannot select a caller-provided local target.
 
-The hsd compatibility snapshot implements the unnamed endpoint-key authority
-chain. Named `HNS_WEB_V1` authorization requires authenticated HNS resource
-state and belongs in the consuming node/browser layers; it must not be inferred
-from an unauthenticated route record.
+The compatibility snapshot implements the unnamed endpoint-key authority
+chain. Named service identity is supplied only by the HNSA adapter and current
+authenticated HNS state from the consuming node or browser; it is never
+inferred from a rendezvous response.
 
 This crate deliberately contains no socket runtime, Tokio, persistent
 database, wallet, browser, mobile, or MeshMine dependency. Consumers remain

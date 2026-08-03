@@ -2,6 +2,7 @@
 
 pub mod body;
 pub mod envelope;
+pub mod named;
 pub mod record;
 pub mod routing;
 
@@ -11,6 +12,7 @@ pub use body::{
     PutRouteBody, RenewBody, RoutesBody, SampleRoutesBody, WindowBody, WithdrawBody,
 };
 pub use envelope::{HnsrOpcode, HnsrPacket};
+pub use named::{NamedRoutePolicy, NamedRouteRecordV2, NamedRouteTrust, named_route_key};
 pub use record::{
     EndpointDelegation, RelayTicket, ReserveRequest, RouteRecord, public_key, sign_withdrawal,
     verify_withdrawal,

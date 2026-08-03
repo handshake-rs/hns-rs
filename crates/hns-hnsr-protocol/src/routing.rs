@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use hns_encoding::{Decoder, Encoder};
 
+use crate::named::{NamedRouteRecordV2, NamedRouteTrust};
 use crate::record::{RouteRecord, blake2b_256, validate_host, validate_public_key};
 use crate::{HNSR_RENDEZVOUS_SERVICE, HnsrProtocolError, MAX_RECORDS_PER_KEY, MAX_STORED_RECORDS};
 
@@ -141,8 +142,17 @@ struct StoredRoute {
     endpoint_key: [u8; 33],
     sequence: u64,
     expires_at: u64,
+    sampleable: bool,
     source: String,
     raw: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct VerifiedRoute {
+    endpoint_key: [u8; 33],
+    sequence: u64,
+    expires_at: u64,
+    sampleable: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -203,16 +213,105 @@ impl RouteStore {
             return Err(HnsrProtocolError::Invalid("HNSR route key mismatch"));
         }
         record.verify(self.network_magic, now, self.allow_private)?;
+        self.insert_verified(
+            key,
+            VerifiedRoute {
+                endpoint_key: record.delegation.endpoint_key,
+                sequence: record.sequence,
+                expires_at: record.expires_at,
+                sampleable: true,
+            },
+            raw,
+            now,
+            source,
+        )
+    }
+
+    pub fn put_named(
+        &mut self,
+        key: [u8; 32],
+        raw: Vec<u8>,
+        trust: &NamedRouteTrust<'_>,
+        now: u64,
+        source: String,
+    ) -> Result<u64, HnsrProtocolError> {
+        if source.is_empty() {
+            return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
+        }
+        if trust.identity.network_magic != self.network_magic {
+            return Err(HnsrProtocolError::Invalid(
+                "named HNSR route store network mismatch",
+            ));
+        }
+        let record = NamedRouteRecordV2::decode(&raw)?;
+        if record.route_key != key {
+            return Err(HnsrProtocolError::Invalid("HNSR route key mismatch"));
+        }
+        record.verify(trust, now)?;
+        self.insert_verified(
+            key,
+            VerifiedRoute {
+                endpoint_key: record.delegation.endpoint_key,
+                sequence: record.sequence,
+                expires_at: record.expires_at,
+                sampleable: false,
+            },
+            raw,
+            now,
+            source,
+        )
+    }
+
+    pub fn put_named_for_admission(
+        &mut self,
+        key: [u8; 32],
+        raw: Vec<u8>,
+        now: u64,
+        source: String,
+    ) -> Result<u64, HnsrProtocolError> {
+        if source.is_empty() {
+            return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
+        }
+        let record = NamedRouteRecordV2::decode(&raw)?;
+        if record.authorization.network_magic != self.network_magic || record.route_key != key {
+            return Err(HnsrProtocolError::Invalid("HNSR route key mismatch"));
+        }
+        record.verify_untrusted_admission(now, self.allow_private)?;
+        self.insert_verified(
+            key,
+            VerifiedRoute {
+                endpoint_key: record.delegation.endpoint_key,
+                sequence: record.sequence,
+                expires_at: record.expires_at,
+                sampleable: false,
+            },
+            raw,
+            now,
+            source,
+        )
+    }
+
+    fn insert_verified(
+        &mut self,
+        key: [u8; 32],
+        verified: VerifiedRoute,
+        raw: Vec<u8>,
+        now: u64,
+        source: String,
+    ) -> Result<u64, HnsrProtocolError> {
+        if source.is_empty() {
+            return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
+        }
         self.prune_key(&key, now);
 
         let previous = self.records.get(&key).and_then(|items| {
             items
                 .iter()
-                .position(|item| item.endpoint_key == record.delegation.endpoint_key)
+                .position(|item| item.endpoint_key == verified.endpoint_key)
                 .map(|index| (index, items[index].clone()))
         });
         if let Some((_, item)) = &previous
-            && item.sequence >= record.sequence
+            && item.sequence >= verified.sequence
         {
             return Err(HnsrProtocolError::StaleSequence);
         }
@@ -239,15 +338,16 @@ impl RouteStore {
             self.size -= 1;
         }
         self.records.entry(key).or_default().push(StoredRoute {
-            endpoint_key: record.delegation.endpoint_key,
-            sequence: record.sequence,
-            expires_at: record.expires_at,
+            endpoint_key: verified.endpoint_key,
+            sequence: verified.sequence,
+            expires_at: verified.expires_at,
+            sampleable: verified.sampleable,
             source: source.clone(),
             raw,
         });
         *self.source_counts.entry(source).or_default() += 1;
         self.size += 1;
-        Ok(record.expires_at)
+        Ok(verified.expires_at)
     }
 
     pub fn get(&mut self, key: &[u8; 32], maximum: usize, now: u64) -> Vec<Vec<u8>> {
@@ -267,6 +367,7 @@ impl RouteStore {
             .records
             .values()
             .flat_map(|items| items.iter())
+            .filter(|item| item.sampleable)
             .map(|item| (sample_score(seed, &item.raw), item.raw.clone()))
             .collect::<Vec<_>>();
         records.sort_by(|left, right| left.0.cmp(&right.0));

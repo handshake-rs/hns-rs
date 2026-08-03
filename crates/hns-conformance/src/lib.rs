@@ -4,13 +4,14 @@
 use hns_covenants::{Covenant, NameState, Resource, hash_name};
 use hns_dns_relay_protocol::{DnsRelay, GetDnsRelay};
 use hns_header_consensus::Header;
-use hns_hnsr_protocol::HnsrPacket;
+use hns_hnsr_protocol::{HnsrPacket, NamedRouteRecordV2};
 use hns_marketplace_protocol::{CrossChainMessage, NameMarketMessage};
 use hns_mining::Block;
 use hns_odoh_protocol::OdnsPacket;
 use hns_p2p_experimental::DenuoExtensionEnvelope;
 use hns_p2p_wire::{Frame, NetworkMagic};
 use hns_script::parse_script;
+use hns_service_authority::{EndpointDelegationV1, ServiceAuthorizationV1};
 use hns_swap::SwapProof;
 use hns_transaction::Transaction;
 use hns_urkel_proof::HsdUrkelProof;
@@ -47,6 +48,9 @@ impl AcceptanceMask {
     pub const DENUO_CROSS_CHAIN_MARKET: u32 = 1 << 14;
     pub const NAME_STATE: u32 = 1 << 15;
     pub const NAME_RESOURCE: u32 = 1 << 16;
+    pub const HIP79_SERVICE_AUTHORIZATION: u32 = 1 << 17;
+    pub const HIP79_ENDPOINT_DELEGATION: u32 = 1 << 18;
+    pub const HNSA_HNSR_NAMED_ROUTE: u32 = 1 << 19;
 
     /// Whether the named parser bit accepted the input.
     pub const fn contains(self, parser: u32) -> bool {
@@ -119,6 +123,18 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     accepted.record(
         AcceptanceMask::HIP78_ENVELOPE,
         HnsrPacket::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HIP79_SERVICE_AUTHORIZATION,
+        ServiceAuthorizationV1::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HIP79_ENDPOINT_DELEGATION,
+        EndpointDelegationV1::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HNSA_HNSR_NAMED_ROUTE,
+        NamedRouteRecordV2::decode(input).is_ok(),
     );
     accepted.record(
         AcceptanceMask::URKEL_PROOF,
