@@ -35,6 +35,7 @@ publish = ["crates-io"]
 aes-gcm = "0.10.3"
 blake2 = "0.10.6"
 hex = "0.4.3"
+getrandom = "0.4.3"
 hkdf = "0.12.4"
 hns-covenants = { version = "0.2.0", path = "crates/hns-covenants" }
 hns-dns-relay-protocol = { version = "0.2.0", path = "crates/hns-dns-relay-protocol" }

@@ -5,6 +5,7 @@ pub mod envelope;
 pub mod named;
 pub mod record;
 pub mod routing;
+pub mod runtime;
 
 pub use body::{
     AcceptBody, CloseBody, ConfirmBody, ConfirmedBody, DataBody, ErrorBody, FindNodeBody,
@@ -20,6 +21,10 @@ pub use record::{
 pub use routing::{
     RendezvousContact, RouteStore, RouteStoreLimits, compare_distance, rendezvous_node_id,
     route_key, sample_score,
+};
+pub use runtime::{
+    ConfirmedReservation, EndpointReservation, HnsrService, RelayConfig, RelayLimits, RelayService,
+    RendezvousService,
 };
 
 use hns_encoding::DecodeError;
