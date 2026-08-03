@@ -6,8 +6,8 @@ mod name;
 pub use linkage::{CovenantLinkError, CovenantLinkSummary, verify_covenant_links};
 pub use name::{
     NameTransactionError, build_finalize_output, build_finalize_transaction,
-    build_transfer_output, build_transfer_transaction, verify_finalize_output,
-    verify_finalize_transaction, verify_transfer_output, verify_transfer_transaction,
+    build_transfer_output, build_transfer_transaction, verify_finalize_at_index_zero,
+    verify_finalize_output, verify_transfer_at_index_zero, verify_transfer_output,
 };
 
 use blake2::Blake2bVar;

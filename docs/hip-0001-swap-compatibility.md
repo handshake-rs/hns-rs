@@ -39,14 +39,14 @@ Recovery authenticates its own seller signature and therefore does not depend
 on retaining or publishing a separate `0x84` offer presign.
 
 `ShakedexLockDescriptor` is the narrower recovery authority. A wallet can
-reconstruct it from a seed-derived seller public key and a discovered exact
-FINALIZE coin; it contains no price, payment address, marketplace fee,
-deadline, listing envelope, or offer signature. Its recovery methods build and
-authenticate the same canonical TRANSFER path, while `finalize_witness`
-returns the exact one-item `[lock_script]` witness selected by the script's
-FINALIZE branch. Shared `hns-transaction` TRANSFER/FINALIZE builders own the
-value, address, covenant-field, and authenticated-NameState checks rather than
-duplicating those rules in a wallet or marketplace adapter.
+reconstruct it from a seed-derived seller public key, explicit network binding,
+and discovered exact FINALIZE coin; it contains no price, payment address,
+marketplace fee, deadline, listing envelope, or offer signature. Its recovery
+methods build and authenticate the same canonical TRANSFER path, while
+`finalize_witness` returns the exact one-item `[lock_script]` witness selected
+by the script's FINALIZE branch. Shared `hns-transaction` TRANSFER/FINALIZE
+builders own the value, address, covenant-field, and authenticated-NameState
+checks rather than duplicating those rules in a wallet or marketplace adapter.
 
 Handshake time locktimes are not literal Unix timestamps on wire. Proofs retain
 the Shakedex seconds value, while transaction reconstruction encodes
@@ -76,13 +76,24 @@ trailing proof data, and permanently assert that a lower Dutch price cannot
 execute before its advertised locktime.
 
 The source-independent `fixtures/protocol-v1/hns-swap-v1.txt` oracle
-additionally pins the proof bytes and offer ID, seller digest, presigned
-transaction, canonical fulfillment, cancellation transfer, all transaction
-IDs, and the explicit transfer recipients. The generator cross-checks its
-RFC6979 signer against a pre-existing fixed-price listing signature before
-writing fixtures.
+additionally pins the complete fixed-price listing and listing-cancellation
+envelopes, their signature digests and content hashes, proof bytes and offer
+ID, seller digest, presigned transaction, canonical fulfillment, recovery
+transfer, the later exact one-item FINALIZE witness and complete transaction,
+all transaction IDs, and the explicit transfer recipients. The generator
+cross-checks its RFC6979 signer against the pre-existing listing and
+cancellation signatures before writing fixtures.
+
+The listing envelopes and their domain strings are defined by hns-rs, so the
+Python implementation is source-independent but not an external HSD or
+Shakedex differential authority for those bytes. The FINALIZE vector does
+independently exercise HSD transaction, covenant, witness-program, SHA3-256,
+and BLAKE2b rules. It is intentionally a value-preserving, one-input consensus
+transaction; current UTXO authority, transfer-lock maturity, renewal-block
+ancestry, relay fee sufficiency, and reorg handling remain chain/wallet
+qualification rather than static-vector claims.
 
 The listing-independent descriptor, strict typed covenant fields, and shared
-name-transaction helpers are source-reviewed additions after the pinned V1
-oracle. The repository's consolidated locked qualification gate has not been
-rerun for those additions.
+name-transaction helpers now have exact positive vectors and focused mutation
+tests in source. The repository's consolidated locked qualification gate has
+not been rerun for those additions.

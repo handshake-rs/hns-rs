@@ -19,8 +19,8 @@ Current canonical protocol coverage:
 | HIP #76 | `hns-dns-relay-protocol` | exact draft envelope and policy tests |
 | HIP #77 | `hns-odoh-protocol` | exact draft/RFC cryptographic vectors |
 | HIP #78 | `hns-hnsr-protocol` | exact draft records, signatures, store, and envelope vectors |
-| HIP-0001/Shakedex v2 | `hns-swap` | exact proof, seller digest, presigned transaction, buyer fulfillment, recovery transfer, IDs, script, price, and locktime vectors |
-| signed name listings and native HNS HTLC | `hns-swap` | fixed listing/cancellation plus exact descriptor, script, address, funding, redeem, refund, sighash, TXID, and preimage vectors |
+| HIP-0001/Shakedex v2 | `hns-swap` | exact proof, seller digest, presigned transaction, buyer fulfillment, recovery transfer, later FINALIZE transaction/witness, IDs, script, price, and locktime vectors |
+| signed name listings and native HNS HTLC | `hns-swap` | complete fixed listing/cancellation envelopes plus exact descriptor, script, address, funding, redeem, refund, sighash, TXID, and preimage vectors |
 | market intents, price rounds, fill grants, and swap sessions | `hns-marketplace-protocol` | externally generated exact signed bytes plus arithmetic, quorum/outlier/circuit-breaker, identity, timeout, status, and replay negatives |
 | typed Denuo name/cross-chain markets | `hns-marketplace-protocol`, `hns-conformance`, `fuzz/` | exact full envelopes plus bounded full-consumption production parsers |
 
@@ -39,7 +39,8 @@ the same public decoders.
 
 The NameState/resource, fee-policy, typed TRANSFER/FINALIZE,
 listing-independent Shakedex recovery, and empty name-market inventory
-tranches are currently source-reviewed only (with existing vectors retained
-where applicable). The repository's full locked qualification gate was not
-rerun for them; that remains required before the unreleased 0.2.0 line can be
-published.
+tranches retain focused source tests and exact vectors where applicable. The
+repository's full locked qualification gate was not rerun for them; that
+remains required before the unreleased 0.2.0 line can be published. Static
+vectors do not establish live-chain ownership, transfer maturity,
+renewal-block eligibility, relay admission, or reorg behavior.

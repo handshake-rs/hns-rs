@@ -311,4 +311,93 @@ mod tests {
         state.name.push(b'x');
         assert!(FinalizeCovenant::from_name_state(&state, BlockHash::new([3; 32])).is_err());
     }
+
+    #[test]
+    fn typed_name_covenants_reject_noncanonical_shapes() {
+        let transfer = TransferCovenant::new(
+            NameHash::new([1; 32]),
+            Height::new(2),
+            0,
+            vec![3; 20],
+        )
+        .expect("transfer")
+        .to_covenant()
+        .expect("transfer covenant");
+
+        let mut missing_transfer_item = transfer.clone();
+        missing_transfer_item.items.pop();
+        assert!(matches!(
+            TransferCovenant::try_from(&missing_transfer_item),
+            Err(CovenantError::InvalidTransferCovenant(
+                "expected exactly four items"
+            ))
+        ));
+        let mut extra_transfer_item = transfer.clone();
+        extra_transfer_item.items.push(Vec::new());
+        assert!(matches!(
+            TransferCovenant::try_from(&extra_transfer_item),
+            Err(CovenantError::InvalidTransferCovenant(
+                "expected exactly four items"
+            ))
+        ));
+        for (index, replacement) in [
+            (0, vec![0; 31]),
+            (1, vec![0; 3]),
+            (2, vec![32]),
+            (3, vec![0]),
+            (3, vec![0; 41]),
+        ] {
+            let mut malformed = transfer.clone();
+            malformed.items[index] = replacement;
+            assert!(TransferCovenant::try_from(&malformed).is_err());
+        }
+
+        let finalize = FinalizeCovenant::new(
+            b"handshake".to_vec(),
+            Height::new(4),
+            true,
+            Height::new(5),
+            6,
+            BlockHash::new([7; 32]),
+        )
+        .expect("finalize")
+        .to_covenant()
+        .expect("finalize covenant");
+
+        let mut missing_finalize_item = finalize.clone();
+        missing_finalize_item.items.pop();
+        assert!(matches!(
+            FinalizeCovenant::try_from(&missing_finalize_item),
+            Err(CovenantError::InvalidFinalizeCovenant(
+                "expected exactly seven items"
+            ))
+        ));
+        let mut extra_finalize_item = finalize.clone();
+        extra_finalize_item.items.push(Vec::new());
+        assert!(matches!(
+            FinalizeCovenant::try_from(&extra_finalize_item),
+            Err(CovenantError::InvalidFinalizeCovenant(
+                "expected exactly seven items"
+            ))
+        ));
+        for (index, replacement) in [
+            (0, vec![0; 31]),
+            (1, vec![0; 3]),
+            (3, vec![0; 2]),
+            (4, vec![0; 3]),
+            (5, vec![0; 3]),
+            (6, vec![0; 31]),
+        ] {
+            let mut malformed = finalize.clone();
+            malformed.items[index] = replacement;
+            assert!(FinalizeCovenant::try_from(&malformed).is_err());
+        }
+
+        let mut mismatched_name = finalize;
+        mismatched_name.items[2] = b"handshakf".to_vec();
+        assert!(matches!(
+            FinalizeCovenant::try_from(&mismatched_name),
+            Err(CovenantError::FinalizeNameHashMismatch)
+        ));
+    }
 }

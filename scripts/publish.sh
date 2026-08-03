@@ -101,6 +101,7 @@ dry_run_with_local_dependencies() {
             dry_run_package "$package" \
                 --config 'patch.crates-io.hns-covenants.path="crates/hns-covenants"' \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
                 --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
             ;;
         hns-mining)

@@ -307,7 +307,7 @@ fn decode_name(
 mod tests {
     use super::*;
 
-    const FIXTURES: &str = include_str!("../../../fixtures/hsd/name-state-resource-v1.txt");
+    const FIXTURES: &str = include_str!("../fixtures/hsd/name-state-resource-v1.txt");
 
     fn fixture(name: &str) -> Vec<u8> {
         let value = FIXTURES

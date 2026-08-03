@@ -48,6 +48,10 @@ before parsing any vector.
 Marketplace and settlement wire vectors are regenerated with
 `python3 generators/generate-marketplace-v1-fixtures.py --write`. The generator
 uses only the Python standard library, implements canonical encodings and
-RFC6979 secp256k1 independently, checks a pre-existing fixed-price signature,
-and emits SHA-256 sidecars for both versioned documents. Use `--check` for a
-read-only deterministic source/sidecar comparison.
+RFC6979 secp256k1 independently, checks the pre-existing fixed-price listing
+and cancellation signatures, and emits SHA-256 sidecars for both versioned
+documents. The hns-rs listing envelopes are workspace-defined, so this is an
+independent implementation of their documented bytes rather than an external
+protocol oracle. The recovery FINALIZE transaction uses independently encoded
+HSD transaction, covenant, script, and hash rules. Use `--check` for a read-only
+deterministic source/sidecar comparison.

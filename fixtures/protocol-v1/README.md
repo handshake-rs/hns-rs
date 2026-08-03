@@ -3,8 +3,10 @@
 These documents are the source-independent wire oracle for the production
 marketplace and settlement boundary introduced in the 0.2 release line.
 
-- `hns-swap-v1.txt` covers the Shakedex proof, seller presign, canonical buyer
-  fulfillment, explicit-recipient cancellation transfer, native HNS HTLC
+- `hns-swap-v1.txt` covers the complete signed fixed-price listing and listing
+  cancellation envelopes, Shakedex proof and seller presign, canonical buyer
+  fulfillment, explicit-recipient recovery transfer, the later one-item
+  FINALIZE witness and complete FINALIZE transaction, native HNS HTLC
   descriptor/script/address, funding, redeem/refund digests, complete
   transactions, and transaction IDs.
 - `hns-marketplace-v1.txt` covers signed intents and cancellations, price
@@ -23,5 +25,9 @@ python3 generators/generate-marketplace-v1-fixtures.py --check
 ```
 
 The standard-library generator implements canonical encodings and RFC6979
-secp256k1 signing independently. Before producing output it reproduces a
-pre-existing fixed-price listing signature pinned in the Rust source.
+secp256k1 signing independently. Before producing output it reproduces the
+pre-existing fixed-price listing and cancellation signatures pinned in the
+Rust source. Those two envelopes are hns-rs protocol values rather than HSD or
+upstream Shakedex wire objects, so their fixtures are source-independent
+implementations of the documented domains and encodings, not a third-party
+differential oracle.

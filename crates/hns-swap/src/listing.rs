@@ -462,6 +462,18 @@ mod tests {
     use super::*;
     use crate::lock_script_hash;
 
+    const PROTOCOL_V1_FIXTURES: &str =
+        include_str!("../fixtures/protocol-v1/hns-swap-v1.txt");
+
+    fn fixture_bytes(name: &str) -> Vec<u8> {
+        let value = PROTOCOL_V1_FIXTURES
+            .lines()
+            .filter_map(|line| line.split_once('='))
+            .find_map(|(key, value)| (key == name).then_some(value))
+            .unwrap_or_else(|| panic!("missing fixture {name}"));
+        hex::decode(value).expect("fixture hex")
+    }
+
     fn listing_fixture() -> (FixedPriceListing, Coin, SigningKey) {
         let signing_key = SigningKey::from_slice(&[0x31; 32]).expect("seller key");
         let seller_public_key = signing_key.verifying_key().to_encoded_point(true);
@@ -540,6 +552,7 @@ mod tests {
         );
 
         let encoded = listing.encode().expect("listing encoding");
+        assert_eq!(encoded, fixture_bytes("fixed_price_listing"));
         assert_eq!(
             FixedPriceListing::decode(&encoded).expect("listing decoding"),
             listing
@@ -552,6 +565,18 @@ mod tests {
         assert_eq!(
             hex::encode(listing.listing_hash().expect("listing hash")),
             "8a49724def7a8a8042b5131901512df001197c5916171c0e2d01edc072f325c0"
+        );
+        assert_eq!(
+            listing.listing_hash().expect("listing hash").as_slice(),
+            fixture_bytes("fixed_price_listing_hash").as_slice()
+        );
+        assert_eq!(
+            domain_hash(
+                LISTING_SIGNATURE_DOMAIN,
+                &listing.signing_bytes().expect("listing signing bytes"),
+            )
+            .as_slice(),
+            fixture_bytes("fixed_price_listing_signature_digest").as_slice()
         );
         assert_eq!(
             encoded[encoded.len() - 32..],
@@ -682,6 +707,7 @@ mod tests {
         ));
 
         let encoded = cancellation.encode().expect("cancellation encoding");
+        assert_eq!(encoded, fixture_bytes("listing_cancellation"));
         assert_eq!(encoded.len(), 224);
         assert_eq!(
             ListingCancellation::decode(&encoded).expect("cancellation decoding"),
@@ -694,6 +720,23 @@ mod tests {
         assert_eq!(
             hex::encode(cancellation.cancellation_hash().expect("cancellation hash")),
             "7b6b9404e77be37b17fbb5bc756592b81133ffdaee5e969d6db5fbe5463c1ba0"
+        );
+        assert_eq!(
+            cancellation
+                .cancellation_hash()
+                .expect("cancellation hash")
+                .as_slice(),
+            fixture_bytes("listing_cancellation_hash").as_slice()
+        );
+        assert_eq!(
+            domain_hash(
+                CANCELLATION_SIGNATURE_DOMAIN,
+                &cancellation
+                    .signing_bytes()
+                    .expect("cancellation signing bytes"),
+            )
+            .as_slice(),
+            fixture_bytes("listing_cancellation_signature_digest").as_slice()
         );
 
         let mut stale = cancellation.clone();

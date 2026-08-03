@@ -26,7 +26,9 @@ The implemented protocol layer contains:
   script vectors, including Handshake `OP_TYPE`;
 - HIP-0001/Shakedex v2 fixed-price and bounded reverse-Dutch swap primitives,
   including canonical buyer fulfillment, seller cancellation transactions,
-  and seed-restorable listing-independent lock recovery;
+  and listing-independent lock descriptors and recovery construction from a
+  seed-derived seller key, explicit network binding, and chain-discovered exact
+  locking coin;
 - signed fixed-price listing/cancellation wrappers and native HNS HTLC
   primitives joined directly to bilateral session commitments;
 - canonical HNS/BTC and HNS/ETH asset, intent, price-round, fill-grant, and

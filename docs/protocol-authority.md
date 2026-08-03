@@ -40,4 +40,9 @@ unknown record tags, truncation, or oversize input.
 The canonical marketplace and native-HNS settlement boundary is versioned by
 `fixtures/protocol-v1/`. Its source-independent generator implements the wire
 encoding and RFC6979 signatures without calling Rust code, and cross-checks its
-signer against a pre-existing pinned Rust signature before emitting artifacts.
+signer against the pre-existing fixed-price listing and cancellation
+signatures before emitting artifacts. The listing/cancellation envelopes are
+hns-rs-defined values and therefore have source-independent rather than
+third-party differential vectors. Static FINALIZE vectors cover exact HSD wire
+and witness-program behavior but do not replace live-chain maturity, renewal
+ancestry, relay-policy, or reorg qualification.

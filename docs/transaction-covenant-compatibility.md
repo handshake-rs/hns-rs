@@ -36,16 +36,16 @@ unknown suffix as parsed data.
 
 ## Oracle provenance
 
-Positive byte and hash vectors come from deterministic fixtures generated
-against `handshake-org/hsd` revision
-`698e252ebc7b5c1dd0a9587e342fdd153d020ae4` (reported HSD version `8.99.0`):
+Positive transaction and covenant codec vectors generated against
+`handshake-org/hsd` revision
+`698e252ebc7b5c1dd0a9587e342fdd153d020ae4` (reported HSD version `8.99.0`) are
+embedded directly in `crates/hns-transaction/src/lib.rs` and
+`crates/hns-covenants/src/lib.rs`. The source tests assert the exact transaction
+bytes, txid, witness hash, covenant bytes, SHA3 name hashes, and BLAKE2b
+blind-bid commitment. Covenant linkage behavior is also covered by source
+tests; there is no separate checked-in linkage fixture.
 
-- `fixtures/hsd/transactions/codec-v1.json`
-- `fixtures/hsd/covenants/codec-v1.json`
-- `fixtures/hsd/covenants/linkage-v1.json`
-- `fixtures/hsd/name-states/name-hash-v1.json`
-- `fixtures/hsd/name-state-resource-v1.txt`
-
-The embedded tests assert the exact transaction bytes, txid, witness hash,
-covenant bytes, SHA3 name hashes, and BLAKE2b blind-bid commitment. Mutation and
-boundary tests cover malformed canonical encodings and unsafe allocations.
+The checked-in differential document for NameState values, authenticated name
+hashes, and resource bytes is `fixtures/hsd/name-state-resource-v1.txt`, with
+its adjacent SHA-256 sidecar. Mutation and boundary tests cover malformed
+canonical encodings and unsafe allocations.

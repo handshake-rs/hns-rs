@@ -211,9 +211,9 @@ mod tests {
     use super::*;
 
     const HSD_FEE_POLICY_VECTORS: &str =
-        include_str!("../../../fixtures/hsd/fee-policy-v1.txt");
+        include_str!("../fixtures/hsd/fee-policy-v1.txt");
     const HSD_FEE_POLICY_VECTORS_SHA256: &str =
-        include_str!("../../../fixtures/hsd/fee-policy-v1.txt.sha256");
+        include_str!("../fixtures/hsd/fee-policy-v1.txt.sha256");
     const PINNED_HSD_FEE_POLICY_VECTORS_SHA256: &str =
         "ec01d6f43456aa28c3b40549349e9c430473d3c074da4e3d7280ac3db817c0c5";
 

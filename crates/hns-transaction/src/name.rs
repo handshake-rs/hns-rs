@@ -56,27 +56,30 @@ pub fn verify_transfer_output(
     Ok(())
 }
 
-/// Build an unsigned HSD-style name `TRANSFER` transaction with the name at
-/// input/output index zero and optional ordinary funding suffixes.
+/// Build an unsigned HSD-style name `TRANSFER` transaction with this
+/// transition at input/output index zero and caller-supplied suffixes.
 ///
-/// The returned name witness is empty for the wallet signing layer. Funding
-/// inputs and outputs remain caller-owned, but the complete transaction is
-/// checked against transaction allocation and weight bounds before return.
+/// The returned name witness is empty for the wallet signing layer.
+/// `additional_inputs` and `additional_outputs` are appended without
+/// covenant-link validation; they may contain funding or independent batched
+/// name transitions. The caller remains responsible for validating and
+/// signing the complete batch. The complete transaction is checked against
+/// transaction allocation and weight bounds before return.
 pub fn build_transfer_transaction(
     owner: &Coin,
     recipient: &Address,
-    mut funding_inputs: Vec<Input>,
-    funding_outputs: Vec<Output>,
+    mut additional_inputs: Vec<Input>,
+    additional_outputs: Vec<Output>,
 ) -> Result<Transaction, NameTransactionError> {
-    reject_repeated_name_input(owner, &funding_inputs)?;
+    reject_repeated_name_input(owner, &additional_inputs)?;
     let mut inputs = vec![Input {
         previous_output: owner.outpoint,
         sequence: NAME_INPUT_SEQUENCE,
         witness: Witness::default(),
     }];
-    inputs.append(&mut funding_inputs);
+    inputs.append(&mut additional_inputs);
     let mut outputs = vec![build_transfer_output(owner, recipient)?];
-    outputs.extend(funding_outputs);
+    outputs.extend(additional_outputs);
     let transaction = Transaction {
         version: NAME_TRANSACTION_VERSION,
         inputs,
@@ -87,12 +90,14 @@ pub fn build_transfer_transaction(
     Ok(transaction)
 }
 
-/// Verify the canonical header and index-zero `TRANSFER` transition of a
-/// complete wallet-funded transaction.
+/// Verify the canonical header and `TRANSFER` transition at input/output index
+/// zero.
 ///
-/// Ordinary suffix inputs still require resolved-coin, signature, balance,
-/// and fee-policy verification by their respective authorities.
-pub fn verify_transfer_transaction(
+/// Additional inputs are checked only to prevent reuse of `owner`; additional
+/// outputs are not covenant-validated. Independent batched transitions,
+/// resolved coins, signatures, balance, and fee policy must be verified by
+/// their respective authorities.
+pub fn verify_transfer_at_index_zero(
     transaction: &Transaction,
     owner: &Coin,
     recipient: &Address,
@@ -158,28 +163,34 @@ pub fn verify_finalize_output(
     Ok(())
 }
 
-/// Build an unsigned HSD-style name `FINALIZE` transaction with the name at
-/// input/output index zero and optional ordinary funding suffixes.
+/// Build an unsigned HSD-style name `FINALIZE` transaction with this
+/// transition at input/output index zero and caller-supplied suffixes.
+///
+/// `additional_inputs` and `additional_outputs` are appended without
+/// covenant-link validation; they may contain funding or independent batched
+/// name transitions. The caller remains responsible for validating and
+/// signing the complete batch. The complete transaction is checked against
+/// transaction allocation and weight bounds before return.
 pub fn build_finalize_transaction(
     transfer_coin: &Coin,
     state: &NameState,
     renewal_block: BlockHash,
-    mut funding_inputs: Vec<Input>,
-    funding_outputs: Vec<Output>,
+    mut additional_inputs: Vec<Input>,
+    additional_outputs: Vec<Output>,
 ) -> Result<Transaction, NameTransactionError> {
-    reject_repeated_name_input(transfer_coin, &funding_inputs)?;
+    reject_repeated_name_input(transfer_coin, &additional_inputs)?;
     let mut inputs = vec![Input {
         previous_output: transfer_coin.outpoint,
         sequence: NAME_INPUT_SEQUENCE,
         witness: Witness::default(),
     }];
-    inputs.append(&mut funding_inputs);
+    inputs.append(&mut additional_inputs);
     let mut outputs = vec![build_finalize_output(
         transfer_coin,
         state,
         renewal_block,
     )?];
-    outputs.extend(funding_outputs);
+    outputs.extend(additional_outputs);
     let transaction = Transaction {
         version: NAME_TRANSACTION_VERSION,
         inputs,
@@ -190,9 +201,14 @@ pub fn build_finalize_transaction(
     Ok(transaction)
 }
 
-/// Verify the canonical header and index-zero `FINALIZE` transition of a
-/// complete wallet-funded transaction.
-pub fn verify_finalize_transaction(
+/// Verify the canonical header and `FINALIZE` transition at input/output index
+/// zero.
+///
+/// Additional inputs are checked only to prevent reuse of `transfer_coin`;
+/// additional outputs are not covenant-validated. Independent batched
+/// transitions, resolved coins, signatures, balance, and fee policy must be
+/// verified by their respective authorities.
+pub fn verify_finalize_at_index_zero(
     transaction: &Transaction,
     transfer_coin: &Coin,
     state: &NameState,
@@ -314,9 +330,9 @@ fn verify_name_transaction_header(
 
 fn reject_repeated_name_input(
     name_coin: &Coin,
-    funding_inputs: &[Input],
+    additional_inputs: &[Input],
 ) -> Result<(), NameTransactionError> {
-    if funding_inputs
+    if additional_inputs
         .iter()
         .any(|input| input.previous_output == name_coin.outpoint)
     {
@@ -448,7 +464,52 @@ mod tests {
                 .expect("transfer");
         assert_eq!(transaction.outputs[0].value, owner.value);
         assert_eq!(transaction.outputs[0].address, owner.address);
-        verify_transfer_transaction(&transaction, &owner, &recipient).expect("valid");
+        verify_transfer_at_index_zero(&transaction, &owner, &recipient).expect("valid");
+    }
+
+    #[test]
+    fn index_zero_transfer_accepts_an_independent_name_transition_suffix() {
+        let owner = owner_coin();
+        let recipient = Address::new(0, vec![8; 20]).expect("recipient");
+        let mut additional_owner = owner_coin();
+        additional_owner.outpoint = Outpoint {
+            transaction_hash: TransactionHash::new([12; 32]),
+            index: 3,
+        };
+        additional_owner.covenant = FinalizeCovenant::new(
+            b"batched".to_vec(),
+            Height::new(7),
+            false,
+            Height::new(0),
+            1,
+            BlockHash::new([13; 32]),
+        )
+        .expect("additional finalize")
+        .to_covenant()
+        .expect("additional covenant");
+        let additional_recipient = Address::new(0, vec![14; 20]).expect("recipient");
+        let additional_output = build_transfer_output(&additional_owner, &additional_recipient)
+            .expect("additional transfer output");
+        let transaction = build_transfer_transaction(
+            &owner,
+            &recipient,
+            vec![Input {
+                previous_output: additional_owner.outpoint,
+                sequence: NAME_INPUT_SEQUENCE,
+                witness: Witness::default(),
+            }],
+            vec![additional_output],
+        )
+        .expect("batched transfer");
+
+        verify_transfer_at_index_zero(&transaction, &owner, &recipient)
+            .expect("index-zero transfer");
+        assert_eq!(
+            crate::verify_covenant_links(&transaction, &[owner, additional_owner])
+                .expect("valid covenant batch")
+                .linked_outputs,
+            2
+        );
     }
 
     #[test]
@@ -486,7 +547,138 @@ mod tests {
         .expect("finalize");
         assert_eq!(transaction.outputs[0].value, transfer_coin.value);
         assert_eq!(transaction.outputs[0].address, recipient);
-        verify_finalize_transaction(&transaction, &transfer_coin, &state, renewal_block)
+        verify_finalize_at_index_zero(&transaction, &transfer_coin, &state, renewal_block)
             .expect("valid");
+    }
+
+    #[test]
+    fn name_transition_authority_mutations_fail_closed() {
+        let owner = owner_coin();
+        let recipient = Address::new(0, vec![8; 20]).expect("recipient");
+
+        let mut null_owner = owner.clone();
+        null_owner.outpoint = Outpoint::NULL;
+        assert!(matches!(
+            build_transfer_output(&null_owner, &recipient),
+            Err(NameTransactionError::InvalidSourceCoin {
+                operation: "TRANSFER"
+            })
+        ));
+        let mut coinbase_owner = owner.clone();
+        coinbase_owner.coinbase = true;
+        assert!(build_transfer_output(&coinbase_owner, &recipient).is_err());
+        assert!(matches!(
+            build_transfer_transaction(
+                &owner,
+                &recipient,
+                vec![Input {
+                    previous_output: owner.outpoint,
+                    sequence: NAME_INPUT_SEQUENCE,
+                    witness: Witness::default(),
+                }],
+                Vec::new(),
+            ),
+            Err(NameTransactionError::RepeatedNameInput { .. })
+        ));
+
+        let transfer_output = build_transfer_output(&owner, &recipient).expect("transfer output");
+        let transfer_coin = Coin {
+            outpoint: Outpoint {
+                transaction_hash: TransactionHash::new([9; 32]),
+                index: 0,
+            },
+            value: transfer_output.value,
+            height: Height::new(10),
+            coinbase: false,
+            address: transfer_output.address,
+            covenant: transfer_output.covenant,
+        };
+        let name = b"handshake".to_vec();
+        let mut state = NameState::null(hash_name(&name).expect("name hash"));
+        state.name = name;
+        state.height = Height::new(6);
+        state.owner = transfer_coin.outpoint;
+        state.value = transfer_coin.value;
+        state.transfer = transfer_coin.height;
+        state.registered = true;
+        let renewal_block = BlockHash::new([11; 32]);
+
+        let assert_state_rejected = |mutated: NameState| {
+            assert!(build_finalize_output(&transfer_coin, &mutated, renewal_block).is_err());
+        };
+        let mut wrong_owner = state.clone();
+        wrong_owner.owner.index += 1;
+        assert_state_rejected(wrong_owner);
+        let mut wrong_value = state.clone();
+        wrong_value.value = Dollarydoos::new(state.value.get() + 1);
+        assert_state_rejected(wrong_value);
+        let mut wrong_transfer_height = state.clone();
+        wrong_transfer_height.transfer = Height::new(state.transfer.get() + 1);
+        assert_state_rejected(wrong_transfer_height);
+        let mut unregistered = state.clone();
+        unregistered.registered = false;
+        assert_state_rejected(unregistered);
+        let mut expired = state.clone();
+        expired.expired = true;
+        assert_state_rejected(expired);
+        let mut revoked = state.clone();
+        revoked.revoked = Height::new(1);
+        assert_state_rejected(revoked);
+        let mut wrong_identity = state.clone();
+        wrong_identity.height = Height::new(state.height.get() + 1);
+        assert_state_rejected(wrong_identity);
+
+        let transaction = build_finalize_transaction(
+            &transfer_coin,
+            &state,
+            renewal_block,
+            Vec::new(),
+            Vec::new(),
+        )
+        .expect("finalize");
+        let mut wrong_version = transaction.clone();
+        wrong_version.version += 1;
+        assert!(
+            verify_finalize_at_index_zero(
+                &wrong_version,
+                &transfer_coin,
+                &state,
+                renewal_block,
+            )
+            .is_err()
+        );
+        let mut wrong_sequence = transaction.clone();
+        wrong_sequence.inputs[0].sequence -= 1;
+        assert!(
+            verify_finalize_at_index_zero(
+                &wrong_sequence,
+                &transfer_coin,
+                &state,
+                renewal_block,
+            )
+            .is_err()
+        );
+        let mut wrong_outpoint = transaction.clone();
+        wrong_outpoint.inputs[0].previous_output.index += 1;
+        assert!(
+            verify_finalize_at_index_zero(
+                &wrong_outpoint,
+                &transfer_coin,
+                &state,
+                renewal_block,
+            )
+            .is_err()
+        );
+        let mut wrong_output = transaction;
+        wrong_output.outputs[0].value = Dollarydoos::new(transfer_coin.value.get() + 1);
+        assert!(
+            verify_finalize_at_index_zero(
+                &wrong_output,
+                &transfer_coin,
+                &state,
+                renewal_block,
+            )
+            .is_err()
+        );
     }
 }

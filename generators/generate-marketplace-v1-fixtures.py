@@ -19,6 +19,10 @@ import struct
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_DIR = ROOT / "fixtures" / "protocol-v1"
+PACKAGE_SWAP_FIXTURE_DIR = ROOT / "crates" / "hns-swap" / "fixtures" / "protocol-v1"
+PACKAGE_MARKETPLACE_FIXTURE_DIR = (
+    ROOT / "crates" / "hns-marketplace-protocol" / "fixtures" / "protocol-v1"
+)
 
 P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
 N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -29,6 +33,11 @@ LOCKTIME_FLAG = 0x80000000
 HIP1_SELLER_SIGHASH = 0x84
 SHAKEDEX_RECOVERY_SIGHASH = 0x83
 HNS_HTLC_SIGHASH = 0x01
+
+LISTING_SIGNATURE_DOMAIN = b"hns-rs/hns-swap/fixed-price-listing/v1/signature"
+LISTING_HASH_DOMAIN = b"hns-rs/hns-swap/fixed-price-listing/v1/hash"
+CANCELLATION_SIGNATURE_DOMAIN = b"hns-rs/hns-swap/listing-cancellation/v1/signature"
+CANCELLATION_HASH_DOMAIN = b"hns-rs/hns-swap/listing-cancellation/v1/hash"
 
 
 def le(value: int, size: int) -> bytes:
@@ -248,8 +257,8 @@ def swap_proof_encode(proof: dict) -> bytes:
     return encoded
 
 
-def assert_rust_reference_signature() -> None:
-    """Cross-check RFC6979 and encoding against the pre-existing Rust vector."""
+def fixed_price_listing_vectors() -> dict[str, bytes]:
+    """Build the complete fixed-price listing and cancellation envelopes."""
     private_key = b"\x31" * 32
     seller_public_key = public_key(private_key)
     script = shakedex_script(seller_public_key)
@@ -293,14 +302,52 @@ def assert_rust_reference_signature() -> None:
         + le(42, 8)
         + varbytes(proof)
     )
-    listing_digest = domain_hash(
-        b"hns-rs/hns-swap/fixed-price-listing/v1/signature",
-        listing_signing_bytes,
-    )
-    assert sign(private_key, listing_digest).hex() == (
+    listing_digest = domain_hash(LISTING_SIGNATURE_DOMAIN, listing_signing_bytes)
+    listing_signature = sign(private_key, listing_digest)
+    assert listing_signature.hex() == (
         "c096028fbaf60633eea9ebe29a13767111930eee36bf7fb74b21d40329730f051"
         "dd19f12ab6e30edb0ebfa6f5dcf1272d8790dfb49385bffd87513d1e9d626a0"
     )
+    listing_without_hash = listing_signing_bytes + b"\x01" + listing_signature
+    listing_hash = domain_hash(LISTING_HASH_DOMAIN, listing_without_hash)
+    listing = listing_without_hash + listing_hash
+
+    cancellation_signing_bytes = (
+        le(1, 2)
+        + le(0x5B6EC393, 4)
+        + b"\x11" * 32
+        + listing_hash
+        + seller_public_key
+        + le(1_800_000_120, 8)
+        + le(1_800_003_700, 8)
+        + le(43, 8)
+    )
+    cancellation_digest = domain_hash(
+        CANCELLATION_SIGNATURE_DOMAIN,
+        cancellation_signing_bytes,
+    )
+    cancellation_signature = sign(private_key, cancellation_digest)
+    assert cancellation_signature.hex() == (
+        "75ec98bd43e79f4546e802200bfbaa3da89a292e3e4f2e25a2fd696a82c03cde"
+        "4c1351ab937128cd6ccddfdaa1116f384d5d89d7684cb446dcdd11d54ec5f667"
+    )
+    cancellation_without_hash = (
+        cancellation_signing_bytes + b"\x01" + cancellation_signature
+    )
+    cancellation_hash = domain_hash(
+        CANCELLATION_HASH_DOMAIN,
+        cancellation_without_hash,
+    )
+    cancellation = cancellation_without_hash + cancellation_hash
+
+    return {
+        "fixed_price_listing": listing,
+        "fixed_price_listing_signature_digest": listing_digest,
+        "fixed_price_listing_hash": listing_hash,
+        "listing_cancellation": cancellation,
+        "listing_cancellation_signature_digest": cancellation_digest,
+        "listing_cancellation_hash": cancellation_hash,
+    }
 
 
 def shakedex_vectors() -> dict[str, bytes]:
@@ -394,6 +441,30 @@ def shakedex_vectors() -> dict[str, bytes]:
         0,
     )
 
+    finalize_witness = compact(1) + varbytes(script)
+    finalize_output = output(
+        locking_value,
+        recovery_recipient,
+        covenant(
+            10,
+            [
+                name_hash,
+                le(1, 4),
+                name,
+                b"\x00",
+                le(0, 4),
+                le(0, 4),
+                b"\x99" * 32,
+            ],
+        ),
+    )
+    recovery_finalize, _, recovery_finalize_txid = transaction(
+        0,
+        [(outpoint(recovery_txid, 0), 0xFFFFFFFF, [script])],
+        [finalize_output],
+        0,
+    )
+
     return {
         "swap_proof": proof_bytes,
         "swap_proof_offer_id": offer_id,
@@ -407,6 +478,9 @@ def shakedex_vectors() -> dict[str, bytes]:
         "recovery_transaction": recovery,
         "recovery_txid": recovery_txid,
         "recovery_recipient_address": recovery_recipient,
+        "recovery_finalize_witness": finalize_witness,
+        "recovery_finalize_transaction": recovery_finalize,
+        "recovery_finalize_txid": recovery_finalize_txid,
     }
 
 
@@ -829,11 +903,13 @@ def render(title: str, vectors: dict[str, bytes]) -> bytes:
 
 
 def write_fixture(path: Path, content: bytes) -> None:
-    path.write_bytes(content)
     digest = hashlib.sha256(content).hexdigest()
-    path.with_suffix(path.suffix + ".sha256").write_text(
-        f"{digest}  {path.name}\n", encoding="ascii"
-    )
+    sidecar_content = f"{digest}  {path.name}\n"
+    if not path.exists() or path.read_bytes() != content:
+        path.write_bytes(content)
+    sidecar = path.with_suffix(path.suffix + ".sha256")
+    if not sidecar.exists() or sidecar.read_text(encoding="ascii") != sidecar_content:
+        sidecar.write_text(sidecar_content, encoding="ascii")
 
 
 def check_fixture(path: Path, content: bytes) -> None:
@@ -853,8 +929,8 @@ def main() -> None:
     mode.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
-    assert_rust_reference_signature()
     swap = {}
+    swap.update(fixed_price_listing_vectors())
     swap.update(shakedex_vectors())
     swap.update(htlc_vectors())
     marketplace = marketplace_vectors()
@@ -868,10 +944,22 @@ def main() -> None:
     if args.write:
         FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
         write_fixture(FIXTURE_DIR / "hns-swap-v1.txt", swap_document)
+        PACKAGE_SWAP_FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+        write_fixture(PACKAGE_SWAP_FIXTURE_DIR / "hns-swap-v1.txt", swap_document)
         write_fixture(FIXTURE_DIR / "hns-marketplace-v1.txt", marketplace_document)
+        PACKAGE_MARKETPLACE_FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+        write_fixture(
+            PACKAGE_MARKETPLACE_FIXTURE_DIR / "hns-marketplace-v1.txt",
+            marketplace_document,
+        )
     elif args.check:
         check_fixture(FIXTURE_DIR / "hns-swap-v1.txt", swap_document)
+        check_fixture(PACKAGE_SWAP_FIXTURE_DIR / "hns-swap-v1.txt", swap_document)
         check_fixture(FIXTURE_DIR / "hns-marketplace-v1.txt", marketplace_document)
+        check_fixture(
+            PACKAGE_MARKETPLACE_FIXTURE_DIR / "hns-marketplace-v1.txt",
+            marketplace_document,
+        )
     else:
         print(swap_document.decode(), end="")
         print(marketplace_document.decode(), end="")

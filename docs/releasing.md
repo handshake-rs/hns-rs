@@ -36,9 +36,12 @@ non-yanked. Every published package embeds release-source commit
 `hns-marketplace-protocol` was added after that publication and has no 0.1.0
 publication record in this repository.
 
-Registry publication is complete, but no `v0.1.0` Git tag exists locally or on
-`origin`. Treat the commit above as the published source; do not describe
-`0.1.0` as Git-tagged unless that tag is later created and pushed.
+The annotated local and `origin` `v0.1.0` tag object
+`354b286ff623424d24376f20885fb05407561d70` points to the follow-up publication
+record commit `f6f46e1ecf9b31ca6592a6350c254a6effb9c9d0`, whose parent is the release
+source above. The published archives therefore identify the parent release
+source, not the tag target. The remote tag-object identity was confirmed with
+`git ls-remote --tags origin v0.1.0` on 2026-08-02.
 
 ## 0.2.0 release candidate
 
@@ -80,21 +83,25 @@ published.
 
 1. Update the shared version in the root `Cargo.toml`, every internal dependency
    version in `[workspace.dependencies]`, and this changelog.
-2. Run the full locked qualification gate:
+2. Inspect the changes and commit the exact release source. The execution mode
+   refuses a dirty worktree.
+3. Qualify that exact commit once with the full locked gate, either in CI after
+   an explicitly authorized push or in a clean local checkout:
 
    ```bash
    ./scripts/check.sh
    ```
 
-3. Inspect the staged changes and commit the exact release source. The execution
-   mode refuses a dirty worktree.
+   Do not repeat the same full gate locally and in CI when the source commit,
+   toolchain, and gate are identical.
 4. Authenticate without placing a token in the repository:
 
    ```bash
    cargo login
    ```
 
-5. Re-run the package-only preflight if desired:
+5. Run the package-only preflight only if it was not already part of the
+   qualifying gate:
 
    ```bash
    ./scripts/publish.sh --dry-run
@@ -119,5 +126,5 @@ current release commit. Any mismatch aborts the release. This permits a
 partially completed release to resume without accepting an unrelated artifact
 under the same version.
 
-After publication, push the release commit and an annotated `vX.Y.Z` tag, then
-confirm every package page and docs.rs build.
+After publication, push an annotated `vX.Y.Z` tag and, if it was qualified
+locally, the release commit; then confirm every package page and docs.rs build.

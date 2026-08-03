@@ -28,8 +28,9 @@ Release-candidate source for the modular wallet and marketplace boundary:
   cancellation construction, authentication, and spend classification;
 - strict typed HSD TRANSFER/FINALIZE covenant parsing, owner-preserving linked
   output and transaction construction, authenticated NameState finalization,
-  and listing-independent seed-restorable Shakedex lock recovery with the
-  exact FINALIZE-branch witness;
+  and listing-independent Shakedex lock descriptors and recovery construction
+  from a seed-derived seller key, explicit network binding, and
+  chain-discovered exact locking coin, with the exact FINALIZE-branch witness;
 - canonical zero-entry name-market offer inventories while empty offer
   requests and object batches remain rejected;
 - an exact native-HNS HTLC/session join with deadline-safe upward conversion

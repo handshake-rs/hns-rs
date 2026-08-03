@@ -1351,7 +1351,7 @@ mod tests {
 
     use super::*;
 
-    const HSD_SCRIPT_VECTORS: &str = include_str!("../../../fixtures/hsd/script-tests-v1.txt");
+    const HSD_SCRIPT_VECTORS: &str = include_str!("../fixtures/hsd/script-tests-v1.txt");
 
     #[derive(Debug)]
     struct HsdScriptVector {

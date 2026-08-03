@@ -87,7 +87,7 @@ mod protocol_v1_vectors {
     use super::*;
 
     const FIXTURES: &str =
-        include_str!("../../../fixtures/protocol-v1/hns-marketplace-v1.txt");
+        include_str!("../fixtures/protocol-v1/hns-marketplace-v1.txt");
 
     fn fixture_bytes(name: &str) -> Vec<u8> {
         let value = FIXTURES

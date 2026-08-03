@@ -641,6 +641,7 @@ version = "0.2.0"
 dependencies = [
  "blake2",
  "hns-encoding",
+ "hns-primitives",
  "hns-transaction",
  "k256",
  "ripemd",

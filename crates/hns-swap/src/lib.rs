@@ -92,9 +92,9 @@ pub enum ShakedexSpendKind {
 /// lock.
 ///
 /// A wallet can reconstruct this descriptor from a seed-derived
-/// `HnsShakedex` public key and a discovered canonical FINALIZE coin without
-/// retaining any offer price, payment address, marketplace fee, deadline, or
-/// seller presign.
+/// `HnsShakedex` public key, an explicit network binding, and a discovered
+/// canonical FINALIZE coin without retaining any offer price, payment address,
+/// marketplace fee, deadline, or seller presign.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ShakedexLockDescriptor {
     pub network: NetworkBinding,
@@ -120,8 +120,8 @@ impl ShakedexLockDescriptor {
         Ok(descriptor)
     }
 
-    /// Reconstruct a descriptor from an exact on-chain Shakedex lock and a
-    /// seed-derived seller public key.
+    /// Reconstruct a descriptor from an explicit network binding, exact
+    /// on-chain Shakedex lock, and seed-derived seller public key.
     pub fn from_locking_coin(
         network: NetworkBinding,
         locking_coin: &Coin,
@@ -218,7 +218,7 @@ impl ShakedexLockDescriptor {
     ) -> Result<Transaction, SwapError> {
         self.verify_locking_coin(locking_coin)?;
         if funding_inputs.is_empty() {
-            return Err(SwapError::MissingShakedexBuyerInputs);
+            return Err(SwapError::MissingShakedexRecoveryFundingInputs);
         }
         if funding_inputs
             .iter()
@@ -1238,8 +1238,10 @@ pub enum SwapError {
     NameHashMismatch,
     #[error("locking coin is not committed to the canonical swap script")]
     LockScriptMismatch,
-    #[error("Shakedex transfer requires at least one external funding input")]
+    #[error("Shakedex fulfillment requires at least one buyer funding input")]
     MissingShakedexBuyerInputs,
+    #[error("Shakedex recovery requires at least one external funding input")]
+    MissingShakedexRecoveryFundingInputs,
     #[error("Shakedex transfer repeats the seller locking outpoint")]
     DuplicateShakedexSellerInput,
     #[error("Shakedex locking coin has a malformed FINALIZE covenant")]
@@ -1346,12 +1348,15 @@ pub enum SwapError {
 
 #[cfg(test)]
 mod tests {
+    use hns_covenants::NameState;
     use hns_primitives::Height;
+    use hns_script::{K256SignatureVerifier, ScriptFlags, verify_witness_program};
+    use hns_transaction::{build_finalize_transaction, verify_finalize_at_index_zero};
 
     use super::*;
 
     const PROTOCOL_V1_FIXTURES: &str =
-        include_str!("../../../fixtures/protocol-v1/hns-swap-v1.txt");
+        include_str!("../fixtures/protocol-v1/hns-swap-v1.txt");
 
     fn fixture_bytes(name: &str) -> Vec<u8> {
         let value = PROTOCOL_V1_FIXTURES
@@ -1540,6 +1545,10 @@ mod tests {
         );
 
         let recovery_recipient = fixture_address("recovery_recipient_address");
+        assert!(matches!(
+            proof.recovery_transaction(&coin, &recovery_recipient, Vec::new(), Vec::new()),
+            Err(SwapError::MissingShakedexRecoveryFundingInputs)
+        ));
         let mut recovery = proof
             .recovery_transaction(
                 &coin,
@@ -1573,6 +1582,113 @@ mod tests {
                 .expect("recovery classification"),
             ShakedexSpendKind::Recovery
         );
+
+        let transfer_coin = Coin {
+            outpoint: Outpoint {
+                transaction_hash: recovery
+                    .transaction_hash()
+                    .expect("recovery transaction hash"),
+                index: 0,
+            },
+            value: recovery.outputs[0].value,
+            height: Height::new(20),
+            coinbase: false,
+            address: recovery.outputs[0].address.clone(),
+            covenant: recovery.outputs[0].covenant.clone(),
+        };
+        let mut state = NameState::null(hash_name(&proof.name).expect("name hash"));
+        state.name = proof.name.clone();
+        state.height = Height::new(1);
+        state.owner = transfer_coin.outpoint;
+        state.value = transfer_coin.value;
+        state.transfer = transfer_coin.height;
+        state.registered = true;
+        let renewal_block = BlockHash::new([0x99; 32]);
+        let descriptor = proof.lock_descriptor().expect("lock descriptor");
+        let mut finalize = build_finalize_transaction(
+            &transfer_coin,
+            &state,
+            renewal_block,
+            Vec::new(),
+            Vec::new(),
+        )
+        .expect("recovery FINALIZE");
+        finalize.inputs[0].witness = descriptor.finalize_witness().expect("FINALIZE witness");
+        assert_eq!(
+            finalize.encode().expect("FINALIZE encoding"),
+            fixture_bytes("recovery_finalize_transaction")
+        );
+        assert_eq!(
+            finalize.witness_encode().expect("FINALIZE witness encoding"),
+            fixture_bytes("recovery_finalize_witness")
+        );
+        assert_eq!(
+            finalize
+                .transaction_hash()
+                .expect("FINALIZE transaction hash")
+                .as_bytes()
+                .as_slice(),
+            fixture_bytes("recovery_finalize_txid").as_slice()
+        );
+        verify_finalize_at_index_zero(
+            &finalize,
+            &transfer_coin,
+            &state,
+            renewal_block,
+        )
+        .expect("canonical recovery FINALIZE");
+        verify_witness_program(
+            &finalize,
+            0,
+            &transfer_coin,
+            ScriptFlags::STANDARD,
+            &K256SignatureVerifier,
+        )
+        .expect("Shakedex FINALIZE branch");
+
+        let mut wrong_renewal = finalize.clone();
+        wrong_renewal.outputs[0].covenant.items[6][0] ^= 1;
+        assert!(
+            verify_finalize_at_index_zero(
+                &wrong_renewal,
+                &transfer_coin,
+                &state,
+                renewal_block,
+            )
+            .is_err()
+        );
+        let mut wrong_script = finalize.clone();
+        wrong_script.inputs[0].witness.items[0][0] ^= 1;
+        assert_eq!(
+            wrong_script.transaction_hash().expect("same transaction hash"),
+            finalize.transaction_hash().expect("FINALIZE transaction hash")
+        );
+        assert!(
+            verify_witness_program(
+                &wrong_script,
+                0,
+                &transfer_coin,
+                ScriptFlags::STANDARD,
+                &K256SignatureVerifier,
+            )
+            .is_err()
+        );
+        let mut extra_witness_item = finalize.clone();
+        extra_witness_item.inputs[0]
+            .witness
+            .items
+            .insert(0, Vec::new());
+        assert!(
+            verify_witness_program(
+                &extra_witness_item,
+                0,
+                &transfer_coin,
+                ScriptFlags::STANDARD,
+                &K256SignatureVerifier,
+            )
+            .is_err()
+        );
+
         let mut recovery_without_offer = proof.clone();
         recovery_without_offer.signature = None;
         recovery_without_offer.price = Dollarydoos::new(0);
@@ -1587,7 +1703,7 @@ mod tests {
             &coin,
             proof.seller_public_key,
         )
-        .expect("seed-restored descriptor")
+        .expect("reconstructed descriptor")
         .verify_recovery(&recovery, &coin, &recovery_recipient)
         .expect("seller recovery does not depend on listing terms");
         assert!(matches!(

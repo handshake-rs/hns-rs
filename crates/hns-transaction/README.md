@@ -11,6 +11,9 @@ an exact confirmed TRANSFER coin to authenticated current `NameState`, preserve
 the locked value, use the committed recipient, and carry the caller-supplied
 renewal block. Both transitions expose bounded unsigned transaction builders
 and strict index-zero verifiers without moving construction into a wallet.
+Caller-supplied suffixes may contain funding or independent batched covenant
+transitions; the index-zero helpers deliberately leave those suffix transitions
+to the complete transaction's covenant-link and wallet checks.
 Current-tip ownership, transfer-lock maturity, renewal-block eligibility,
 funding-input signatures, balance, and fee policy remain chain or wallet
 checks. It is part of the

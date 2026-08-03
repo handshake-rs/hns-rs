@@ -704,12 +704,12 @@ mod tests {
         MAX_DNS_RELAY_RESPONSE_BODY_SIZE, MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE,
     };
 
-    const REGISTRY_TOML: &str = include_str!("../../../registry/denuo-experimental-v1.toml");
-    const REGISTRY_BINARY: &[u8] = include_bytes!("../../../registry/denuo-experimental-v1.bin");
-    const REGISTRY_SHA256: &str = include_str!("../../../registry/denuo-experimental-v1.sha256");
-    const REGISTRY_V2_TOML: &str = include_str!("../../../registry/denuo-experimental-v2.toml");
-    const REGISTRY_V2_BINARY: &[u8] = include_bytes!("../../../registry/denuo-experimental-v2.bin");
-    const REGISTRY_V2_SHA256: &str = include_str!("../../../registry/denuo-experimental-v2.sha256");
+    const REGISTRY_TOML: &str = include_str!("../registry/denuo-experimental-v1.toml");
+    const REGISTRY_BINARY: &[u8] = include_bytes!("../registry/denuo-experimental-v1.bin");
+    const REGISTRY_SHA256: &str = include_str!("../registry/denuo-experimental-v1.sha256");
+    const REGISTRY_V2_TOML: &str = include_str!("../registry/denuo-experimental-v2.toml");
+    const REGISTRY_V2_BINARY: &[u8] = include_bytes!("../registry/denuo-experimental-v2.bin");
+    const REGISTRY_V2_SHA256: &str = include_str!("../registry/denuo-experimental-v2.sha256");
 
     #[test]
     fn canonical_registry_artifacts_and_exports_have_one_stable_identity() {
