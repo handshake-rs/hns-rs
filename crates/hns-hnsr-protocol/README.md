@@ -10,6 +10,12 @@ Its synchronous service types execute reservation, renewal, confirmation,
 withdrawal, route publication, and route lookup against bounded in-memory
 state so an embedding node can own transport, persistence, clocks, and peer
 policy without duplicating protocol validation.
+Its runtime-neutral requester and opaque-relay state machines add exact
+ticket-to-connection admission, bounded directional flow control, retained
+write acknowledgements, cumulative byte ceilings, deadlines, disconnect and
+policy revocation, and checksummed fail-closed restart snapshots. Adapters
+still own authenticated outer connections, clocks, scheduling, and atomic
+snapshot storage; circuit plaintext never enters the relay runtime.
 The owner-bound `hns.chat` adapter derives that same authority chain from a
 current `hnschat` resource and canonical single-key owner output; it does not
 weaken generic `hsa1` verification.
@@ -17,9 +23,9 @@ weaken generic `hsa1` verification.
 **The associated Denuo wire assignments are experimental and are not official
 Handshake protocol assignments.**
 
-The in-memory service types are not by themselves a durable relay deployment.
-Restart recovery and network behavior must be supplied and qualified by the
-embedding product.
+The service types and snapshots are not by themselves a deployed relay.
+Network behavior, atomic persistence, fresh process-session IDs on restore,
+and product qualification remain the embedding product's responsibility.
 
 ```bash
 cargo add hns-hnsr-protocol

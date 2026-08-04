@@ -12,8 +12,8 @@ use std::collections::{BTreeSet, HashMap};
 use zeroize::Zeroizing;
 
 use crate::body::{
-    ConfirmBody, ConfirmedBody, GetRouteBody, PutResultBody, PutRouteBody, RenewBody, RoutesBody,
-    WithdrawBody,
+    ConfirmBody, ConfirmedBody, GetRouteBody, OpenBody, PutResultBody, PutRouteBody, RenewBody,
+    RoutesBody, WithdrawBody,
 };
 use crate::record::{RelayTicket, ReserveRequest, public_key, validate_host, verify_withdrawal};
 use crate::{
@@ -123,6 +123,60 @@ impl RelayService {
                 source: state.source.clone(),
             })
         })
+    }
+
+    /// Admit one circuit open against an exact current confirmed reservation.
+    ///
+    /// The returned endpoint source is the authenticated outer connection that
+    /// owns the reservation. Callers must route circuit traffic only to that
+    /// connection and must revoke it when that connection disappears.
+    pub fn admit_circuit(
+        &self,
+        open: &OpenBody,
+        now: u64,
+    ) -> Result<ConfirmedReservation, HnsrProtocolError> {
+        let state = self
+            .reservations
+            .get(&open.reservation_id)
+            .ok_or(HnsrProtocolError::Invalid("unknown HNSR reservation"))?;
+        if state.ticket.endpoint_signature.is_empty()
+            || state.ticket.expires_at <= now
+            || state.ticket.id()? != open.ticket_id
+            || state.ticket.endpoint_key != open.endpoint_key
+            || state.ticket.profile != open.profile
+        {
+            return Err(HnsrProtocolError::Invalid(
+                "HNSR circuit does not match an active reservation",
+            ));
+        }
+        state.ticket.verify_for_profile(
+            self.config.network_magic,
+            state.ticket.profile,
+            now,
+            self.config.allow_private_address,
+        )?;
+        Ok(ConfirmedReservation {
+            ticket: state.ticket.clone(),
+            source: state.source.clone(),
+        })
+    }
+
+    /// Remove every reservation owned by one disconnected outer peer.
+    ///
+    /// The returned IDs let the embedding runtime revoke matching opaque
+    /// circuits without retaining a second reservation index.
+    pub fn disconnect(&mut self, source: &str) -> Vec<[u8; 16]> {
+        let reservations = self
+            .reservations
+            .iter()
+            .filter_map(|(reservation_id, state)| {
+                (state.source == source).then_some(*reservation_id)
+            })
+            .collect::<Vec<_>>();
+        for reservation_id in &reservations {
+            self.remove(reservation_id);
+        }
+        reservations
     }
 
     pub fn prune(&mut self, now: u64) {
@@ -449,6 +503,11 @@ impl HnsrService {
 
     pub fn relay(&self) -> Option<&RelayService> {
         self.relay.as_ref()
+    }
+
+    /// Borrow the relay reservation plane for pruning and disconnect cleanup.
+    pub fn relay_mut(&mut self) -> Option<&mut RelayService> {
+        self.relay.as_mut()
     }
 
     pub fn rendezvous(&self) -> Option<&RendezvousService> {

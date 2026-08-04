@@ -1,6 +1,7 @@
 #![doc = "Runtime-independent wire types for draft HIP #78 HNSR."]
 
 pub mod body;
+pub mod circuit;
 pub mod envelope;
 pub mod named;
 pub mod record;
@@ -11,6 +12,11 @@ pub use body::{
     AcceptBody, CloseBody, ConfirmBody, ConfirmedBody, DataBody, ErrorBody, FindNodeBody,
     GetRouteBody, HnsrErrorCode, IncomingBody, NodesBody, OpenBody, OpenedBody, PutResultBody,
     PutRouteBody, RenewBody, RoutesBody, SampleRoutesBody, WindowBody, WithdrawBody,
+};
+pub use circuit::{
+    HnsrActionId, HnsrPeerId, HnsrRequester, HnsrRequesterConfig, HnsrRequesterEvent,
+    HnsrRequesterSnapshot, HnsrRoute, HnsrRuntimeError, HnsrRuntimeStatus,
+    OpaqueRelayConfig, OpaqueRelayRuntime, OpaqueRelaySnapshot, QueuedHnsrRoute,
 };
 pub use envelope::{HnsrOpcode, HnsrPacket};
 pub use named::{NamedRoutePolicy, NamedRouteRecordV2, NamedRouteTrust, named_route_key};

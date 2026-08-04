@@ -32,6 +32,14 @@ The crate provides:
 - bounded synchronous reservation, renewal, confirmation, withdrawal,
   route-publication, and route-lookup services that accept canonical packets
   from an embedding transport;
+- runtime-neutral requester and opaque circuit-relay state machines with exact
+  authenticated-peer routing, ticket/reservation admission, acceptance
+  deadlines, directional credit, retained write acknowledgements, per-circuit
+  queues, signed per-circuit and per-reservation byte ceilings, and explicit
+  disconnect, reservation, expiry, and policy revocation;
+- versioned BLAKE2b-256-checksummed requester and relay snapshots that preserve
+  exact settings and counters while revoking, rather than resurrecting, every
+  snapshotted live circuit under a mandatory fresh process session;
 - version-2 HNSA named routes with stable service-derived keys, profile-aware
   relay tickets, full-client verification, bounded rendezvous admission, and
   exclusion from unnamed route sampling; and
@@ -56,12 +64,14 @@ authenticated HNS state from the consuming node or browser; it is never
 inferred from a rendezvous response.
 
 This crate deliberately contains no socket runtime, Tokio, persistent
-database, wallet, browser, mobile, or MeshMine dependency. Its service state
-is in-memory. Consumers remain responsible for binding the supplied source
-identity to an authenticated live peer, durable restart recovery, iterative
-lookup scheduling, three-store publication quorum, replication, disconnect
-revocation, circuit queues, directional credit, rate limits, deadlines, inner
-Brontide, and priority below direct blockchain traffic.
+database, wallet, browser, mobile, or MeshMine dependency. Consumers bind each
+opaque `HnsrPeerId` to one exact authenticated live connection, acknowledge
+every queued relay write, call the explicit disconnect/expiry/revocation
+entrypoints, persist snapshots atomically, and provide a fresh nonzero process
+session on restore. Consumers also remain responsible for iterative lookup
+scheduling, three-store publication quorum, replication, inner Brontide, and
+priority below direct blockchain traffic. Snapshot restore deliberately drops
+all live connection authority; it is durable recovery, not circuit resumption.
 
 Requester/client and opaque relay participation default on and have independent
 persistent opt-outs. Endpoint/output-node and rendezvous-directory
@@ -84,3 +94,7 @@ chains, wrong network, expiry, high-S rejection, public-contact policy, XOR
 ordering, sequence replacement, expiry, source quotas, deterministic sampling,
 reservation replay and cross-source rejection, complete live
 reservation-to-route lookup, flow-control bounds, and trailing-data rejection.
+Focused circuit-runtime source tests additionally cover full open/accept/data/
+window routing, authenticated peer binding, retained queue accounting, failed
+write and generation revocation, exact snapshot round trips, corruption
+rejection, persistent opt-outs, and fail-closed restart recovery.

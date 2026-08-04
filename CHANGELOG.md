@@ -8,8 +8,12 @@ The workspace crates use a shared version and follow Semantic Versioning.
 Release-candidate source for the modular wallet and marketplace boundary:
 
 - bounded live HNSR reservation, renewal, confirmation, withdrawal,
-  named-route publication, and lookup state machines with transport and
-  persistence left to the embedding product;
+  named-route publication, and lookup state machines, plus runtime-neutral
+  requester and opaque circuit-relay routing with exact authenticated-peer and
+  ticket admission, deadlines, directional credit, retained write accounting,
+  signed byte ceilings, disconnect/policy revocation, and checksummed
+  fail-closed snapshots, with sockets and atomic persistence left to the
+  embedding product;
 - owner-bound HNS Chat resource parsing, both-parity current-owner proof,
   owner-derived `hns.chat` HNSA verification, bounded opaque HIP-78 mailbox
   values, canonical profile assignment, fixtures, and fuzz/conformance parser
