@@ -19,6 +19,21 @@ pub struct ChatIdentityBindingV1 {
     pub generation: u32,
 }
 
+impl ChatIdentityBindingV1 {
+    /// Validate a programmatically constructed version-1 identity binding.
+    ///
+    /// Parsing and encoding are canonical; this method lets downstream users
+    /// enforce the same invariant without serializing the value first.
+    pub fn validate(&self) -> Result<(), ChatProtocolError> {
+        if self.key_mode != ChatKeyMode::Owner || self.generation == 0 {
+            return Err(ChatProtocolError::Invalid(
+                "version 1 requires owner key mode and nonzero generation",
+            ));
+        }
+        validate_xonly_public_key(&self.xonly_public_key)
+    }
+}
+
 pub fn parse_chat_binding(text: &str) -> Result<ChatIdentityBindingV1, ChatProtocolError> {
     if !text.is_ascii() || text.is_empty() || text.bytes().any(|byte| !byte.is_ascii_graphic()) {
         return Err(ChatProtocolError::Invalid(
@@ -57,12 +72,7 @@ pub fn parse_chat_binding(text: &str) -> Result<ChatIdentityBindingV1, ChatProto
 }
 
 pub fn encode_chat_binding(binding: &ChatIdentityBindingV1) -> Result<String, ChatProtocolError> {
-    if binding.key_mode != ChatKeyMode::Owner || binding.generation == 0 {
-        return Err(ChatProtocolError::Invalid(
-            "version 1 requires owner key mode and nonzero generation",
-        ));
-    }
-    validate_xonly_public_key(&binding.xonly_public_key)?;
+    binding.validate()?;
     Ok(format!(
         "{CANONICAL_PREFIX}{}{GENERATION_FIELD}{}",
         hex::encode(binding.xonly_public_key),

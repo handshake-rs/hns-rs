@@ -82,11 +82,7 @@ pub fn verify_current_owner_binding(
     binding: &ChatIdentityBindingV1,
     owner_output: &Output,
 ) -> Result<VerifiedOwnerBindingV1, ChatProtocolError> {
-    if binding.key_mode != ChatKeyMode::Owner || binding.generation == 0 {
-        return Err(ChatProtocolError::Invalid(
-            "version 1 binding is not owner-bound",
-        ));
-    }
+    binding.validate()?;
     let original_compressed_public_key =
         resolve_compressed_owner_key(owner_output, &binding.xonly_public_key)?;
     Ok(VerifiedOwnerBindingV1 {

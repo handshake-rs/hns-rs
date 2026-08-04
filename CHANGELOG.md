@@ -13,7 +13,9 @@ Release-candidate source for the modular wallet and marketplace boundary:
 - owner-bound HNS Chat resource parsing, both-parity current-owner proof,
   owner-derived `hns.chat` HNSA verification, bounded opaque HIP-78 mailbox
   values, canonical profile assignment, fixtures, and fuzz/conformance parser
-  coverage without a separate long-term chat key;
+  coverage without a separate long-term chat key, plus exact public wire
+  bounds, programmatic validation, SHA-256-authenticated valid/invalid release
+  vectors, external-consumer coverage, and normalized source-package checks;
 - exact HSD sigop-adjusted policy virtual size and minimum-policy-fee
   arithmetic with public weight, sigop, virtual-byte, and fee-rate units,
   checked bounds, input-coin binding, and source-hash-pinned vectors;

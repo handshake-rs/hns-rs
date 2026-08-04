@@ -64,6 +64,7 @@ assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt \
   crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt
 assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \
   crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt.sha256
+(cd fixtures/chat-v1 && sha256sum --check hns-chat-resource-v1.txt.sha256)
 assert_same_file registry/denuo-experimental-v1.toml \
   crates/hns-p2p-experimental/registry/denuo-experimental-v1.toml
 assert_same_file registry/denuo-experimental-v1.bin \

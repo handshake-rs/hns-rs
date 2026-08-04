@@ -4,6 +4,25 @@ Status: source-implemented protocol boundary for software-controlled standard
 single-key owner outputs. Installed-device, full Nostr-vector, regtest,
 publication, release, and mainnet qualification remain separate gates.
 
+## Release-source boundary
+
+`hns-chat-protocol` is the sole canonical Rust owner-binding and opaque mailbox
+value boundary. Downstream repositories consume its public values rather than
+copying wire structs, version bytes, limits, resource parsing, or owner-key
+logic. The public API includes the wire version, exact maximum encoded sizes,
+payload/retention limits, validation for programmatically constructed values,
+and the opaque verified-owner result used to derive an HNSA authority record.
+
+The crate manifest has an explicit source-package inventory containing its
+source, licenses, README, integration test, valid/invalid vectors, and vector
+SHA-256 sidecar. The release preflight inspects Cargo's normalized `.crate`,
+requires every boundary file, rejects any surviving path dependency, and
+authenticates the packaged vector bytes. A focused preflight is available as
+`./scripts/publish.sh --dry-run hns-chat-protocol`; it neither publishes nor
+tags. Until the full locked gate passes and `0.2.0` is intentionally published,
+downstream release source must use an immutable repository revision rather
+than a sibling path, and must not claim a crates.io release exists.
+
 ## Identity and resource binding
 
 The canonical authenticated resource text is:
@@ -60,6 +79,35 @@ requires expiration after creation, and limits retention to seven days. An
 encrypted acknowledgement is separately bounded to 2 KiB. Acceptance of an
 envelope by a mailbox is not a received acknowledgement.
 
+The canonical wire version is 1. The largest reachable canonical envelope is
+8,276 bytes and the largest acknowledgement is 2,092 bytes, including their
+three-byte CompactSize prefixes at the maximum payload. Decoders reject larger
+outer values before allocation, non-minimal CompactSize lengths, truncation,
+trailing bytes, invalid x-only recipient keys, zero identifiers/timestamps,
+empty ciphertexts, and retention windows beyond seven days.
+
+## Security invariants and caller obligations
+
+- The `Resource` and owner output supplied to this crate must come from the
+  same authenticated, canonical NameState at the caller's accepted chain tip.
+  `verify_current_owner_binding` proves control of the supplied output; it does
+  not independently query a chain or prove that an arbitrary output is current.
+- Both compressed-key parities are derived and compared to the raw version-zero
+  20-byte owner program. A stale owner, version-zero 32-byte script program,
+  nonzero witness version, invalid point, ambiguous result, zero generation,
+  or unsupported owner construction fails closed.
+- A `VerifiedOwnerBindingV1` cannot be constructed outside the crate. HNSA
+  authority derivation rechecks its verified trust, generation, and exact
+  original compressed key before exposing an authority record.
+- Mailbox values contain opaque ciphertext only. This crate does not validate
+  NIP-44/NIP-59 cryptography, sender authenticity, plaintext semantics,
+  delivery, durable replay state, rate limits, peer authorization, or erasure;
+  those remain mandatory product and deployment controls.
+- Versioned release vectors cover canonical encoding and both owner parities,
+  plus malformed fields, overflow/noncanonical generations, stale and
+  script-controlled owners, noncanonical lengths, bad versions, zero fields,
+  empty payloads, oversized declarations, truncation, and trailing data.
+
 ## Deliberate tradeoffs and unsupported owners
 
 The design creates no additional recovery secret or long-term chat key. For
@@ -77,3 +125,14 @@ does not possess the controlling private key.
 No source in this crate authorizes mainnet use, publishes a package, exposes a
 private key, creates a NIP-06 identity, or introduces a transport beside
 HIP-78.
+
+## Qualification status
+
+The crate-local unit tests, package-boundary integration test, deterministic
+vectors, source-package inventory, and preflight checks are checked-in evidence,
+not a recorded pass for this commit. Publication requires the exact clean
+release commit to pass `./scripts/check.sh`, the normalized package preflight,
+dependency and RustSec policy, and post-publication archive/VCS identity checks.
+A deployed mailbox additionally requires downstream persistence/restart,
+canonical-chain/reorg, authenticated transport, abuse, installed-client,
+adversarial, performance, and independent security qualification.

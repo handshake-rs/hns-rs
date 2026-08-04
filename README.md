@@ -57,8 +57,10 @@ Pinned-HSD NameState and compressed resource vectors live in
 `fixtures/hsd/name-state-resource-v1.txt` with their own deterministic oracle
 generator and SHA-256 sidecar. Pinned sigop-size and minimum-policy-fee vectors
 live beside them in `fixtures/hsd/fee-policy-v1.txt`.
-Source-independent HNS Chat resource grammar fixtures live in
-`fixtures/chat-v1/`.
+Source-independent HNS Chat resource, owner-parity, envelope, acknowledgement,
+and rejection vectors live in `fixtures/chat-v1/` with a SHA-256 sidecar. The
+same authenticated assets and their external-consumer test are included in the
+`hns-chat-protocol` source package.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and

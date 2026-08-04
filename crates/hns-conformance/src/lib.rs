@@ -360,32 +360,13 @@ mod tests {
             );
         }
 
-        let chat_envelope = ChatEnvelopeV1 {
-            message_id: [1; 32],
-            recipient_public_key: hex::decode(
-                "17162c921dc4d2518f9a101db33695df1afb56ab82f5ff3e5da6eec3ca5cd917",
-            )
-            .expect("hex")
-            .try_into()
-            .expect("x-only key"),
-            created_at: 1_700_000_000,
-            expires_at: 1_700_000_600,
-            gift_wrap: b"opaque gift wrap".to_vec(),
-        }
-        .encode()
-        .expect("chat envelope");
+        let chat_envelope = fixture_bytes(CHAT_RESOURCE_FIXTURES, "envelope_v1");
         assert!(
             exercise_production_parsers(&chat_envelope)
                 .expect("bounded")
                 .contains(AcceptanceMask::HNS_CHAT_ENVELOPE)
         );
-        let acknowledgement = ChatAcknowledgementV1 {
-            message_id: [1; 32],
-            received_at: 1_700_000_100,
-            encrypted_receipt: b"opaque receipt".to_vec(),
-        }
-        .encode()
-        .expect("chat acknowledgement");
+        let acknowledgement = fixture_bytes(CHAT_RESOURCE_FIXTURES, "acknowledgement_v1");
         assert!(
             exercise_production_parsers(&acknowledgement)
                 .expect("bounded")
@@ -412,6 +393,11 @@ mod tests {
             hex::decode(HIP78).expect("static hex"),
             fixture_bytes(HSD_NAME_STATE_RESOURCE_FIXTURES, "name_state_minimal"),
             fixture_bytes(HSD_NAME_STATE_RESOURCE_FIXTURES, "resource_all_records"),
+            fixture_bytes(CHAT_RESOURCE_FIXTURES, "envelope_v1"),
+            fixture_bytes(CHAT_RESOURCE_FIXTURES, "acknowledgement_v1"),
+            fixture_value(CHAT_RESOURCE_FIXTURES, "valid_explicit")
+                .as_bytes()
+                .to_vec(),
         ];
         let mut mutations = 0_usize;
         for seed in seeds {

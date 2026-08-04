@@ -72,7 +72,11 @@ checks. It also includes the exact HSD NameState/resource codec, shared
 owner-outpoint semantics, sigop-adjusted fee-policy arithmetic with explicit
 units, strict TRANSFER/FINALIZE construction, listing-independent Shakedex
 recovery, canonical empty offer-inventory responses, and pinned
-source-verified HSD vectors. These post-vector source additions and the
+source-verified HSD vectors. The chat crate now carries an explicit normalized
+source-package inventory, SHA-256-authenticated valid/invalid vectors, an
+external-consumer integration test, and public canonical wire bounds so a
+downstream node does not require a sibling checkout or copied types. These
+post-vector source additions and the
 converged HNSR/chat dependency graph have not yet passed this document's full
 locked gate. No downstream release may claim the API until that gate passes
 and the shared `0.2.0` packages are published.
@@ -119,7 +123,16 @@ published.
    The preflight temporarily patches unpublished workspace dependencies to
    their local paths so Cargo can verify every normalized package before the
    first dependency exists on crates.io. Those patches are not used for the
-   real upload.
+   real upload. The preflight additionally inspects the normalized
+   `hns-chat-protocol` archive for its complete public source/test/vector
+   inventory, absence of path dependencies, and a valid vector sidecar. To
+   inspect only that package while preparing downstream source, use:
+
+   ```bash
+   ./scripts/publish.sh --dry-run hns-chat-protocol
+   ```
+
+   Partial selection is deliberately unavailable in execution mode.
 
 6. Publish the allowlist:
 

@@ -5,12 +5,19 @@ use k256::ecdsa::VerifyingKey;
 
 use crate::ChatProtocolError;
 
-const VERSION: u8 = 1;
-const MAX_CHAT_ENVELOPE_SIZE: usize = 8_282;
-const MAX_CHAT_ACK_WIRE_SIZE: usize = 2_098;
+/// Version byte used by both canonical HNS Chat wire values.
+pub const HNS_CHAT_WIRE_VERSION: u8 = 1;
 
+/// Maximum opaque NIP-59 gift-wrap payload.
 pub const MAX_CHAT_CIPHERTEXT_SIZE: usize = 8 * 1024;
+/// Maximum encrypted acknowledgement payload.
 pub const MAX_CHAT_ACKNOWLEDGEMENT_SIZE: usize = 2 * 1024;
+/// Maximum canonical encoded envelope size, including a three-byte CompactSize.
+pub const MAX_CHAT_ENVELOPE_SIZE: usize = 1 + 32 + 32 + 8 + 8 + 3 + MAX_CHAT_CIPHERTEXT_SIZE;
+/// Maximum canonical encoded acknowledgement size, including CompactSize.
+pub const MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE: usize =
+    1 + 32 + 8 + 3 + MAX_CHAT_ACKNOWLEDGEMENT_SIZE;
+/// Maximum difference between envelope creation and expiration timestamps.
 pub const MAX_CHAT_EXPIRATION_WINDOW: u64 = 7 * 24 * 60 * 60;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -26,7 +33,7 @@ impl ChatEnvelopeV1 {
     pub fn encode(&self) -> Result<Vec<u8>, ChatProtocolError> {
         self.validate()?;
         let mut encoder = Encoder::with_capacity(81_usize.saturating_add(self.gift_wrap.len()));
-        encoder.put_u8(VERSION);
+        encoder.put_u8(HNS_CHAT_WIRE_VERSION);
         encoder.put_bytes(&self.message_id);
         encoder.put_bytes(&self.recipient_public_key);
         encoder.put_u64_le(self.created_at);
@@ -50,7 +57,7 @@ impl ChatEnvelopeV1 {
             });
         }
         let mut decoder = Decoder::new(input);
-        if decoder.read_u8()? != VERSION {
+        if decoder.read_u8()? != HNS_CHAT_WIRE_VERSION {
             return Err(ChatProtocolError::Invalid(
                 "unsupported chat envelope version",
             ));
@@ -67,7 +74,9 @@ impl ChatEnvelopeV1 {
         Ok(envelope)
     }
 
-    fn validate(&self) -> Result<(), ChatProtocolError> {
+    /// Validate a programmatically constructed envelope without allocating an
+    /// encoded copy.
+    pub fn validate(&self) -> Result<(), ChatProtocolError> {
         if self.message_id.iter().all(|byte| *byte == 0) {
             return Err(ChatProtocolError::Invalid("message identifier is zero"));
         }
@@ -115,29 +124,29 @@ impl ChatAcknowledgementV1 {
         self.validate()?;
         let mut encoder =
             Encoder::with_capacity(42_usize.saturating_add(self.encrypted_receipt.len()));
-        encoder.put_u8(VERSION);
+        encoder.put_u8(HNS_CHAT_WIRE_VERSION);
         encoder.put_bytes(&self.message_id);
         encoder.put_u64_le(self.received_at);
         encoder.put_varbytes(&self.encrypted_receipt);
         let encoded = encoder.into_bytes();
-        if encoded.len() > MAX_CHAT_ACK_WIRE_SIZE {
+        if encoded.len() > MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE {
             return Err(ChatProtocolError::TooLarge {
                 actual: encoded.len(),
-                maximum: MAX_CHAT_ACK_WIRE_SIZE,
+                maximum: MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE,
             });
         }
         Ok(encoded)
     }
 
     pub fn decode(input: &[u8]) -> Result<Self, ChatProtocolError> {
-        if input.len() > MAX_CHAT_ACK_WIRE_SIZE {
+        if input.len() > MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE {
             return Err(ChatProtocolError::TooLarge {
                 actual: input.len(),
-                maximum: MAX_CHAT_ACK_WIRE_SIZE,
+                maximum: MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE,
             });
         }
         let mut decoder = Decoder::new(input);
-        if decoder.read_u8()? != VERSION {
+        if decoder.read_u8()? != HNS_CHAT_WIRE_VERSION {
             return Err(ChatProtocolError::Invalid(
                 "unsupported acknowledgement version",
             ));
@@ -153,7 +162,9 @@ impl ChatAcknowledgementV1 {
         Ok(acknowledgement)
     }
 
-    fn validate(&self) -> Result<(), ChatProtocolError> {
+    /// Validate a programmatically constructed acknowledgement without
+    /// allocating an encoded copy.
+    pub fn validate(&self) -> Result<(), ChatProtocolError> {
         if self.message_id.iter().all(|byte| *byte == 0) {
             return Err(ChatProtocolError::Invalid("message identifier is zero"));
         }

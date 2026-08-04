@@ -469,6 +469,7 @@ dependencies = [
  "hns-service-authority",
  "hns-transaction",
  "k256",
+ "sha2 0.10.9",
  "thiserror",
 ]
 

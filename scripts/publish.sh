@@ -6,6 +6,7 @@ cd "$repo_root"
 
 rust_toolchain=${RUST_TOOLCHAIN:-1.89.0}
 mode=${1:---dry-run}
+requested_package=${2:-}
 release_commit=$(git rev-parse HEAD)
 release_tmp=
 
@@ -38,6 +39,19 @@ hns-marketplace-protocol
 hns-p2p-wire
 "
 
+require_public_crate() {
+    requested=$1
+    for package in $public_crates
+    do
+        if [ "$package" = "$requested" ]
+        then
+            return
+        fi
+    done
+    echo "error: $requested is not in the public package allowlist" >&2
+    exit 2
+}
+
 assert_private() {
     package=$1
     shift
@@ -53,9 +67,11 @@ assert_private() {
     fi
 }
 
-assert_private hns-conformance
-assert_private hns-registry-gen
-assert_private hns-rs-fuzz --manifest-path fuzz/Cargo.toml
+assert_private_packages() {
+    assert_private hns-conformance
+    assert_private hns-registry-gen
+    assert_private hns-rs-fuzz --manifest-path fuzz/Cargo.toml
+}
 
 dry_run_package() {
     package=$1
@@ -165,6 +181,84 @@ dry_run_with_local_dependencies() {
     esac
 }
 
+package_version() {
+    package=$1
+    package_id=$(cargo +"$rust_toolchain" pkgid -p "$package")
+    version=${package_id##*@}
+    if [ "$version" = "$package_id" ]
+    then
+        version=${package_id##*#}
+    fi
+    printf '%s\n' "$version"
+}
+
+verify_chat_source_package() {
+    package=hns-chat-protocol
+    version=$(package_version "$package")
+    package_target=${CARGO_TARGET_DIR:-target}
+    archive="$package_target/package/$package-$version.crate"
+    archive_root="$package-$version"
+
+    if [ ! -f "$archive" ]
+    then
+        echo "error: Cargo did not create $archive" >&2
+        exit 1
+    fi
+
+    archive_entries=$(tar -tf "$archive")
+    for relative_path in \
+        .cargo_vcs_info.json \
+        Cargo.toml \
+        Cargo.toml.orig \
+        LICENSE-APACHE \
+        LICENSE-MIT \
+        README.md \
+        fixtures/chat-v1/hns-chat-resource-v1.txt \
+        fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \
+        src/binding.rs \
+        src/lib.rs \
+        src/owner.rs \
+        src/wire.rs \
+        tests/release_source.rs
+    do
+        if ! printf '%s\n' "$archive_entries" | grep -Fqx "$archive_root/$relative_path"
+        then
+            echo "error: normalized $package package omits $relative_path" >&2
+            exit 1
+        fi
+    done
+
+    normalized_manifest=$(tar -xOf "$archive" "$archive_root/Cargo.toml")
+    if printf '%s\n' "$normalized_manifest" |
+        grep -Eq '^[[:space:]]*path[[:space:]]*='
+    then
+        echo "error: normalized $package manifest retains a path dependency" >&2
+        exit 1
+    fi
+
+    expected_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/chat-v1/hns-chat-resource-v1.txt.sha256" |
+        awk 'NR == 1 { print $1 }')
+    actual_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/chat-v1/hns-chat-resource-v1.txt" |
+        sha256sum |
+        awk '{ print $1 }')
+    if [ "$actual_digest" != "$expected_digest" ]
+    then
+        echo "error: packaged HNS Chat vectors do not match their SHA-256 sidecar" >&2
+        exit 1
+    fi
+}
+
+verify_source_package() {
+    package=$1
+    case "$package" in
+        hns-chat-protocol) verify_chat_source_package ;;
+    esac
+}
+
 verify_published_package() {
     package=$1
     version=$2
@@ -217,12 +311,27 @@ verify_published_package() {
 
 case "$mode" in
     --dry-run)
-        for package in $public_crates
-        do
-            dry_run_with_local_dependencies "$package"
-        done
+        if [ -n "$requested_package" ]
+        then
+            require_public_crate "$requested_package"
+            dry_run_with_local_dependencies "$requested_package"
+            verify_source_package "$requested_package"
+        else
+            assert_private_packages
+            for package in $public_crates
+            do
+                dry_run_with_local_dependencies "$package"
+                verify_source_package "$package"
+            done
+        fi
         ;;
     --execute)
+        if [ -n "$requested_package" ]
+        then
+            echo "error: execution does not accept a partial package selection" >&2
+            exit 2
+        fi
+        assert_private_packages
         if [ -n "$(git status --porcelain)" ]
         then
             echo "error: refusing to publish from a dirty worktree" >&2
@@ -239,12 +348,7 @@ case "$mode" in
 
         for package in $public_crates
         do
-            package_id=$(cargo +"$rust_toolchain" pkgid -p "$package")
-            version=${package_id##*@}
-            if [ "$version" = "$package_id" ]
-            then
-                version=${package_id##*#}
-            fi
+            version=$(package_version "$package")
 
             status=$(curl \
                 --silent \
@@ -270,7 +374,7 @@ case "$mode" in
         done
         ;;
     *)
-        echo "usage: $0 [--dry-run|--execute]" >&2
+        echo "usage: $0 [--dry-run [PUBLIC-PACKAGE]|--execute]" >&2
         exit 2
         ;;
 esac
