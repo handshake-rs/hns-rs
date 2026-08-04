@@ -81,6 +81,14 @@ converged HNSR/chat dependency graph have not yet passed this document's full
 locked gate. No downstream release may claim the API until that gate passes
 and the shared `0.2.0` packages are published.
 
+Focused HNS Chat evidence is limited to the external-consumer integration
+target at exact source commit
+`87c26b21e971d45de47d08cb0a154ac28ec83d00`. The locked offline command for
+`-p hns-chat-protocol --test release_source -- --test-threads=1` passed 4 tests
+with no failures, ignored, measured, or filtered cases. The normalized package
+preflight, full locked gate, publication, tag, post-publication checks, and
+deployed mailbox qualification remain unrun.
+
 ## Private packages
 
 The following development packages must retain `publish = false`:

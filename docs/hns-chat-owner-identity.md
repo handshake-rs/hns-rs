@@ -128,11 +128,21 @@ HIP-78.
 
 ## Qualification status
 
-The crate-local unit tests, package-boundary integration test, deterministic
-vectors, source-package inventory, and preflight checks are checked-in evidence,
-not a recorded pass for this commit. Publication requires the exact clean
-release commit to pass `./scripts/check.sh`, the normalized package preflight,
-dependency and RustSec policy, and post-publication archive/VCS identity checks.
-A deployed mailbox additionally requires downstream persistence/restart,
-canonical-chain/reorg, authenticated transport, abuse, installed-client,
-adversarial, performance, and independent security qualification.
+The focused external-consumer integration target passed at exact source commit
+`87c26b21e971d45de47d08cb0a154ac28ec83d00`:
+
+```text
+CARGO_TARGET_DIR=/home/den/.codex/targets/hns-rs-chat-aug3 TMPDIR=/home/den/.codex/tmp/hns-rs-chat-aug3 cargo +1.89.0 test --locked --offline -p hns-chat-protocol --test release_source -- --test-threads=1
+```
+
+Result: 4 passed; 0 failed, ignored, measured, or filtered. This proves only
+the checked-in public-API resource/parser, owner-parity/false-authority, exact
+wire-bound/rejection, and fixture-sidecar cases in `tests/release_source.rs`.
+The crate's other unit tests were not selected by that command.
+
+The normalized package preflight, repository full locked gate, dependency and
+RustSec gates, publication, tag, and post-publication archive/VCS identity
+checks remain unrun for this source. A deployed mailbox is also unrun and still
+requires downstream persistence/restart, canonical-chain/reorg, authenticated
+transport, abuse, installed-client, adversarial, performance, and independent
+security qualification.
