@@ -81,6 +81,13 @@ converged HNSR/chat dependency graph have not yet passed this document's full
 locked gate. No downstream release may claim the API until that gate passes
 and the shared `0.2.0` packages are published.
 
+The runtime-neutral HNSR circuit selection passed five focused tests at exact
+source commit `bfa426adef9bb5df023b9c1235d635b9feaa6dcb` using the locked offline
+`-p hns-hnsr-protocol circuit::tests:: -- --test-threads=1` command. This is
+narrow source qualification only; it does not replace the full locked gate,
+downstream adapter qualification, durable restart testing, or live relay
+deployment evidence.
+
 Focused HNS Chat evidence is limited to the external-consumer integration
 target at exact source commit
 `87c26b21e971d45de47d08cb0a154ac28ec83d00`. The locked offline command for

@@ -18,7 +18,7 @@ Current canonical protocol coverage:
 | private Denuo registry and negotiation | `hns-p2p-experimental` | canonical V1/V2 registry fingerprints, exact-version/zero-flag classification, and collision tests |
 | HIP #76 | `hns-dns-relay-protocol` | exact draft envelope and policy tests |
 | HIP #77 | `hns-odoh-protocol` | exact draft/RFC cryptographic vectors |
-| HIP #78 | `hns-hnsr-protocol` | exact draft records, signatures, bounded stores and envelopes, live reservation/renewal/confirmation/withdrawal and route publication/lookup state machines, plus runtime-neutral requester/opaque-relay open, peer-binding, credit, queue, byte-ceiling, revocation, and fail-closed snapshot source tests |
+| HIP #78 | `hns-hnsr-protocol` | exact draft records, signatures, bounded stores and envelopes, live reservation/renewal/confirmation/withdrawal and route publication/lookup state machines, plus runtime-neutral requester/opaque-relay open, peer-binding, credit, queue, byte-ceiling, revocation, and fail-closed snapshot tests |
 | HNSA/HNSR named routes | `hns-service-authority`, `hns-hnsr-protocol`, `hns-conformance` | version-2 route round trip, complete authority validation, stable identity key, capabilities, ticket binding, bounded storage admission, and parser mutation coverage |
 | owner-bound HNS Chat | `hns-chat-protocol`, `hns-hnsr-protocol`, `hns-conformance`, `fuzz/` | SHA-256-authenticated crate-local valid/invalid release vectors, checked-in source-package inventory, external-consumer public-API coverage, even/odd original owner parity, raw witness-program matching, stale/P2WSH/nonzero-version rejection, HNSA generation binding, exact opaque envelope/acknowledgement wire bounds, noncanonical/trailing/oversized parser negatives, duplicate IDs, complete route-chain admission, and parser mutation coverage |
 | HIP-0001/Shakedex v2 | `hns-swap` | exact proof, seller digest, presigned transaction, buyer fulfillment, recovery transfer, later FINALIZE transaction/witness, IDs, script, price, and locktime vectors |
@@ -50,9 +50,18 @@ measured, or filtered cases. That command did not run the crate's other unit
 tests, the normalized package preflight, the repository full gate, publication,
 or any deployed mailbox qualification.
 
+At exact source commit `bfa426adef9bb5df023b9c1235d635b9feaa6dcb`,
+`cargo test --locked --offline -p hns-hnsr-protocol circuit::tests:: -- --test-threads=1`
+passed all five focused requester/opaque-relay circuit cases with no failures
+or ignored cases and 19 unrelated cases filtered out. The selection covers
+peer/context binding, directional credit and byte accounting, terminal and
+disconnect cleanup, retained-action capacity bounds, failed writes, stale
+actions, snapshot checksums, caller-held generation floors, and trusted-time
+rollback. It is not the repository full gate or a deployed-network test.
+
 The NameState/resource, fee-policy, typed TRANSFER/FINALIZE,
 listing-independent Shakedex recovery, empty name-market inventory, live HNSR
-service, and owner-bound chat tranches retain focused source tests and exact
+service, and owner-bound chat tranches retain focused tests and exact
 vectors where applicable. The repository's full locked qualification gate was
 not rerun for their converged `main` commit; that remains required before the
 unreleased 0.2.0 line can be published. Static vectors and in-memory service
