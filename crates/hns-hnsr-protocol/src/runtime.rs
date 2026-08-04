@@ -116,6 +116,11 @@ impl RelayService {
         self.reservations.len()
     }
 
+    /// Returns whether no reservations are retained.
+    pub fn is_empty(&self) -> bool {
+        self.reservations.is_empty()
+    }
+
     pub fn confirmed(&self, reservation_id: &[u8; 16]) -> Option<ConfirmedReservation> {
         self.reservations.get(reservation_id).and_then(|state| {
             (!state.ticket.endpoint_signature.is_empty()).then(|| ConfirmedReservation {

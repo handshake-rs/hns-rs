@@ -1318,14 +1318,14 @@ impl OpaqueRelayRuntime {
             .inflight
             .remove(&action_id)
             .ok_or(HnsrRuntimeError::UnknownAction)?;
-        if let InflightKind::Data { destination, bytes } = action.kind {
-            if let Some(circuit) = self.circuits.get_mut(&action.circuit_id) {
-                let queued = match destination {
-                    RelaySide::Requester => &mut circuit.queued_to_requester,
-                    RelaySide::Endpoint => &mut circuit.queued_to_endpoint,
-                };
-                *queued = queued.saturating_sub(bytes);
-            }
+        if let InflightKind::Data { destination, bytes } = action.kind
+            && let Some(circuit) = self.circuits.get_mut(&action.circuit_id)
+        {
+            let queued = match destination {
+                RelaySide::Requester => &mut circuit.queued_to_requester,
+                RelaySide::Endpoint => &mut circuit.queued_to_endpoint,
+            };
+            *queued = queued.saturating_sub(bytes);
         }
         if delivered {
             return Ok(Vec::new());
@@ -1390,12 +1390,10 @@ impl OpaqueRelayRuntime {
                     destination_context,
                     HnsrErrorCode::EndpointGone as u16,
                     "outer peer disconnected",
-                ) {
-                    if let Ok(route) =
-                        self.queue_control(destination, circuit_id, packet, InflightKind::Close)
-                    {
-                        routes.push(route);
-                    }
+                ) && let Ok(route) =
+                    self.queue_control(destination, circuit_id, packet, InflightKind::Close)
+                {
+                    routes.push(route);
                 }
                 self.counters.revoked_work = self.counters.revoked_work.saturating_add(1);
             }
@@ -1822,10 +1820,8 @@ impl OpaqueRelayRuntime {
             let is_match = (pending.requester == *source
                 && pending.requester_context == wire_context)
                 || (pending.endpoint == *source && *circuit_id == wire_context);
-            if is_match {
-                if matched.replace(*circuit_id).is_some() {
-                    return Err(HnsrRuntimeError::InvalidAdmission);
-                }
+            if is_match && matched.replace(*circuit_id).is_some() {
+                return Err(HnsrRuntimeError::InvalidAdmission);
             }
         }
         Ok(matched)
@@ -1908,12 +1904,11 @@ impl OpaqueRelayRuntime {
         self.counters.revoked_work = self.counters.revoked_work.saturating_add(1);
         let mut routes = Vec::new();
         for destination in [circuit.requester, circuit.endpoint] {
-            if let Ok(packet) = close_packet(circuit_id, reason, detail) {
-                if let Ok(route) =
+            if let Ok(packet) = close_packet(circuit_id, reason, detail)
+                && let Ok(route) =
                     self.queue_control(destination, circuit_id, packet, InflightKind::Close)
-                {
-                    routes.push(route);
-                }
+            {
+                routes.push(route);
             }
         }
         routes
@@ -1937,12 +1932,11 @@ impl OpaqueRelayRuntime {
         ];
         let mut routes = Vec::new();
         for (destination, packet) in packets {
-            if let Ok(packet) = packet {
-                if let Ok(route) =
+            if let Ok(packet) = packet
+                && let Ok(route) =
                     self.queue_control(destination, circuit_id, packet, InflightKind::Close)
-                {
-                    routes.push(route);
-                }
+            {
+                routes.push(route);
             }
         }
         routes
@@ -1959,12 +1953,11 @@ impl OpaqueRelayRuntime {
         for (circuit_id, state) in circuits {
             self.counters.revoked_work = self.counters.revoked_work.saturating_add(1);
             for destination in [state.requester, state.endpoint] {
-                if let Ok(packet) = close_packet(circuit_id, reason, detail) {
-                    if let Ok(route) =
+                if let Ok(packet) = close_packet(circuit_id, reason, detail)
+                    && let Ok(route) =
                         self.queue_control(destination, circuit_id, packet, InflightKind::Close)
-                    {
-                        routes.push(route);
-                    }
+                {
+                    routes.push(route);
                 }
             }
         }

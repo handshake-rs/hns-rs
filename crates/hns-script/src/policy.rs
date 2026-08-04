@@ -293,7 +293,7 @@ mod tests {
         let weight = u32::try_from(transaction.weight().expect("transaction weight"))
             .expect("bounded weight");
         assert_eq!(
-            transaction_policy_virtual_size(&transaction, &[coin.clone()])
+            transaction_policy_virtual_size(&transaction, std::slice::from_ref(&coin))
                 .expect("bound policy size"),
             sigop_adjusted_virtual_size(TransactionWeight::new(weight), SigopCost::new(1))
                 .expect("direct policy size"),
