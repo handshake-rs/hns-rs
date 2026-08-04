@@ -5,9 +5,9 @@ mod name;
 
 pub use linkage::{CovenantLinkError, CovenantLinkSummary, verify_covenant_links};
 pub use name::{
-    NameTransactionError, build_finalize_output, build_finalize_transaction,
-    build_transfer_output, build_transfer_transaction, verify_finalize_at_index_zero,
-    verify_finalize_output, verify_transfer_at_index_zero, verify_transfer_output,
+    NameTransactionError, build_finalize_output, build_finalize_transaction, build_transfer_output,
+    build_transfer_transaction, verify_finalize_at_index_zero, verify_finalize_output,
+    verify_transfer_at_index_zero, verify_transfer_output,
 };
 
 use blake2::Blake2bVar;
@@ -591,12 +591,11 @@ mod tests {
 
     #[test]
     fn compressed_public_key_address_uses_hsd_blake2b_160() {
-        let public_key: [u8; 33] = hex::decode(
-            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
-        )
-        .expect("hex")
-        .try_into()
-        .expect("compressed public key");
+        let public_key: [u8; 33] =
+            hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+                .expect("hex")
+                .try_into()
+                .expect("compressed public key");
         let address = Address::from_compressed_public_key(&public_key).expect("address");
         assert_eq!(address.version, 0);
         assert_eq!(

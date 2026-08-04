@@ -15,8 +15,8 @@ pub use body::{
 };
 pub use circuit::{
     HnsrActionId, HnsrPeerId, HnsrRequester, HnsrRequesterConfig, HnsrRequesterEvent,
-    HnsrRequesterSnapshot, HnsrRoute, HnsrRuntimeError, HnsrRuntimeStatus,
-    OpaqueRelayConfig, OpaqueRelayRuntime, OpaqueRelaySnapshot, QueuedHnsrRoute,
+    HnsrRequesterSnapshot, HnsrRoute, HnsrRuntimeError, HnsrRuntimeStatus, OpaqueRelayConfig,
+    OpaqueRelayRuntime, OpaqueRelaySnapshot, QueuedHnsrRoute,
 };
 pub use envelope::{HnsrOpcode, HnsrPacket};
 pub use named::{NamedRoutePolicy, NamedRouteRecordV2, NamedRouteTrust, named_route_key};

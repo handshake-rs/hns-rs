@@ -86,8 +86,7 @@ pub(crate) fn ensure_size(bytes: Vec<u8>, maximum: usize) -> Result<Vec<u8>> {
 mod protocol_v1_vectors {
     use super::*;
 
-    const FIXTURES: &str =
-        include_str!("../fixtures/protocol-v1/hns-marketplace-v1.txt");
+    const FIXTURES: &str = include_str!("../fixtures/protocol-v1/hns-marketplace-v1.txt");
 
     fn fixture_bytes(name: &str) -> Vec<u8> {
         let value = FIXTURES
@@ -125,10 +124,7 @@ mod protocol_v1_vectors {
         let exact = fixture_bytes("market_intent_cancellation");
         let cancellation =
             MarketIntentCancellation::decode(&exact).expect("market intent cancellation");
-        assert_eq!(
-            cancellation.encode().expect("cancellation encoding"),
-            exact
-        );
+        assert_eq!(cancellation.encode().expect("cancellation encoding"), exact);
         assert_eq!(
             cancellation.cancellation_hash().expect("cancellation hash"),
             fixture_hash("market_intent_cancellation_hash")
@@ -136,10 +132,7 @@ mod protocol_v1_vectors {
 
         let exact = fixture_bytes("price_observation");
         let observation = PriceObservation::decode(&exact).expect("price observation");
-        assert_eq!(
-            observation.encode().expect("observation encoding"),
-            exact
-        );
+        assert_eq!(observation.encode().expect("observation encoding"), exact);
         assert_eq!(
             observation.observation_hash().expect("observation hash"),
             fixture_hash("price_observation_hash")
@@ -159,8 +152,7 @@ mod protocol_v1_vectors {
         assert_eq!(grant.encode().expect("fill grant encoding"), exact);
         assert_eq!(grant.grant_hash, fixture_hash("fill_grant_hash"));
         assert_ne!(
-            grant.header.signer_public_key,
-            grant.maker_settlement_key,
+            grant.header.signer_public_key, grant.maker_settlement_key,
             "long-term maker identity must be independent from settlement authority"
         );
 

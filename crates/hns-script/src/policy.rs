@@ -30,8 +30,7 @@ pub const MIN_RELAY_FEE_RATE: FeeRate = FeeRate::new(1_000);
 ///
 /// This bound is deliberately not enforced by [`sigop_adjusted_virtual_size`]:
 /// HSD calculates size and applies standardness checks as separate operations.
-pub const MAX_POLICY_TRANSACTION_WEIGHT: TransactionWeight =
-    TransactionWeight::new(400_000);
+pub const MAX_POLICY_TRANSACTION_WEIGHT: TransactionWeight = TransactionWeight::new(400_000);
 
 /// Maximum standard transaction sigop cost admitted by the pinned HSD policy.
 ///
@@ -157,8 +156,7 @@ pub fn transaction_policy_virtual_size(
     input_coins: &[Coin],
 ) -> Result<PolicyVirtualSize, FeePolicyError> {
     let weight = transaction.weight()?;
-    let weight =
-        u32::try_from(weight).map_err(|_| FeePolicyError::TransactionWeightOutOfRange)?;
+    let weight = u32::try_from(weight).map_err(|_| FeePolicyError::TransactionWeightOutOfRange)?;
     let sigops = transaction_sigops(transaction, input_coins)?;
     sigop_adjusted_virtual_size(TransactionWeight::new(weight), SigopCost::new(sigops))
 }
@@ -210,8 +208,7 @@ mod tests {
 
     use super::*;
 
-    const HSD_FEE_POLICY_VECTORS: &str =
-        include_str!("../fixtures/hsd/fee-policy-v1.txt");
+    const HSD_FEE_POLICY_VECTORS: &str = include_str!("../fixtures/hsd/fee-policy-v1.txt");
     const HSD_FEE_POLICY_VECTORS_SHA256: &str =
         include_str!("../fixtures/hsd/fee-policy-v1.txt.sha256");
     const PINNED_HSD_FEE_POLICY_VECTORS_SHA256: &str =
@@ -245,11 +242,9 @@ mod tests {
             let rate = u32::try_from(fields[3]).expect("fee-rate unit");
             let expected_fee = fields[4];
 
-            let virtual_size = sigop_adjusted_virtual_size(
-                TransactionWeight::new(weight),
-                SigopCost::new(sigops),
-            )
-            .expect("bounded HSD vector");
+            let virtual_size =
+                sigop_adjusted_virtual_size(TransactionWeight::new(weight), SigopCost::new(sigops))
+                    .expect("bounded HSD vector");
             assert_eq!(
                 virtual_size,
                 PolicyVirtualSize::new(expected_size),
@@ -315,10 +310,7 @@ mod tests {
     #[test]
     fn out_of_range_sigop_size_fails_closed() {
         assert!(matches!(
-            sigop_adjusted_virtual_size(
-                TransactionWeight::new(0),
-                SigopCost::new(u32::MAX),
-            ),
+            sigop_adjusted_virtual_size(TransactionWeight::new(0), SigopCost::new(u32::MAX),),
             Err(FeePolicyError::VirtualSizeOutOfRange { .. })
         ));
     }

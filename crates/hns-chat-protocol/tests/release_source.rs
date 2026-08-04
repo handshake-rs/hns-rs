@@ -1,9 +1,8 @@
 use hns_chat_protocol::{
-    ChatAcknowledgementV1, ChatEnvelopeV1, ChatIdentityBindingV1, ChatKeyMode,
-    ChatProtocolError, HNS_CHAT_WIRE_VERSION, MAX_CHAT_ACKNOWLEDGEMENT_SIZE,
-    MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE, MAX_CHAT_CIPHERTEXT_SIZE,
-    MAX_CHAT_ENVELOPE_SIZE, MAX_CHAT_EXPIRATION_WINDOW, encode_chat_binding,
-    owner_authority_record, parse_chat_binding, select_chat_binding,
+    ChatAcknowledgementV1, ChatEnvelopeV1, ChatIdentityBindingV1, ChatKeyMode, ChatProtocolError,
+    HNS_CHAT_WIRE_VERSION, MAX_CHAT_ACKNOWLEDGEMENT_SIZE, MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE,
+    MAX_CHAT_CIPHERTEXT_SIZE, MAX_CHAT_ENVELOPE_SIZE, MAX_CHAT_EXPIRATION_WINDOW,
+    encode_chat_binding, owner_authority_record, parse_chat_binding, select_chat_binding,
     select_chat_binding_from_resource, verify_current_owner_binding,
     xonly_from_compressed_public_key,
 };
@@ -13,8 +12,7 @@ use hns_transaction::{Address, Output};
 use sha2::{Digest, Sha256};
 
 const VECTORS: &str = include_str!("../fixtures/chat-v1/hns-chat-resource-v1.txt");
-const VECTORS_SHA256: &str =
-    include_str!("../fixtures/chat-v1/hns-chat-resource-v1.txt.sha256");
+const VECTORS_SHA256: &str = include_str!("../fixtures/chat-v1/hns-chat-resource-v1.txt.sha256");
 
 fn vector(name: &str) -> &str {
     VECTORS
@@ -25,8 +23,7 @@ fn vector(name: &str) -> &str {
 }
 
 fn vector_bytes(name: &str) -> Vec<u8> {
-    hex::decode(vector(name))
-        .unwrap_or_else(|error| panic!("invalid hex vector {name}: {error}"))
+    hex::decode(vector(name)).unwrap_or_else(|error| panic!("invalid hex vector {name}: {error}"))
 }
 
 fn owner_output(version: u8, program: Vec<u8>) -> Output {
@@ -126,11 +123,9 @@ fn release_source_owner_vectors_preserve_parity_and_reject_false_authority() {
         let derived = Address::from_compressed_public_key(&compressed).expect("owner address");
         assert_eq!(hex::encode(&derived.hash), vector(program_name));
 
-        let verified = verify_current_owner_binding(
-            &binding,
-            &owner_output(0, vector_bytes(program_name)),
-        )
-        .expect("current owner binding");
+        let verified =
+            verify_current_owner_binding(&binding, &owner_output(0, vector_bytes(program_name)))
+                .expect("current owner binding");
         assert_eq!(verified.original_compressed_public_key(), compressed);
         let authority = owner_authority_record(&verified).expect("owner authority");
         assert_eq!(authority.root_key, compressed);
@@ -149,7 +144,10 @@ fn release_source_owner_vectors_preserve_parity_and_reject_false_authority() {
         .expect("stale compressed owner key");
     let stale_address =
         Address::from_compressed_public_key(&stale_key).expect("stale owner address");
-    assert_eq!(hex::encode(stale_address.hash), vector("owner_stale_program"));
+    assert_eq!(
+        hex::encode(stale_address.hash),
+        vector("owner_stale_program")
+    );
     assert_eq!(
         verify_current_owner_binding(&binding, &owner_output(0, vec![0x55; 32])),
         Err(ChatProtocolError::UnsupportedOwnerScript)
@@ -205,8 +203,8 @@ fn release_source_wire_vectors_are_exact_bounded_and_fail_closed() {
     }
 
     let acknowledgement_bytes = vector_bytes("acknowledgement_v1");
-    let acknowledgement = ChatAcknowledgementV1::decode(&acknowledgement_bytes)
-        .expect("canonical acknowledgement");
+    let acknowledgement =
+        ChatAcknowledgementV1::decode(&acknowledgement_bytes).expect("canonical acknowledgement");
     assert_eq!(acknowledgement.message_id, envelope.message_id);
     assert_eq!(acknowledgement.received_at, 1_700_000_100);
     assert_eq!(

@@ -554,12 +554,13 @@ impl SwapProof {
     ) -> Result<[u8; 32], SwapError> {
         self.validate()?;
         verify_locking_coin(self, locking_coin)?;
-        let seller_input = transaction
-            .inputs
-            .first()
-            .ok_or(SwapError::InvalidShakedexFulfillment(
-                "seller input is missing",
-            ))?;
+        let seller_input =
+            transaction
+                .inputs
+                .first()
+                .ok_or(SwapError::InvalidShakedexFulfillment(
+                    "seller input is missing",
+                ))?;
         if seller_input.previous_output != locking_coin.outpoint {
             return Err(SwapError::OutpointMismatch);
         }
@@ -599,12 +600,13 @@ impl SwapProof {
         }
 
         let mut transaction = self.presigned_transaction(locking_coin)?;
-        let transfer = transaction
-            .outputs
-            .first_mut()
-            .ok_or(SwapError::InvalidShakedexFulfillment(
-                "transfer output is missing",
-            ))?;
+        let transfer =
+            transaction
+                .outputs
+                .first_mut()
+                .ok_or(SwapError::InvalidShakedexFulfillment(
+                    "transfer output is missing",
+                ))?;
         *transfer = build_transfer_output(locking_coin, name_recipient)?;
 
         transaction.inputs.append(&mut buyer_inputs);
@@ -764,11 +766,8 @@ impl SwapProof {
         locking_coin: &Coin,
         recovery_recipient: &Address,
     ) -> Result<(), SwapError> {
-        self.lock_descriptor()?.verify_recovery(
-            transaction,
-            locking_coin,
-            recovery_recipient,
-        )
+        self.lock_descriptor()?
+            .verify_recovery(transaction, locking_coin, recovery_recipient)
     }
 
     /// Classify and authenticate a seller-authorized transfer of the exact
@@ -1037,9 +1036,7 @@ fn transfer_recipient(
     locking_coin: &Coin,
 ) -> Result<Address, SwapError> {
     let transfer_fields = TransferCovenant::try_from(&transfer.covenant).map_err(|_| {
-        SwapError::InvalidShakedexFulfillment(
-            "TRANSFER covenant does not bind the locked name",
-        )
+        SwapError::InvalidShakedexFulfillment("TRANSFER covenant does not bind the locked name")
     })?;
     let locking_finalize = FinalizeCovenant::try_from(&locking_coin.covenant)
         .map_err(|_| SwapError::InvalidShakedexLockingCovenant)?;
@@ -1063,15 +1060,18 @@ fn verify_seller_signature(
     locking_coin: &Coin,
 ) -> Result<(), SwapError> {
     let encoded_signature = proof.signature.ok_or(SwapError::UnsignedProof)?;
-    let signature = Signature::from_slice(&encoded_signature[..64])
-        .map_err(|_| SwapError::InvalidSignature)?;
+    let signature =
+        Signature::from_slice(&encoded_signature[..64]).map_err(|_| SwapError::InvalidSignature)?;
     if signature.normalize_s().is_some() {
         return Err(SwapError::HighSignature);
     }
     let public_key = VerifyingKey::from_sec1_bytes(&proof.seller_public_key)
         .map_err(|_| SwapError::InvalidPublicKey)?;
     public_key
-        .verify_prehash(&proof.seller_signature_hash(transaction, locking_coin)?, &signature)
+        .verify_prehash(
+            &proof.seller_signature_hash(transaction, locking_coin)?,
+            &signature,
+        )
         .map_err(|_| SwapError::InvalidSignature)
 }
 
@@ -1125,8 +1125,7 @@ fn verify_recovery_layout(
                 "seller witness layout differs",
             ));
         };
-        if witness_script.as_slice()
-            != create_lock_script(&descriptor.seller_public_key).as_slice()
+        if witness_script.as_slice() != create_lock_script(&descriptor.seller_public_key).as_slice()
         {
             return Err(SwapError::InvalidShakedexRecovery(
                 "seller witness script differs",
@@ -1138,17 +1137,19 @@ fn verify_recovery_layout(
                 "seller witness is neither absent nor canonical",
             ));
         };
-        if witness_script.as_slice()
-            != create_lock_script(&descriptor.seller_public_key).as_slice()
+        if witness_script.as_slice() != create_lock_script(&descriptor.seller_public_key).as_slice()
         {
             return Err(SwapError::InvalidShakedexRecovery(
                 "seller witness script differs",
             ));
         }
     }
-    let transfer = transaction.outputs.first().ok_or(SwapError::InvalidShakedexRecovery(
-        "recovery TRANSFER output is missing",
-    ))?;
+    let transfer = transaction
+        .outputs
+        .first()
+        .ok_or(SwapError::InvalidShakedexRecovery(
+            "recovery TRANSFER output is missing",
+        ))?;
     if transfer != &build_transfer_output(locking_coin, recovery_recipient)? {
         return Err(SwapError::InvalidShakedexRecovery(
             "recovery TRANSFER output differs",
@@ -1355,8 +1356,7 @@ mod tests {
 
     use super::*;
 
-    const PROTOCOL_V1_FIXTURES: &str =
-        include_str!("../fixtures/protocol-v1/hns-swap-v1.txt");
+    const PROTOCOL_V1_FIXTURES: &str = include_str!("../fixtures/protocol-v1/hns-swap-v1.txt");
 
     fn fixture_bytes(name: &str) -> Vec<u8> {
         let value = PROTOCOL_V1_FIXTURES
@@ -1456,9 +1456,15 @@ mod tests {
             ),
             Err(SwapError::CoinbaseShakedexLockingCoin)
         ));
-        assert_eq!(descriptor, proof.lock_descriptor().expect("proof descriptor"));
         assert_eq!(
-            descriptor.finalize_witness().expect("FINALIZE witness").items,
+            descriptor,
+            proof.lock_descriptor().expect("proof descriptor")
+        );
+        assert_eq!(
+            descriptor
+                .finalize_witness()
+                .expect("FINALIZE witness")
+                .items,
             vec![create_lock_script(&proof.seller_public_key).to_vec()]
         );
         proof.sign(&coin, &signing_key).expect("signed proof");
@@ -1619,7 +1625,9 @@ mod tests {
             fixture_bytes("recovery_finalize_transaction")
         );
         assert_eq!(
-            finalize.witness_encode().expect("FINALIZE witness encoding"),
+            finalize
+                .witness_encode()
+                .expect("FINALIZE witness encoding"),
             fixture_bytes("recovery_finalize_witness")
         );
         assert_eq!(
@@ -1630,13 +1638,8 @@ mod tests {
                 .as_slice(),
             fixture_bytes("recovery_finalize_txid").as_slice()
         );
-        verify_finalize_at_index_zero(
-            &finalize,
-            &transfer_coin,
-            &state,
-            renewal_block,
-        )
-        .expect("canonical recovery FINALIZE");
+        verify_finalize_at_index_zero(&finalize, &transfer_coin, &state, renewal_block)
+            .expect("canonical recovery FINALIZE");
         verify_witness_program(
             &finalize,
             0,
@@ -1649,19 +1652,18 @@ mod tests {
         let mut wrong_renewal = finalize.clone();
         wrong_renewal.outputs[0].covenant.items[6][0] ^= 1;
         assert!(
-            verify_finalize_at_index_zero(
-                &wrong_renewal,
-                &transfer_coin,
-                &state,
-                renewal_block,
-            )
-            .is_err()
+            verify_finalize_at_index_zero(&wrong_renewal, &transfer_coin, &state, renewal_block,)
+                .is_err()
         );
         let mut wrong_script = finalize.clone();
         wrong_script.inputs[0].witness.items[0][0] ^= 1;
         assert_eq!(
-            wrong_script.transaction_hash().expect("same transaction hash"),
-            finalize.transaction_hash().expect("FINALIZE transaction hash")
+            wrong_script
+                .transaction_hash()
+                .expect("same transaction hash"),
+            finalize
+                .transaction_hash()
+                .expect("FINALIZE transaction hash")
         );
         assert!(
             verify_witness_program(
@@ -1698,14 +1700,10 @@ mod tests {
         recovery_without_offer
             .verify_recovery(&recovery, &coin, &recovery_recipient)
             .expect("seller recovery does not depend on listing terms or a presign");
-        ShakedexLockDescriptor::from_locking_coin(
-            proof.network,
-            &coin,
-            proof.seller_public_key,
-        )
-        .expect("reconstructed descriptor")
-        .verify_recovery(&recovery, &coin, &recovery_recipient)
-        .expect("seller recovery does not depend on listing terms");
+        ShakedexLockDescriptor::from_locking_coin(proof.network, &coin, proof.seller_public_key)
+            .expect("reconstructed descriptor")
+            .verify_recovery(&recovery, &coin, &recovery_recipient)
+            .expect("seller recovery does not depend on listing terms");
         assert!(matches!(
             proof.classify_spend(&recovery, &coin, None),
             Err(SwapError::MissingShakedexRecoveryRecipient)
@@ -1714,7 +1712,10 @@ mod tests {
 
     #[test]
     fn safety_time_encoding_uses_ceiling_while_shakedex_stays_wire_compatible() {
-        assert_eq!(encode_time_lock(800).expect("Shakedex floor"), LOCKTIME_FLAG | 1);
+        assert_eq!(
+            encode_time_lock(800).expect("Shakedex floor"),
+            LOCKTIME_FLAG | 1
+        );
         assert_eq!(
             encode_time_lock_not_before(800).expect("safety ceiling"),
             HsdTimeLock {

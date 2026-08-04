@@ -154,9 +154,7 @@ impl FinalizeCovenant {
         renewal_block: BlockHash,
     ) -> Result<Self, CovenantError> {
         if state.is_null() {
-            return Err(CovenantError::InvalidFinalizeCovenant(
-                "name state is null",
-            ));
+            return Err(CovenantError::InvalidFinalizeCovenant("name state is null"));
         }
         state.validate_key_binding()?;
         let finalize = Self {
@@ -212,8 +210,15 @@ impl TryFrom<&Covenant> for FinalizeCovenant {
                 "covenant kind is not FINALIZE",
             ));
         }
-        let [name_hash, start_height, name, flags, claimed, renewals, renewal_block] =
-            covenant.items.as_slice()
+        let [
+            name_hash,
+            start_height,
+            name,
+            flags,
+            claimed,
+            renewals,
+            renewal_block,
+        ] = covenant.items.as_slice()
         else {
             return Err(CovenantError::InvalidFinalizeCovenant(
                 "expected exactly seven items",
@@ -227,9 +232,10 @@ impl TryFrom<&Covenant> for FinalizeCovenant {
         if !validate_name(name) {
             return Err(CovenantError::InvalidName);
         }
-        let parsed_name_hash = NameHash::new(name_hash.as_slice().try_into().map_err(|_| {
-            CovenantError::InvalidFinalizeCovenant("name hash is not 32 bytes")
-        })?);
+        let parsed_name_hash =
+            NameHash::new(name_hash.as_slice().try_into().map_err(|_| {
+                CovenantError::InvalidFinalizeCovenant("name hash is not 32 bytes")
+            })?);
         if hash_name(name)? != parsed_name_hash {
             return Err(CovenantError::FinalizeNameHashMismatch);
         }
@@ -265,16 +271,11 @@ mod tests {
 
     #[test]
     fn transfer_and_finalize_fields_round_trip_exactly() {
-        let transfer = TransferCovenant::new(
-            NameHash::new([1; 32]),
-            Height::new(2),
-            0,
-            vec![3; 20],
-        )
-        .expect("transfer");
+        let transfer =
+            TransferCovenant::new(NameHash::new([1; 32]), Height::new(2), 0, vec![3; 20])
+                .expect("transfer");
         assert_eq!(
-            TransferCovenant::try_from(&transfer.to_covenant().expect("covenant"))
-                .expect("parsed"),
+            TransferCovenant::try_from(&transfer.to_covenant().expect("covenant")).expect("parsed"),
             transfer
         );
 
@@ -289,8 +290,7 @@ mod tests {
         )
         .expect("finalize");
         assert_eq!(
-            FinalizeCovenant::try_from(&finalize.to_covenant().expect("covenant"))
-                .expect("parsed"),
+            FinalizeCovenant::try_from(&finalize.to_covenant().expect("covenant")).expect("parsed"),
             finalize
         );
     }
@@ -304,8 +304,8 @@ mod tests {
         state.height = Height::new(2);
         state.owner = Outpoint::default();
         state.value = Dollarydoos::new(1);
-        let finalize = FinalizeCovenant::from_name_state(&state, BlockHash::new([3; 32]))
-            .expect("finalize");
+        let finalize =
+            FinalizeCovenant::from_name_state(&state, BlockHash::new([3; 32])).expect("finalize");
         assert_eq!(finalize.name_hash, name_hash);
 
         state.name.push(b'x');
@@ -314,15 +314,11 @@ mod tests {
 
     #[test]
     fn typed_name_covenants_reject_noncanonical_shapes() {
-        let transfer = TransferCovenant::new(
-            NameHash::new([1; 32]),
-            Height::new(2),
-            0,
-            vec![3; 20],
-        )
-        .expect("transfer")
-        .to_covenant()
-        .expect("transfer covenant");
+        let transfer =
+            TransferCovenant::new(NameHash::new([1; 32]), Height::new(2), 0, vec![3; 20])
+                .expect("transfer")
+                .to_covenant()
+                .expect("transfer covenant");
 
         let mut missing_transfer_item = transfer.clone();
         missing_transfer_item.items.pop();

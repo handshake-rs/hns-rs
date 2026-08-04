@@ -198,11 +198,7 @@ impl SwapSessionHello {
     /// Action gate for admitting a new funding broadcast. Historical funding
     /// and reorg status validation deliberately uses [`Self::verify_agreement`]
     /// instead, because receiving a status cannot create new funding.
-    pub fn verify_new_funding_at(
-        &self,
-        expected_network: NetworkBinding,
-        now: u64,
-    ) -> Result<()> {
+    pub fn verify_new_funding_at(&self, expected_network: NetworkBinding, now: u64) -> Result<()> {
         self.verify_at(expected_network, now)
     }
 
@@ -413,10 +409,7 @@ impl SwapSessionHello {
         Ok(())
     }
 
-    fn hns_side_terms(
-        &self,
-        side: SwapAssetSide,
-    ) -> (AssetId, AssetAmount, SettlementDeadline) {
+    fn hns_side_terms(&self, side: SwapAssetSide) -> (AssetId, AssetAmount, SettlementDeadline) {
         match side {
             SwapAssetSide::Offered => (
                 self.offered_asset,

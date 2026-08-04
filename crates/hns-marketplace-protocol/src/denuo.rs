@@ -4,12 +4,11 @@ use hns_p2p_experimental::{
     CROSS_CHAIN_MARKET_MAX_PAYLOAD, CROSS_CHAIN_MARKET_PROTOCOL_ID,
     CROSS_CHAIN_MARKET_PROTOCOL_VERSION as DENUO_CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
     DENUO_V1_REGISTRY_VERSION, DENUO_V2_REGISTRY_VERSION, DenuoExtensionEnvelope,
-    FILL_GRANT_MESSAGE_TYPE, GET_MARKET_INTENT_MESSAGE_TYPE,
-    GET_PRICE_OBSERVATION_MESSAGE_TYPE, MARKET_INTENT_INV_MESSAGE_TYPE, MARKET_INTENT_MESSAGE_TYPE,
-    MATCH_REJECT_MESSAGE_TYPE, MATCH_REQUEST_MESSAGE_TYPE, PRICE_OBSERVATION_INV_MESSAGE_TYPE,
-    PRICE_OBSERVATION_MESSAGE_TYPE, PRICE_ROUND_MESSAGE_TYPE, SWAP_FUNDING_STATUS_MESSAGE_TYPE,
-    SWAP_REDEEM_STATUS_MESSAGE_TYPE, SWAP_REFUND_STATUS_MESSAGE_TYPE,
-    SWAP_SESSION_HELLO_MESSAGE_TYPE,
+    FILL_GRANT_MESSAGE_TYPE, GET_MARKET_INTENT_MESSAGE_TYPE, GET_PRICE_OBSERVATION_MESSAGE_TYPE,
+    MARKET_INTENT_INV_MESSAGE_TYPE, MARKET_INTENT_MESSAGE_TYPE, MATCH_REJECT_MESSAGE_TYPE,
+    MATCH_REQUEST_MESSAGE_TYPE, PRICE_OBSERVATION_INV_MESSAGE_TYPE, PRICE_OBSERVATION_MESSAGE_TYPE,
+    PRICE_ROUND_MESSAGE_TYPE, SWAP_FUNDING_STATUS_MESSAGE_TYPE, SWAP_REDEEM_STATUS_MESSAGE_TYPE,
+    SWAP_REFUND_STATUS_MESSAGE_TYPE, SWAP_SESSION_HELLO_MESSAGE_TYPE,
 };
 use hns_primitives::BlockHash;
 use hns_swap::{FixedPriceListing, ListingCancellation};
@@ -21,8 +20,7 @@ use crate::{
 };
 
 pub const NAME_MARKET_PROTOCOL_VERSION: u16 = ATOMIC_MARKET_PROTOCOL_VERSION;
-pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 =
-    DENUO_CROSS_CHAIN_MARKET_PROTOCOL_VERSION;
+pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = DENUO_CROSS_CHAIN_MARKET_PROTOCOL_VERSION;
 pub const MAX_DENUO_MARKET_PAYLOAD: usize = CROSS_CHAIN_MARKET_MAX_PAYLOAD;
 pub const MAX_INVENTORY_ENTRIES: usize = 4096;
 pub const MAX_NAME_OFFERS_PER_MESSAGE: usize = 64;
@@ -233,9 +231,10 @@ impl CrossChainMessage {
 
     fn encode_payload(&self) -> Result<(u16, Vec<u8>)> {
         let encoded = match self {
-            Self::MarketIntentInventory(hashes) => {
-                (MARKET_INTENT_INV_MESSAGE_TYPE, encode_hashes(hashes, false)?)
-            }
+            Self::MarketIntentInventory(hashes) => (
+                MARKET_INTENT_INV_MESSAGE_TYPE,
+                encode_hashes(hashes, false)?,
+            ),
             Self::GetMarketIntent(hash) => {
                 (GET_MARKET_INTENT_MESSAGE_TYPE, encode_nonzero_hash(*hash)?)
             }
@@ -243,9 +242,10 @@ impl CrossChainMessage {
             Self::CancelMarketIntent(cancellation) => {
                 (CANCEL_MARKET_INTENT_MESSAGE_TYPE, cancellation.encode()?)
             }
-            Self::PriceObservationInventory(hashes) => {
-                (PRICE_OBSERVATION_INV_MESSAGE_TYPE, encode_hashes(hashes, false)?)
-            }
+            Self::PriceObservationInventory(hashes) => (
+                PRICE_OBSERVATION_INV_MESSAGE_TYPE,
+                encode_hashes(hashes, false)?,
+            ),
             Self::GetPriceObservation(hash) => (
                 GET_PRICE_OBSERVATION_MESSAGE_TYPE,
                 encode_nonzero_hash(*hash)?,
@@ -283,9 +283,9 @@ impl CrossChainMessage {
             CANCEL_MARKET_INTENT_MESSAGE_TYPE => Ok(Self::CancelMarketIntent(
                 MarketIntentCancellation::decode(payload)?,
             )),
-            PRICE_OBSERVATION_INV_MESSAGE_TYPE => {
-                Ok(Self::PriceObservationInventory(decode_hashes(payload, false)?))
-            }
+            PRICE_OBSERVATION_INV_MESSAGE_TYPE => Ok(Self::PriceObservationInventory(
+                decode_hashes(payload, false)?,
+            )),
             GET_PRICE_OBSERVATION_MESSAGE_TYPE => {
                 Ok(Self::GetPriceObservation(decode_nonzero_hash(payload)?))
             }

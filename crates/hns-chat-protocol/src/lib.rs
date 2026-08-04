@@ -13,10 +13,9 @@ pub use owner::{
     resolve_compressed_owner_key, verify_current_owner_binding, xonly_from_compressed_public_key,
 };
 pub use wire::{
-    ChatAcknowledgementV1, ChatEnvelopeV1, HNS_CHAT_WIRE_VERSION,
-    MAX_CHAT_ACKNOWLEDGEMENT_SIZE, MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE,
-    MAX_CHAT_CIPHERTEXT_SIZE, MAX_CHAT_ENVELOPE_SIZE, MAX_CHAT_EXPIRATION_WINDOW,
-    validate_unique_message_ids,
+    ChatAcknowledgementV1, ChatEnvelopeV1, HNS_CHAT_WIRE_VERSION, MAX_CHAT_ACKNOWLEDGEMENT_SIZE,
+    MAX_CHAT_ACKNOWLEDGEMENT_WIRE_SIZE, MAX_CHAT_CIPHERTEXT_SIZE, MAX_CHAT_ENVELOPE_SIZE,
+    MAX_CHAT_EXPIRATION_WINDOW, validate_unique_message_ids,
 };
 
 use hns_encoding::DecodeError;

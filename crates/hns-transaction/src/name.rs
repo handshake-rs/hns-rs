@@ -130,10 +130,7 @@ pub fn build_finalize_output(
     transfer_coin.address.validate()?;
     let transfer = TransferCovenant::try_from(&transfer_coin.covenant)?;
     validate_transfer_state(transfer_coin, state, &transfer)?;
-    let recipient = Address::new(
-        transfer.recipient_version,
-        transfer.recipient_hash.clone(),
-    )?;
+    let recipient = Address::new(transfer.recipient_version, transfer.recipient_hash.clone())?;
     let finalize = FinalizeCovenant::from_name_state(state, renewal_block)?;
     let output = Output {
         value: transfer_coin.value,
@@ -185,11 +182,7 @@ pub fn build_finalize_transaction(
         witness: Witness::default(),
     }];
     inputs.append(&mut additional_inputs);
-    let mut outputs = vec![build_finalize_output(
-        transfer_coin,
-        state,
-        renewal_block,
-    )?];
+    let mut outputs = vec![build_finalize_output(transfer_coin, state, renewal_block)?];
     outputs.extend(additional_outputs);
     let transaction = Transaction {
         version: NAME_TRANSACTION_VERSION,
@@ -459,9 +452,8 @@ mod tests {
     fn transfer_preserves_owner_value_and_address() {
         let owner = owner_coin();
         let recipient = Address::new(0, vec![8; 20]).expect("recipient");
-        let transaction =
-            build_transfer_transaction(&owner, &recipient, Vec::new(), Vec::new())
-                .expect("transfer");
+        let transaction = build_transfer_transaction(&owner, &recipient, Vec::new(), Vec::new())
+            .expect("transfer");
         assert_eq!(transaction.outputs[0].value, owner.value);
         assert_eq!(transaction.outputs[0].address, owner.address);
         verify_transfer_at_index_zero(&transaction, &owner, &recipient).expect("valid");
@@ -639,46 +631,26 @@ mod tests {
         let mut wrong_version = transaction.clone();
         wrong_version.version += 1;
         assert!(
-            verify_finalize_at_index_zero(
-                &wrong_version,
-                &transfer_coin,
-                &state,
-                renewal_block,
-            )
-            .is_err()
+            verify_finalize_at_index_zero(&wrong_version, &transfer_coin, &state, renewal_block,)
+                .is_err()
         );
         let mut wrong_sequence = transaction.clone();
         wrong_sequence.inputs[0].sequence -= 1;
         assert!(
-            verify_finalize_at_index_zero(
-                &wrong_sequence,
-                &transfer_coin,
-                &state,
-                renewal_block,
-            )
-            .is_err()
+            verify_finalize_at_index_zero(&wrong_sequence, &transfer_coin, &state, renewal_block,)
+                .is_err()
         );
         let mut wrong_outpoint = transaction.clone();
         wrong_outpoint.inputs[0].previous_output.index += 1;
         assert!(
-            verify_finalize_at_index_zero(
-                &wrong_outpoint,
-                &transfer_coin,
-                &state,
-                renewal_block,
-            )
-            .is_err()
+            verify_finalize_at_index_zero(&wrong_outpoint, &transfer_coin, &state, renewal_block,)
+                .is_err()
         );
         let mut wrong_output = transaction;
         wrong_output.outputs[0].value = Dollarydoos::new(transfer_coin.value.get() + 1);
         assert!(
-            verify_finalize_at_index_zero(
-                &wrong_output,
-                &transfer_coin,
-                &state,
-                renewal_block,
-            )
-            .is_err()
+            verify_finalize_at_index_zero(&wrong_output, &transfer_coin, &state, renewal_block,)
+                .is_err()
         );
     }
 }

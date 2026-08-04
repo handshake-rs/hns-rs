@@ -253,12 +253,7 @@ impl HnsrRequesterSnapshot {
         bytes.extend_from_slice(REQUESTER_SNAPSHOT_MAGIC);
         bytes.push(SNAPSHOT_SCHEMA);
         bytes.extend_from_slice(&[0; 3]);
-        encode_snapshot_header(
-            &mut bytes,
-            self.session,
-            self.generation,
-            self.enabled,
-        );
+        encode_snapshot_header(&mut bytes, self.session, self.generation, self.enabled);
         bytes.extend_from_slice(&self.trusted_time_high_water.to_le_bytes());
         bytes.extend_from_slice(&self.config.network_magic.to_le_bytes());
         bytes.extend_from_slice(&self.config.profile.to_le_bytes());
@@ -313,26 +308,15 @@ impl OpaqueRelaySnapshot {
         bytes.extend_from_slice(RELAY_SNAPSHOT_MAGIC);
         bytes.push(SNAPSHOT_SCHEMA);
         bytes.extend_from_slice(&[0; 3]);
-        encode_snapshot_header(
-            &mut bytes,
-            self.session,
-            self.generation,
-            self.enabled,
-        );
+        encode_snapshot_header(&mut bytes, self.session, self.generation, self.enabled);
         bytes.extend_from_slice(&self.trusted_time_high_water.to_le_bytes());
         push_usize(&mut bytes, self.config.maximum_pending);
         push_usize(&mut bytes, self.config.maximum_circuits);
         bytes.extend_from_slice(&self.config.maximum_circuits_per_peer.to_le_bytes());
         push_usize(&mut bytes, self.config.maximum_queue_bytes);
         push_usize(&mut bytes, self.config.maximum_inflight_actions);
-        push_usize(
-            &mut bytes,
-            self.config.maximum_inflight_actions_per_circuit,
-        );
-        push_usize(
-            &mut bytes,
-            self.config.maximum_inflight_actions_per_peer,
-        );
+        push_usize(&mut bytes, self.config.maximum_inflight_actions_per_circuit);
+        push_usize(&mut bytes, self.config.maximum_inflight_actions_per_peer);
         bytes.extend_from_slice(&self.config.maximum_bytes_per_circuit.to_le_bytes());
         bytes.extend_from_slice(&self.config.accept_timeout_seconds.to_le_bytes());
         encode_counters(&mut bytes, self.counters);
@@ -508,7 +492,11 @@ impl HnsrRequester {
             enabled: self.enabled,
             pending_circuits: self.pending.len(),
             active_circuits: self.circuits.len(),
-            queued_bytes: self.circuits.values().map(|circuit| circuit.queued_bytes).sum(),
+            queued_bytes: self
+                .circuits
+                .values()
+                .map(|circuit| circuit.queued_bytes)
+                .sum(),
             queued_actions: 0,
             trusted_time_high_water: self.trusted_time_high_water,
             admitted_opens: self.counters.admitted_opens,
@@ -604,8 +592,7 @@ impl HnsrRequester {
             now,
             self.config.allow_private_relay,
         )?;
-        self.ticket_usage
-            .retain(|_, usage| usage.expires_at > now);
+        self.ticket_usage.retain(|_, usage| usage.expires_at > now);
         let usage = self
             .ticket_usage
             .entry(ticket.reservation_id)
@@ -701,11 +688,7 @@ impl HnsrRequester {
             return Err(HnsrRuntimeError::FlowControl);
         }
         let next_usage = usage.bytes.saturating_add(amount);
-        let packet = HnsrPacket::new(
-            HnsrOpcode::Data,
-            circuit_id,
-            DataBody { bytes }.encode()?,
-        )?;
+        let packet = HnsrPacket::new(HnsrOpcode::Data, circuit_id, DataBody { bytes }.encode()?)?;
         circuit.send_credit -= length;
         circuit.total_bytes = circuit.total_bytes.saturating_add(amount);
         let reservation_id = circuit.ticket.reservation_id;
@@ -822,8 +805,7 @@ impl HnsrRequester {
     /// Expire open deadlines and ticket lifetimes.
     pub fn expire(&mut self, now: u64) -> Result<usize, HnsrRuntimeError> {
         self.observe_time(now)?;
-        self.ticket_usage
-            .retain(|_, usage| usage.expires_at > now);
+        self.ticket_usage.retain(|_, usage| usage.expires_at > now);
         let pending = self
             .pending
             .iter()
@@ -1128,7 +1110,10 @@ impl RelayCircuit {
 enum InflightKind {
     Incoming,
     Opened,
-    Data { destination: RelaySide, bytes: usize },
+    Data {
+        destination: RelaySide,
+        bytes: usize,
+    },
     Control,
     Close,
 }
@@ -1365,13 +1350,12 @@ impl OpaqueRelayRuntime {
                     Ok(Vec::new())
                 }
             }
-            InflightKind::Opened | InflightKind::Data { .. } | InflightKind::Control => {
-                Ok(self.revoke_circuit(
+            InflightKind::Opened | InflightKind::Data { .. } | InflightKind::Control => Ok(self
+                .revoke_circuit(
                     action.circuit_id,
                     HnsrErrorCode::EndpointGone as u16,
                     "outer write failed",
-                ))
-            }
+                )),
             InflightKind::Close => Ok(Vec::new()),
         }
     }
@@ -1407,12 +1391,9 @@ impl OpaqueRelayRuntime {
                     HnsrErrorCode::EndpointGone as u16,
                     "outer peer disconnected",
                 ) {
-                    if let Ok(route) = self.queue_control(
-                        destination,
-                        circuit_id,
-                        packet,
-                        InflightKind::Close,
-                    ) {
+                    if let Ok(route) =
+                        self.queue_control(destination, circuit_id, packet, InflightKind::Close)
+                    {
                         routes.push(route);
                     }
                 }
@@ -1430,10 +1411,7 @@ impl OpaqueRelayRuntime {
     }
 
     /// Revoke every circuit bound to one removed relay reservation.
-    pub fn revoke_reservation(
-        &mut self,
-        reservation_id: [u8; 16],
-    ) -> Vec<QueuedHnsrRoute> {
+    pub fn revoke_reservation(&mut self, reservation_id: [u8; 16]) -> Vec<QueuedHnsrRoute> {
         self.reservation_usage.remove(&reservation_id);
         let pending = self
             .pending
@@ -1471,10 +1449,7 @@ impl OpaqueRelayRuntime {
     }
 
     /// Expire endpoint-accept deadlines and ticket lifetimes.
-    pub fn expire(
-        &mut self,
-        now: u64,
-    ) -> Result<Vec<QueuedHnsrRoute>, HnsrRuntimeError> {
+    pub fn expire(&mut self, now: u64) -> Result<Vec<QueuedHnsrRoute>, HnsrRuntimeError> {
         self.observe_time(now)?;
         self.reservation_usage
             .retain(|_, usage| usage.expires_at > now);
@@ -1695,8 +1670,7 @@ impl OpaqueRelayRuntime {
             match side {
                 RelaySide::Requester => {
                     if length > circuit.requester_credit
-                        || circuit.queued_to_endpoint.saturating_add(bytes)
-                            > maximum_queue_bytes
+                        || circuit.queued_to_endpoint.saturating_add(bytes) > maximum_queue_bytes
                     {
                         return Err(HnsrRuntimeError::FlowControl);
                     }
@@ -1712,8 +1686,7 @@ impl OpaqueRelayRuntime {
                 }
                 RelaySide::Endpoint => {
                     if length > circuit.endpoint_credit
-                        || circuit.queued_to_requester.saturating_add(bytes)
-                            > maximum_queue_bytes
+                        || circuit.queued_to_requester.saturating_add(bytes) > maximum_queue_bytes
                     {
                         return Err(HnsrRuntimeError::FlowControl);
                     }
@@ -1897,9 +1870,10 @@ impl OpaqueRelayRuntime {
         circuit_id: [u8; 8],
         replacing_circuit_actions: bool,
     ) -> Result<(), HnsrRuntimeError> {
-        let retained = self.inflight.values().filter(|action| {
-            !replacing_circuit_actions || action.circuit_id != circuit_id
-        });
+        let retained = self
+            .inflight
+            .values()
+            .filter(|action| !replacing_circuit_actions || action.circuit_id != circuit_id);
         let mut total = 0usize;
         let mut for_circuit = 0usize;
         let mut for_peer = 0usize;
@@ -1935,12 +1909,9 @@ impl OpaqueRelayRuntime {
         let mut routes = Vec::new();
         for destination in [circuit.requester, circuit.endpoint] {
             if let Ok(packet) = close_packet(circuit_id, reason, detail) {
-                if let Ok(route) = self.queue_control(
-                    destination,
-                    circuit_id,
-                    packet,
-                    InflightKind::Close,
-                ) {
+                if let Ok(route) =
+                    self.queue_control(destination, circuit_id, packet, InflightKind::Close)
+                {
                     routes.push(route);
                 }
             }
@@ -1962,10 +1933,7 @@ impl OpaqueRelayRuntime {
                 pending.requester,
                 error_packet(pending.requester_context, reason, detail),
             ),
-            (
-                pending.endpoint,
-                close_packet(circuit_id, reason, detail),
-            ),
+            (pending.endpoint, close_packet(circuit_id, reason, detail)),
         ];
         let mut routes = Vec::new();
         for (destination, packet) in packets {
@@ -1992,12 +1960,9 @@ impl OpaqueRelayRuntime {
             self.counters.revoked_work = self.counters.revoked_work.saturating_add(1);
             for destination in [state.requester, state.endpoint] {
                 if let Ok(packet) = close_packet(circuit_id, reason, detail) {
-                    if let Ok(route) = self.queue_control(
-                        destination,
-                        circuit_id,
-                        packet,
-                        InflightKind::Close,
-                    ) {
+                    if let Ok(route) =
+                        self.queue_control(destination, circuit_id, packet, InflightKind::Close)
+                    {
                         routes.push(route);
                     }
                 }
@@ -2077,10 +2042,7 @@ fn validate_session(session: [u8; 16], generation: u64) -> Result<(), HnsrRuntim
     Ok(())
 }
 
-fn validate_fresh_session(
-    previous: [u8; 16],
-    fresh: [u8; 16],
-) -> Result<(), HnsrRuntimeError> {
+fn validate_fresh_session(previous: [u8; 16], fresh: [u8; 16]) -> Result<(), HnsrRuntimeError> {
     if previous == [0; 16] || fresh == [0; 16] || previous == fresh {
         return Err(HnsrRuntimeError::InvalidSession);
     }
@@ -2176,12 +2138,7 @@ fn recontext_packet(
     )?)
 }
 
-fn encode_snapshot_header(
-    bytes: &mut Vec<u8>,
-    session: [u8; 16],
-    generation: u64,
-    enabled: bool,
-) {
+fn encode_snapshot_header(bytes: &mut Vec<u8>, session: [u8; 16], generation: u64, enabled: bool) {
     bytes.extend_from_slice(&session);
     bytes.extend_from_slice(&generation.to_le_bytes());
     bytes.push(u8::from(enabled));
@@ -2205,9 +2162,7 @@ fn encode_counters(bytes: &mut Vec<u8>, counters: RuntimeCounters) {
     }
 }
 
-fn decode_counters(
-    reader: &mut SnapshotReader<'_>,
-) -> Result<RuntimeCounters, HnsrRuntimeError> {
+fn decode_counters(reader: &mut SnapshotReader<'_>) -> Result<RuntimeCounters, HnsrRuntimeError> {
     Ok(RuntimeCounters {
         admitted_opens: reader.u64()?,
         opened_circuits: reader.u64()?,
@@ -2246,8 +2201,8 @@ fn verified_snapshot_payload<'a>(
 }
 
 fn snapshot_checksum(input: &[u8]) -> [u8; SNAPSHOT_CHECKSUM_BYTES] {
-    let mut hasher = Blake2bVar::new(SNAPSHOT_CHECKSUM_BYTES)
-        .expect("valid HNSR snapshot checksum length");
+    let mut hasher =
+        Blake2bVar::new(SNAPSHOT_CHECKSUM_BYTES).expect("valid HNSR snapshot checksum length");
     hasher.update(input);
     let mut checksum = [0; SNAPSHOT_CHECKSUM_BYTES];
     hasher
@@ -2397,8 +2352,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        DEFAULT_WINDOW, EndpointReservation, HNS_NODE_V1, HnsrService, RelayConfig,
-        RelayLimits,
+        DEFAULT_WINDOW, EndpointReservation, HNS_NODE_V1, HnsrService, RelayConfig, RelayLimits,
     };
 
     const MAGIC: u32 = 0x6d6f_6f6e;
@@ -2439,8 +2393,7 @@ mod tests {
             None,
         );
         let relay_key = service.relay().expect("relay").relay_key();
-        let endpoint =
-            EndpointReservation::new(MAGIC, HNS_NODE_V1, [1; 32]).expect("endpoint");
+        let endpoint = EndpointReservation::new(MAGIC, HNS_NODE_V1, [1; 32]).expect("endpoint");
         let reserve = endpoint
             .reserve(&relay_key, [3; 8], 300, 2, 65_536, [4; 16])
             .expect("reserve");
@@ -2488,8 +2441,8 @@ mod tests {
                 DEFAULT_WINDOW,
             )
             .expect("open");
-        let mut relay = OpaqueRelayRuntime::new([11; 16], 1, relay_config, NOW)
-            .expect("opaque relay");
+        let mut relay =
+            OpaqueRelayRuntime::new([11; 16], 1, relay_config, NOW).expect("opaque relay");
         let incoming = relay
             .handle(
                 service.relay().expect("relay reservations"),
@@ -2560,9 +2513,8 @@ mod tests {
             )
             .expect("open");
         let requester_context = open.packet.context_id;
-        let mut relay =
-            OpaqueRelayRuntime::new([41; 16], 1, OpaqueRelayConfig::default(), NOW)
-                .expect("relay runtime");
+        let mut relay = OpaqueRelayRuntime::new([41; 16], 1, OpaqueRelayConfig::default(), NOW)
+            .expect("relay runtime");
         let incoming = relay
             .handle(
                 service.relay().expect("relay reservations"),
@@ -2722,9 +2674,7 @@ mod tests {
             )
             .expect("valid endpoint remains admissible");
         let old_action = incoming.action_id;
-        relay
-            .replace_enabled(1, false)
-            .expect("disable and revoke");
+        relay.replace_enabled(1, false).expect("disable and revoke");
         assert!(matches!(
             relay.acknowledge(old_action, true),
             Err(HnsrRuntimeError::StaleGeneration)
@@ -2821,8 +2771,7 @@ mod tests {
     #[test]
     fn inflight_actions_are_bounded_globally_per_circuit_and_per_peer() {
         let route = |context_id| {
-            close_packet(context_id, HnsrErrorCode::Normal as u16, "bounded action")
-                .expect("close")
+            close_packet(context_id, HnsrErrorCode::Normal as u16, "bounded action").expect("close")
         };
         let config = OpaqueRelayConfig {
             maximum_inflight_actions: 2,
@@ -2851,21 +2800,11 @@ mod tests {
         let mut per_peer = OpaqueRelayRuntime::new([51; 16], 1, config, NOW).expect("relay");
         for context in [[1; 8], [2; 8]] {
             per_peer
-                .queue_control(
-                    peer("same"),
-                    context,
-                    route(context),
-                    InflightKind::Control,
-                )
+                .queue_control(peer("same"), context, route(context), InflightKind::Control)
                 .expect("peer action");
         }
         assert!(matches!(
-            per_peer.queue_control(
-                peer("same"),
-                [3; 8],
-                route([3; 8]),
-                InflightKind::Control,
-            ),
+            per_peer.queue_control(peer("same"), [3; 8], route([3; 8]), InflightKind::Control,),
             Err(HnsrRuntimeError::Capacity)
         ));
 
@@ -2877,18 +2816,12 @@ mod tests {
             .queue_control(peer("b"), [4; 8], route([4; 8]), InflightKind::Control)
             .expect("circuit two");
         assert!(matches!(
-            per_circuit.queue_control(
-                peer("c"),
-                [4; 8],
-                route([4; 8]),
-                InflightKind::Control,
-            ),
+            per_circuit.queue_control(peer("c"), [4; 8], route([4; 8]), InflightKind::Control,),
             Err(HnsrRuntimeError::Capacity)
         ));
 
         let (service, ticket) = confirmed_reservation();
-        let (requester, mut relay, circuit_id) =
-            open_circuit_with_config(&service, ticket, config);
+        let (requester, mut relay, circuit_id) = open_circuit_with_config(&service, ticket, config);
         let window = HnsrPacket::new(
             HnsrOpcode::Window,
             circuit_id,
@@ -2924,7 +2857,11 @@ mod tests {
         ));
         assert_eq!(relay.status().queued_actions, 2);
         assert_eq!(
-            relay.circuits.get(&circuit_id).expect("circuit").endpoint_credit,
+            relay
+                .circuits
+                .get(&circuit_id)
+                .expect("circuit")
+                .endpoint_credit,
             DEFAULT_WINDOW + 2
         );
         relay
@@ -2939,7 +2876,11 @@ mod tests {
             )
             .expect("window after acknowledgement");
         assert_eq!(
-            relay.circuits.get(&circuit_id).expect("circuit").endpoint_credit,
+            relay
+                .circuits
+                .get(&circuit_id)
+                .expect("circuit")
+                .endpoint_credit,
             DEFAULT_WINDOW + 3
         );
         assert_eq!(requester.status().active_circuits, 1);
@@ -2962,9 +2903,12 @@ mod tests {
             .expect("pending open");
         let snapshot = requester.snapshot();
         let encoded = snapshot.encode();
-        assert_eq!(HnsrRequesterSnapshot::decode(&encoded).expect("snapshot"), snapshot);
-        let restored = HnsrRequester::restore(snapshot.clone(), [31; 16], 7, NOW + 1)
-            .expect("fresh restore");
+        assert_eq!(
+            HnsrRequesterSnapshot::decode(&encoded).expect("snapshot"),
+            snapshot
+        );
+        let restored =
+            HnsrRequester::restore(snapshot.clone(), [31; 16], 7, NOW + 1).expect("fresh restore");
         assert_eq!(restored.status().generation, 8);
         assert_eq!(restored.status().pending_circuits, 0);
         assert_eq!(restored.status().revoked_work, 1);
@@ -2982,9 +2926,8 @@ mod tests {
             HnsrRequester::restore(disabled_requester.clone(), [37; 16], 8, NOW - 1),
             Err(HnsrRuntimeError::ClockRollback)
         ));
-        let disabled_requester =
-            HnsrRequester::restore(disabled_requester, [38; 16], 8, NOW + 1)
-                .expect("latest opt-out restore");
+        let disabled_requester = HnsrRequester::restore(disabled_requester, [38; 16], 8, NOW + 1)
+            .expect("latest opt-out restore");
         assert!(!disabled_requester.status().enabled);
         assert_eq!(disabled_requester.status().generation, 9);
 
@@ -3011,9 +2954,8 @@ mod tests {
             OpaqueRelaySnapshot::decode(&relay_encoded).expect("relay snapshot"),
             relay_snapshot
         );
-        let restored_relay =
-            OpaqueRelayRuntime::restore(relay_snapshot, [33; 16], 4, NOW + 1)
-                .expect("relay restore");
+        let restored_relay = OpaqueRelayRuntime::restore(relay_snapshot, [33; 16], 4, NOW + 1)
+            .expect("relay restore");
         assert!(restored_relay.status().enabled);
         assert_eq!(restored_relay.status().generation, 5);
         assert_eq!(restored_relay.status().pending_circuits, 0);
@@ -3021,8 +2963,7 @@ mod tests {
         assert_eq!(restored_relay.status().revoked_work, 2);
 
         let mut disabled =
-            OpaqueRelayRuntime::new([34; 16], 9, OpaqueRelayConfig::default(), NOW)
-                .expect("relay");
+            OpaqueRelayRuntime::new([34; 16], 9, OpaqueRelayConfig::default(), NOW).expect("relay");
         disabled
             .replace_enabled(9, false)
             .expect("persistent opt-out");

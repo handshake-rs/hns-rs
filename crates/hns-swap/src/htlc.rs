@@ -423,8 +423,7 @@ mod tests {
 
     use super::*;
 
-    const PROTOCOL_V1_FIXTURES: &str =
-        include_str!("../fixtures/protocol-v1/hns-swap-v1.txt");
+    const PROTOCOL_V1_FIXTURES: &str = include_str!("../fixtures/protocol-v1/hns-swap-v1.txt");
 
     fn fixture_bytes(name: &str) -> Vec<u8> {
         let value = PROTOCOL_V1_FIXTURES
@@ -648,8 +647,7 @@ mod tests {
 
         let mut redeem = unsigned_spend(&coin, 0);
         assert_eq!(
-            htlc
-                .signature_hash(&redeem, 0, &coin)
+            htlc.signature_hash(&redeem, 0, &coin)
                 .expect("redeem sighash")
                 .as_slice(),
             fixture_bytes("htlc_redeem_sighash").as_slice()
@@ -673,8 +671,7 @@ mod tests {
 
         let mut refund = unsigned_spend(&coin, htlc.refund_locktime);
         assert_eq!(
-            htlc
-                .signature_hash(&refund, 0, &coin)
+            htlc.signature_hash(&refund, 0, &coin)
                 .expect("refund sighash")
                 .as_slice(),
             fixture_bytes("htlc_refund_sighash").as_slice()
