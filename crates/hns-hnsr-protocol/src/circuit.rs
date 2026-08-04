@@ -975,15 +975,22 @@ impl HnsrRequester {
         source: &HnsrPeerId,
         packet: &HnsrPacket,
     ) -> Result<HnsrRequesterEvent, HnsrRuntimeError> {
-        let circuit = self
-            .circuits
-            .get(&packet.context_id)
-            .ok_or(HnsrRuntimeError::UnknownCircuit)?;
-        if circuit.relay != *source {
-            return Err(HnsrRuntimeError::WrongPeer);
-        }
         let close = CloseBody::decode(&packet.body)?;
-        self.circuits.remove(&packet.context_id);
+        if let Some(pending) = self.pending.get(&packet.context_id) {
+            if pending.relay != *source {
+                return Err(HnsrRuntimeError::WrongPeer);
+            }
+            self.pending.remove(&packet.context_id);
+        } else {
+            let circuit = self
+                .circuits
+                .get(&packet.context_id)
+                .ok_or(HnsrRuntimeError::UnknownCircuit)?;
+            if circuit.relay != *source {
+                return Err(HnsrRuntimeError::WrongPeer);
+            }
+            self.circuits.remove(&packet.context_id);
+        }
         self.counters.revoked_work = self.counters.revoked_work.saturating_add(1);
         Ok(HnsrRequesterEvent::Closed {
             context_id: packet.context_id,
@@ -1371,6 +1378,7 @@ impl OpaqueRelayRuntime {
 
     /// Revoke all work involving one disconnected outer connection.
     pub fn disconnect(&mut self, peer: &HnsrPeerId) -> Vec<QueuedHnsrRoute> {
+        self.drop_inflight_for_peer(peer);
         let pending = self
             .pending
             .iter()
@@ -2009,6 +2017,11 @@ impl OpaqueRelayRuntime {
         for action_id in actions {
             self.inflight.remove(&action_id);
         }
+    }
+
+    fn drop_inflight_for_peer(&mut self, peer: &HnsrPeerId) {
+        self.inflight
+            .retain(|_, action| action.destination != *peer);
     }
 
     fn peer_work(&self, peer: &HnsrPeerId) -> usize {
@@ -2780,12 +2793,24 @@ mod tests {
             Some(HnsrRequesterEvent::Closed { context_id, .. })
                 if context_id == requester_context
         ));
+        assert_eq!(requester.status().pending_circuits, 0);
+        assert_eq!(relay.status().queued_actions, 1);
+        assert!(relay.disconnect(&peer("requester")).is_empty());
+        assert_eq!(relay.status().queued_actions, 0);
 
-        let (_service, _requester, mut relay, _incoming, requester_context) = pending_open();
+        let (_service, mut requester, mut relay, _incoming, requester_context) = pending_open();
         let disconnected = relay.disconnect(&peer("endpoint"));
         assert_eq!(disconnected.len(), 1);
         assert_eq!(disconnected[0].route.destination, peer("requester"));
         assert_eq!(disconnected[0].route.packet.context_id, requester_context);
+        assert!(matches!(
+            requester
+                .handle(&peer("relay"), &disconnected[0].route.packet, NOW + 1)
+                .expect("endpoint disconnect close"),
+            Some(HnsrRequesterEvent::Closed { context_id, .. })
+                if context_id == requester_context
+        ));
+        assert_eq!(requester.status().pending_circuits, 0);
         let (_service, _requester, mut relay, incoming, _requester_context) = pending_open();
         let disconnected = relay.disconnect(&peer("requester"));
         assert_eq!(disconnected.len(), 1);
