@@ -102,6 +102,10 @@ correlation ID. A completed negotiation must include protocol `0x0000` version
 1 even when a peer advertises a wider forward-compatible version range.
 V2 peers advertise the V2 registry fingerprint and version and may additionally
 negotiate protocol `0x0002`; V1 and V2 fingerprints deliberately do not match.
+New transport-policy values use the bounded `Auto` profile selector so an
+embedding client can select the latest mutually supported Denuo profile.
+Explicit V1, V2, disabled-role, and controlled-network legacy selections remain
+unchanged; unknown official profiles continue to fail closed.
 
 Legacy draft compatibility has no registry negotiation and is restricted to
 regtest or an explicitly controlled network. It is reported as `Legacy Draft

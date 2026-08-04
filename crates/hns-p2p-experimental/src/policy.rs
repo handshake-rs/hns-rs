@@ -19,9 +19,10 @@ pub enum ObliviousDnsPolicy {
 
 /// Independent HNSR participation roles.
 ///
-/// Opaque relay participation defaults on and remains independently
-/// opt-out. Endpoint/output, requester, and rendezvous roles require separate
-/// explicit enablement, so one role can never grant another implicitly.
+/// Requester/client and opaque relay participation default on and remain
+/// independently opt-out. Endpoint/output and rendezvous roles require
+/// separate explicit enablement, so one role can never grant another
+/// implicitly.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HnsrPolicy {
     client: bool,
@@ -47,6 +48,11 @@ impl HnsrPolicy {
             relay: true,
             ..Self::disabled()
         }
+    }
+
+    /// Default to requester/client and opaque relay participation.
+    pub const fn client_relay_default() -> Self {
+        Self::relay_default().with_client(true)
     }
 
     /// Set requester/client participation independently.
@@ -96,7 +102,7 @@ impl HnsrPolicy {
 
 impl Default for HnsrPolicy {
     fn default() -> Self {
-        Self::relay_default()
+        Self::client_relay_default()
     }
 }
 
@@ -230,7 +236,7 @@ impl Default for TransportPolicy {
             hnsr: HnsrPolicy::default(),
             opaque_relays: OpaqueRelayRoles::default(),
             outputs: OutputRoles::default(),
-            wire_profile: ExperimentalWireProfile::DenuoV1,
+            wire_profile: ExperimentalWireProfile::Auto,
         }
     }
 }
@@ -368,22 +374,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn relay_defaults_and_output_roles_require_opt_in() {
+    fn client_and_relay_defaults_leave_output_roles_opt_in() {
         let policy = TransportPolicy::default();
         assert_eq!(policy.dns_relay_requester, DnsRelayRequesterPolicy::Auto);
         assert_eq!(policy.oblivious_dns, ObliviousDnsPolicy::Preferred);
-        assert!(!policy.hnsr.has_client());
+        assert!(policy.hnsr.has_client());
         assert!(policy.hnsr.has_relay());
         assert!(!policy.hnsr.has_endpoint());
         assert!(!policy.hnsr.has_rendezvous());
         assert!(policy.opaque_relays.odoh_proxy);
         assert!(!policy.outputs.dns_relay.is_enabled());
         assert!(!policy.outputs.odoh_target);
+        assert_eq!(policy.wire_profile, ExperimentalWireProfile::Auto);
     }
 
     #[test]
     fn hnsr_roles_never_imply_output_node_consent() {
-        let relay_only = HnsrPolicy::default();
+        let relay_only = HnsrPolicy::relay_default();
         assert!(relay_only.has_relay());
         assert!(!relay_only.has_endpoint());
 

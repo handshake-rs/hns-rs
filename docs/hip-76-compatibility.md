@@ -52,7 +52,7 @@ layer, which must use `RequestTracker` and current policy generations.
 
 `TransportPolicy` stores opaque forwarding and output authority separately:
 `OpaqueRelayRoles::default()` enables only the ODoH proxy, while
-`OutputRoles::default()` enables no output. HNSR's opaque relay retains its
-independent default-on setting inside `HnsrPolicy`; its endpoint/output role
-remains off. The legacy mixed `ProviderRoles` value exists only to migrate old
-configuration and is not accepted by admission APIs.
+`OutputRoles::default()` enables no output. HNSR requester/client and opaque
+relay roles retain independent default-on settings inside `HnsrPolicy`; its
+endpoint/output role remains off. The legacy mixed `ProviderRoles` value exists
+only to migrate old configuration and is not accepted by admission APIs.

@@ -51,7 +51,12 @@ Release-candidate source for the modular wallet and marketplace boundary:
   signed objects, full envelopes, descriptors, transactions, signature hashes,
   and transaction IDs; and
 - resumable publication checks requiring exact `.crate` bytes and release VCS
-  identity before an existing package version is skipped.
+  identity before an existing package version is skipped; and
+- default-on HIP-76/HIP-77 requester policy, opaque ODoH proxying, and HNSR
+  requester/opaque-relay participation with independent opt-outs, direct-relay
+  fallback where policy permits it, automatic bounded Denuo profile selection,
+  and all plaintext output, target, endpoint, and rendezvous roles still
+  default-off.
 
 All public workspace packages advance together so changed crates never attempt
 to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is

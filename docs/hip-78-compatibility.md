@@ -63,11 +63,11 @@ lookup scheduling, three-store publication quorum, replication, disconnect
 revocation, circuit queues, directional credit, rate limits, deadlines, inner
 Brontide, and priority below direct blockchain traffic.
 
-Opaque relay participation defaults on and has an independent persistent
-opt-out. Endpoint/output-node and rendezvous-directory participation default
-off and require explicit opt-in. Requester/client activity is independent.
-Relay consent never enables an endpoint, output, requester, or rendezvous role,
-and disabled roles must not advertise.
+Requester/client and opaque relay participation default on and have independent
+persistent opt-outs. Endpoint/output-node and rendezvous-directory
+participation default off and require explicit opt-in. Enabling or disabling
+one HNSR role never grants another role; in particular, neither default role
+grants endpoint or rendezvous authority, and disabled roles must not advertise.
 
 ## Verification
 
