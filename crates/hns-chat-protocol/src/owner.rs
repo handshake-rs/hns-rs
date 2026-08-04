@@ -2,7 +2,7 @@ use hns_service_authority::AuthorityRecord;
 use hns_transaction::Output;
 use k256::ecdsa::VerifyingKey;
 
-use crate::{ChatIdentityBindingV1, ChatKeyMode, ChatProtocolError};
+use crate::{ChatIdentityBindingV1, ChatProtocolError};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ChatIdentityTrust {
@@ -151,7 +151,7 @@ mod tests {
             seen_even |= compressed[0] == 0x02;
             seen_odd |= compressed[0] == 0x03;
             let binding = ChatIdentityBindingV1 {
-                key_mode: ChatKeyMode::Owner,
+                key_mode: crate::ChatKeyMode::Owner,
                 xonly_public_key: xonly_from_compressed_public_key(&compressed).expect("x-only"),
                 generation: u32::from(scalar),
             };

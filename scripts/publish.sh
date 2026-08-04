@@ -229,8 +229,26 @@ verify_chat_source_package() {
     done
 
     normalized_manifest=$(tar -xOf "$archive" "$archive_root/Cargo.toml")
+    # Normalized manifests legitimately retain target paths under [lib],
+    # [[test]], [[example]], and [[bench]]. Only dependency-table paths make
+    # the source package depend on a sibling checkout.
     if printf '%s\n' "$normalized_manifest" |
-        grep -Eq '^[[:space:]]*path[[:space:]]*='
+        awk '
+            /^[[:space:]]*\[/ {
+                header = $0
+                gsub(/[[:space:]]/, "", header)
+                in_dependency_table = \
+                    header ~ /^\[(dependencies|dev-dependencies|build-dependencies)(\.[^]]+)?\]$/ || \
+                    header ~ /^\[target\..+\.(dependencies|dev-dependencies|build-dependencies)(\.[^]]+)?\]$/ || \
+                    header ~ /^\[workspace\.(dependencies|dev-dependencies|build-dependencies)(\.[^]]+)?\]$/
+                next
+            }
+            in_dependency_table && /(^|[[:space:]{,])path[[:space:]]*=/ {
+                found = 1
+                exit
+            }
+            END { exit found ? 0 : 1 }
+        '
     then
         echo "error: normalized $package manifest retains a path dependency" >&2
         exit 1
