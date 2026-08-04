@@ -2442,7 +2442,7 @@ mod tests {
         let endpoint =
             EndpointReservation::new(MAGIC, HNS_NODE_V1, [1; 32]).expect("endpoint");
         let reserve = endpoint
-            .reserve(&relay_key, [3; 8], 120, 2, 65_536, [4; 16])
+            .reserve(&relay_key, [3; 8], 300, 2, 65_536, [4; 16])
             .expect("reserve");
         let offer = service
             .handle(&reserve, "endpoint", NOW)
