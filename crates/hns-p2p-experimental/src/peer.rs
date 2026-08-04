@@ -70,6 +70,11 @@ impl ExperimentalPeerState {
         }
     }
 
+    /// Exact local wire profile used to construct this peer state.
+    pub const fn profile(&self) -> ExperimentalWireProfile {
+        self.profile
+    }
+
     pub fn mark_established(&mut self) {
         self.established = true;
     }
@@ -544,5 +549,11 @@ mod tests {
             peer.admit_packet(PacketType::new(0xf5)),
             Ok(ExperimentalAdmission::ReservedPrivatePacket)
         );
+    }
+
+    #[test]
+    fn peer_profile_is_available_for_exact_transport_binding() {
+        let peer = state(ServiceMask::default());
+        assert_eq!(peer.profile(), ExperimentalWireProfile::DenuoV1);
     }
 }

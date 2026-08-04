@@ -12,8 +12,10 @@ Release-candidate source for the modular wallet and marketplace boundary:
   requester and opaque circuit-relay routing with exact authenticated-peer and
   ticket admission, deadlines, directional credit, retained write accounting,
   signed byte ceilings, disconnect/policy revocation, and checksummed
-  fail-closed snapshots, with sockets and atomic persistence left to the
-  embedding product;
+  fail-closed snapshots with caller-held anti-rollback generations and trusted
+  time high-water marks, plus global/per-circuit/per-peer action bounds and
+  exact pending-context translation, with sockets and atomic persistence left
+  to the embedding product;
 - owner-bound HNS Chat resource parsing, both-parity current-owner proof,
   owner-derived `hns.chat` HNSA verification, bounded opaque HIP-78 mailbox
   values, canonical profile assignment, fixtures, and fuzz/conformance parser

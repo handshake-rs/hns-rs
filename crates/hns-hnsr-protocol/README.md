@@ -16,6 +16,11 @@ write acknowledgements, cumulative byte ceilings, deadlines, disconnect and
 policy revocation, and checksummed fail-closed restart snapshots. Adapters
 still own authenticated outer connections, clocks, scheduling, and atomic
 snapshot storage; circuit plaintext never enters the relay runtime.
+Snapshots retain a trusted-time high-water mark and require a caller-held
+minimum generation on restore, so clock rollback and replay of settings from
+before a later opt-out/configuration generation fail closed. Relay actions,
+including one-credit WINDOW traffic, are bounded globally, per circuit, and
+per destination peer until acknowledged.
 The owner-bound `hns.chat` adapter derives that same authority chain from a
 current `hnschat` resource and canonical single-key owner output; it does not
 weaken generic `hsa1` verification.
