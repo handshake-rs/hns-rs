@@ -124,7 +124,7 @@ impl Header {
         let mut encoder = Encoder::with_capacity(128);
         encoder.put_u32_le(self.nonce);
         encoder.put_u64_le(self.time.get());
-        encoder.put_bytes(&self.padding::<20>());
+        encoder.put_bytes(&Self::padding::<20>());
         encoder.put_bytes(self.previous_block.as_bytes());
         encoder.put_bytes(self.tree_root.as_bytes());
         encoder.put_bytes(&self.commit_hash());
@@ -137,8 +137,8 @@ impl Header {
     pub fn share_hash(&self) -> ShareHash {
         let preheader = self.preheader();
         let left = blake2b_512(&preheader);
-        let right = sha3_256(&[&preheader, &self.padding::<8>()]);
-        ShareHash::new(blake2b_256(&[&left, &self.padding::<32>(), &right]))
+        let right = sha3_256(&[&preheader, &Self::padding::<8>()]);
+        ShareHash::new(blake2b_256(&[&left, &Self::padding::<32>(), &right]))
     }
 
     pub fn pow_hash(&self) -> PowHash {
@@ -153,13 +153,8 @@ impl Header {
         DecodedTarget::from_compact(self.bits).is_met_by(self.pow_hash().as_bytes())
     }
 
-    fn padding<const LENGTH: usize>(&self) -> [u8; LENGTH] {
-        let mut output = [0_u8; LENGTH];
-        for (index, byte) in output.iter_mut().enumerate() {
-            *byte =
-                self.previous_block.as_bytes()[index % 32] ^ self.tree_root.as_bytes()[index % 32];
-        }
-        output
+    const fn padding<const LENGTH: usize>() -> [u8; LENGTH] {
+        [0; LENGTH]
     }
 }
 
@@ -728,6 +723,20 @@ mod tests {
         assert_eq!(header.nonce, 0x0302_0100);
         assert_eq!(header.time.get(), 0x0b0a_0908_0706_0504);
         assert_eq!(header.encode().as_slice(), raw);
+    }
+
+    #[test]
+    fn non_genesis_pow_uses_zero_padding() {
+        let raw = (0..HEADER_SIZE)
+            .map(|index| index as u8)
+            .collect::<Vec<_>>();
+        let header = Header::decode(&raw).expect("valid");
+
+        assert_eq!(&header.preheader()[12..32], &[0; 20]);
+        assert_eq!(
+            header.share_hash().as_bytes(),
+            &hex32("a52caf9d94b731097b50edf5469948b03921f397164506198a0b4a6e4f8624ad")
+        );
     }
 
     #[test]
