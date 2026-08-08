@@ -162,6 +162,19 @@ pub fn verify_covenant_links(
             }
         }
     }
+    for (output_index, output) in transaction
+        .outputs
+        .iter()
+        .enumerate()
+        .skip(transaction.inputs.len())
+    {
+        if output.covenant.kind.is_linked() {
+            return Err(CovenantLinkError::UnpairedLinkedOutput {
+                output_index,
+                kind: output.covenant.kind,
+            });
+        }
+    }
     Ok(summary)
 }
 
@@ -324,6 +337,11 @@ pub enum CovenantLinkError {
         input_index: usize,
         to: CovenantKind,
     },
+    #[error("output {output_index} linked covenant {kind:?} has no corresponding input")]
+    UnpairedLinkedOutput {
+        output_index: usize,
+        kind: CovenantKind,
+    },
 }
 
 #[cfg(test)]
@@ -382,5 +400,106 @@ mod tests {
                 .linked_outputs,
             1
         );
+    }
+
+    fn transaction_with_unpaired_output(kind: CovenantKind) -> (Transaction, Coin) {
+        let outpoint = Outpoint {
+            transaction_hash: TransactionHash::new([1; 32]),
+            index: 0,
+        };
+        let address = Address::new(0, vec![4; 20]).expect("address");
+        let coin = Coin {
+            outpoint,
+            value: Dollarydoos::new(100),
+            height: Height::new(1),
+            coinbase: false,
+            address: address.clone(),
+            covenant: Covenant {
+                kind: CovenantKind::None,
+                items: Vec::new(),
+            },
+        };
+        let transaction = Transaction {
+            version: 1,
+            inputs: vec![Input {
+                previous_output: outpoint,
+                sequence: u32::MAX,
+                witness: Witness::default(),
+            }],
+            outputs: vec![
+                Output {
+                    value: Dollarydoos::new(100),
+                    address: address.clone(),
+                    covenant: Covenant {
+                        kind: CovenantKind::None,
+                        items: Vec::new(),
+                    },
+                },
+                Output {
+                    value: Dollarydoos::new(0),
+                    address,
+                    covenant: Covenant {
+                        kind,
+                        items: Vec::new(),
+                    },
+                },
+            ],
+            locktime: 0,
+        };
+
+        (transaction, coin)
+    }
+
+    #[test]
+    fn unpaired_hsd_linked_outputs_are_rejected() {
+        let linked_kinds = [
+            CovenantKind::Reveal,
+            CovenantKind::Redeem,
+            CovenantKind::Register,
+            CovenantKind::Update,
+            CovenantKind::Renew,
+            CovenantKind::Transfer,
+            CovenantKind::Finalize,
+            CovenantKind::Revoke,
+        ];
+
+        for kind in linked_kinds {
+            let (transaction, coin) = transaction_with_unpaired_output(kind);
+
+            assert_eq!(
+                verify_covenant_links(&transaction, &[coin]),
+                Err(CovenantLinkError::UnpairedLinkedOutput {
+                    output_index: 1,
+                    kind,
+                }),
+                "unpaired {kind:?} output must be rejected",
+            );
+        }
+    }
+
+    #[test]
+    fn unpaired_nonlinked_outputs_remain_allowed() {
+        // CLAIM is intentionally omitted: it is not linked, but is only valid
+        // in coinbase transactions handled by the dedicated issuance verifier.
+        let unlinked_kinds = [
+            CovenantKind::None,
+            CovenantKind::Open,
+            CovenantKind::Bid,
+            CovenantKind::Unknown(255),
+        ];
+
+        for kind in unlinked_kinds {
+            let (transaction, coin) = transaction_with_unpaired_output(kind);
+
+            assert_eq!(
+                verify_covenant_links(&transaction, &[coin]),
+                Ok(CovenantLinkSummary {
+                    inputs_checked: 1,
+                    linked_outputs: 0,
+                    name_inputs: 0,
+                }),
+                "unpaired {kind:?} output must remain allowed by linkage verification",
+            );
+        }
     }
 }
