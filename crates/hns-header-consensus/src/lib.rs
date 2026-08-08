@@ -154,6 +154,8 @@ impl Header {
     }
 
     fn padding<const LENGTH: usize>(&self) -> [u8; LENGTH] {
+        // This is consensus padding, not zero-fill: HSD derives every byte from
+        // the previous block and tree root before calculating the share hash.
         let mut output = [0_u8; LENGTH];
         for (index, byte) in output.iter_mut().enumerate() {
             *byte =
@@ -728,6 +730,25 @@ mod tests {
         assert_eq!(header.nonce, 0x0302_0100);
         assert_eq!(header.time.get(), 0x0b0a_0908_0706_0504);
         assert_eq!(header.encode().as_slice(), raw);
+    }
+
+    #[test]
+    fn non_genesis_share_hash_matches_hsd_xor_padding() {
+        let mut raw = (0..HEADER_SIZE)
+            .map(|index| index as u8)
+            .collect::<Vec<_>>();
+        raw[4..12].copy_from_slice(&1_580_745_079_u64.to_le_bytes());
+        let header = Header::decode(&raw).expect("valid");
+
+        assert_ne!(header.previous_block, BlockHash::default());
+        assert_eq!(header.padding::<20>(), [0x20; 20]);
+
+        // Oracle generated with Headers.fromHead(raw) and shareHash() from
+        // HSD 698e252ebc7b5c1dd0a9587e342fdd153d020ae4.
+        assert_eq!(
+            header.share_hash().as_bytes(),
+            &hex32("a4338cfe232773c176979d2440c325035ce0c8711afce02bf7442d7f54b3398e")
+        );
     }
 
     #[test]
