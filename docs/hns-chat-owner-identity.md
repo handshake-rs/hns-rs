@@ -45,12 +45,12 @@ current owner output. Exactly one original compressed key must match. The code
 does not assume even Y and does not use a BIP-340-normalized point to prove the
 Handshake owner address.
 
-The resulting original compressed key becomes the existing HNSA root key and
-`hnschat.generation` becomes its authority epoch for the canonical service
-name `hns.chat`. The x coordinate remains the Nostr identity. Downstream wallet
-code remains responsible for established BIP-340 signing, exact NIP-44 v2,
-NIP-17, and NIP-59 behavior while keeping all private scalars and conversation
-keys inside the wallet boundary.
+The resulting original compressed key supplies the owner-bound profile's
+authority adapter and `hnschat.generation` supplies its authority epoch for the
+HIP-compliant HNSA service name `chat`. The x coordinate remains the Nostr
+identity. Downstream wallet code remains responsible for established BIP-340
+signing, exact NIP-44 v2, NIP-17, and NIP-59 behavior while keeping all private
+scalars and conversation keys inside the wallet boundary.
 
 ## HNSA and HIP-78
 
@@ -62,13 +62,16 @@ The generated HNSR service-profile registry allocates:
 | `hns.web` v1 | 2 |
 | `hns.chat` v1 | 3 |
 
+`hns.chat` is the registry/profile-layer label. It is never placed in an HNSA
+`service_name`, whose version-1 grammar forbids periods; that field is `chat`.
+
 The registry has fingerprint
 `36614e9dd0c47a2c59886406909a9b1e23ed6bd539376d2f553b62e1ca79351b`.
 It is separate from the immutable Denuo V1/V2 packet registries, whose
 fingerprints and negotiation behavior do not change.
 
 `verify_owner_bound_chat_route` first proves the current owner binding, then
-synthesizes an ordinary `AuthorityRecord` and invokes the existing complete
+synthesizes the profile-local `AuthorityRecord` adapter and invokes the complete
 `ServiceAuthorizationV1` → `EndpointDelegationV1` → `NamedRouteRecordV2`
 verification chain. Generic `hsa1` roots and other service profiles retain
 their existing behavior.

@@ -7,8 +7,13 @@ The crate implements canonical `hsa1` TXT parsing, service authorizations,
 endpoint delegations, signature verification, replacement selection, and
 stable service identities. Discovery and transport remain the responsibility
 of profiles such as direct HTTPS, QUIC, or HNSR.
-Canonical dotted profile names such as `hns.chat` are accepted as strict
-lowercase DNS-style labels.
+HIP-compliant HNSA service names contain only lowercase ASCII letters, digits,
+and hyphens; periods are rejected. Dotted labels such as `hns.chat` belong to
+profile registries or other higher layers, not the HNSA service-name field.
+
+Replacement selection validates the bounded candidate set before comparing
+sequences. Service authorizations are selected for one exact service identity,
+and endpoint delegations require a profile-supplied logical-endpoint predicate.
 
 An endpoint verifier must first validate its service authorization against the
 current authenticated HNS name state and current block height. The endpoint

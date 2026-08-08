@@ -2,13 +2,20 @@
 
 `hns-service-authority` implements the transport-independent objects in the
 Named Service Authority proposal at `handshake-org/HIPs` pull request #79,
-commit `c0487e5`.
+commit `a5c2e83`.
 
 The implementation includes exact `hsa1` TXT parsing, bounded canonical
 service authorization and endpoint delegation codecs, strict DER and low-S
 secp256k1 verification, context and lifetime validation, stable service
 identity, conflict-safe replacement selection, candidate-count limits, fixed
 positive vectors, and aggregate parser-conformance coverage.
+
+The service-name grammar matches the HIP exactly: 1 through 63 lowercase ASCII
+letters, digits, or hyphens, with no leading/trailing hyphen and no periods.
+Dotted profile labels are a separate layer. Selection counts candidates before
+signature verification, ignores invalid or unrelated authorizations, and
+requires profiles to scope endpoint-sequence comparison with their logical
+endpoint predicate.
 
 `EndpointDelegationV1::verify` requires a service authorization that the caller
 has validated at the current Handshake height. Callers must repeat that

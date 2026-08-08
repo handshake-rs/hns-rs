@@ -10,6 +10,9 @@ Its synchronous service types execute reservation, renewal, confirmation,
 withdrawal, route publication, and route lookup against bounded in-memory
 state so an embedding node can own transport, persistence, clocks, and peer
 policy without duplicating protocol validation.
+Route admission applies storage-capacity checks before signature verification
+and bounded global and per-source verification windows before retaining any
+record.
 Its runtime-neutral requester and opaque-relay state machines add exact
 ticket-to-connection admission, bounded directional flow control, retained
 write acknowledgements, cumulative byte ceilings, deadlines, disconnect and
@@ -21,9 +24,10 @@ minimum generation on restore, so clock rollback and replay of settings from
 before a later opt-out/configuration generation fail closed. Relay actions,
 including one-credit WINDOW traffic, are bounded globally, per circuit, and
 per destination peer until acknowledged.
-The owner-bound `hns.chat` adapter derives that same authority chain from a
-current `hnschat` resource and canonical single-key owner output; it does not
-weaken generic `hsa1` verification.
+The owner-bound `hns.chat` profile adapter derives that same authority chain
+from a current `hnschat` resource and canonical single-key owner output while
+using `chat` as its HNSA service name. The dotted profile label is a separate
+layer and does not weaken or change generic `hsa1` verification.
 
 **The associated Denuo wire assignments are experimental and are not official
 Handshake protocol assignments.**

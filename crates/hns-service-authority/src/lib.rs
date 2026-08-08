@@ -388,23 +388,57 @@ impl EndpointDelegationV1 {
     }
 }
 
+/// Selects the greatest otherwise-valid authorization for one service identity.
+///
+/// All supplied candidates count toward the protocol bound. Invalid candidates
+/// and candidates for other identities are ignored before serial comparison.
 pub fn select_service_authorization<'a>(
     candidates: impl IntoIterator<Item = &'a ServiceAuthorizationV1>,
+    authority: &AuthorityRecord,
+    identity: &ServiceIdentity,
+    current_height: u32,
+    allowed_flags: u16,
 ) -> Result<&'a ServiceAuthorizationV1, AuthorityError> {
     select_by_sequence(
         candidates,
         MAX_SERVICE_AUTHORIZATION_CANDIDATES,
+        |candidate| {
+            candidate
+                .verify(authority, identity, current_height, allowed_flags)
+                .is_ok()
+        },
         |candidate| candidate.serial,
         |candidate| candidate.encode(),
     )
 }
 
+/// Selects the greatest otherwise-valid delegation for one logical endpoint.
+///
+/// The profile supplies `is_logical_endpoint` because HNSA deliberately does
+/// not define that identifier. All supplied candidates count toward the
+/// protocol bound, including candidates outside the selected endpoint scope.
 pub fn select_endpoint_delegation<'a>(
     candidates: impl IntoIterator<Item = &'a EndpointDelegationV1>,
+    authorization: &ServiceAuthorizationV1,
+    now: u64,
+    allowed_capabilities: u32,
+    expected_constraints_hash: [u8; 32],
+    is_logical_endpoint: impl Fn(&EndpointDelegationV1) -> bool,
 ) -> Result<&'a EndpointDelegationV1, AuthorityError> {
     select_by_sequence(
         candidates,
         MAX_ENDPOINT_DELEGATION_CANDIDATES,
+        |candidate| {
+            is_logical_endpoint(candidate)
+                && candidate
+                    .verify(
+                        authorization,
+                        now,
+                        allowed_capabilities,
+                        expected_constraints_hash,
+                    )
+                    .is_ok()
+        },
         |candidate| candidate.endpoint_sequence,
         |candidate| candidate.encode(),
     )
@@ -422,13 +456,22 @@ pub fn public_key(private_key: &[u8; 32]) -> Result<[u8; 33], AuthorityError> {
 fn select_by_sequence<'a, T>(
     candidates: impl IntoIterator<Item = &'a T>,
     maximum: usize,
+    is_candidate: impl Fn(&T) -> bool,
     sequence: impl Fn(&T) -> u64,
     encode: impl Fn(&T) -> Result<Vec<u8>, AuthorityError>,
 ) -> Result<&'a T, AuthorityError> {
+    let candidates = candidates
+        .into_iter()
+        .take(maximum.saturating_add(1))
+        .collect::<Vec<_>>();
+    if candidates.len() > maximum {
+        return Err(AuthorityError::Invalid("too many authorization candidates"));
+    }
+
     let mut selected: Option<&T> = None;
-    for (index, candidate) in candidates.into_iter().enumerate() {
-        if index >= maximum {
-            return Err(AuthorityError::Invalid("too many authorization candidates"));
+    for candidate in candidates {
+        if !is_candidate(candidate) {
+            continue;
         }
         match selected {
             None => selected = Some(candidate),
@@ -450,15 +493,9 @@ fn validate_service_name(name: &str) -> Result<(), AuthorityError> {
     if !(1..=MAX_SERVICE_NAME).contains(&bytes.len())
         || bytes.first() == Some(&b'-')
         || bytes.last() == Some(&b'-')
-        || bytes.first() == Some(&b'.')
-        || bytes.last() == Some(&b'.')
-        || bytes.windows(2).any(|pair| pair == b"..")
-        || !bytes.iter().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(*byte, b'-' | b'.')
-        })
-        || name
-            .split('.')
-            .any(|label| label.starts_with('-') || label.ends_with('-'))
+        || !bytes
+            .iter()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'-')
     {
         return Err(AuthorityError::Invalid("noncanonical service name"));
     }
@@ -682,15 +719,30 @@ mod tests {
     }
 
     #[test]
+    fn hns_service_names_reject_profile_layer_periods() {
+        let root = [1; 32];
+        let mut authorization = authorization(&root, public_key(&[2; 32]).expect("key"));
+        authorization.service_name = "hns.chat".to_owned();
+
+        assert!(authorization.identity().validate().is_err());
+        assert!(authorization.encode_unsigned().is_err());
+    }
+
+    #[test]
     fn replacement_selection_rejects_equal_sequence_conflicts() {
         let root = [1; 32];
         let service = public_key(&[2; 32]).expect("key");
+        let authority = AuthorityRecord {
+            root_key: public_key(&root).expect("key"),
+            epoch: 4,
+        };
         let first = authorization(&root, service);
+        let identity = first.identity();
         let mut second = first.clone();
         second.serial = 2;
         second.sign(&root).expect("sign");
         assert_eq!(
-            select_service_authorization([&first, &second])
+            select_service_authorization([&first, &second], &authority, &identity, 150, 0,)
                 .expect("latest")
                 .serial,
             2
@@ -699,7 +751,89 @@ mod tests {
         conflict.valid_until_height += 1;
         conflict.sign(&root).expect("sign");
         assert!(matches!(
-            select_service_authorization([&second, &conflict]),
+            select_service_authorization([&second, &conflict], &authority, &identity, 150, 0,),
+            Err(AuthorityError::ConflictingSequence)
+        ));
+    }
+
+    #[test]
+    fn replacement_selection_ignores_invalid_and_unrelated_authorizations() {
+        let root = [1; 32];
+        let service = public_key(&[2; 32]).expect("key");
+        let authority = AuthorityRecord {
+            root_key: public_key(&root).expect("key"),
+            epoch: 4,
+        };
+        let first = authorization(&root, service);
+        let identity = first.identity();
+        let mut second = first.clone();
+        second.serial = 2;
+        second.sign(&root).expect("sign");
+        let mut invalid_higher = second.clone();
+        invalid_higher.serial = 3;
+        invalid_higher.sign(&[9; 32]).expect("sign");
+        let mut unrelated_higher = second.clone();
+        unrelated_higher.name_hash = [4; 32];
+        unrelated_higher.serial = 4;
+        unrelated_higher.sign(&root).expect("sign");
+
+        assert_eq!(
+            select_service_authorization(
+                [&first, &invalid_higher, &unrelated_higher, &second],
+                &authority,
+                &identity,
+                150,
+                0,
+            )
+            .expect("latest valid authorization")
+            .serial,
+            2
+        );
+    }
+
+    #[test]
+    fn endpoint_replacement_is_scoped_by_the_profile() {
+        let root = [1; 32];
+        let service = [2; 32];
+        let authorization = authorization(&root, public_key(&service).expect("key"));
+        let first = delegation(&authorization, &service);
+        let target_key = first.endpoint_key;
+        let mut second = first.clone();
+        second.endpoint_sequence = 2;
+        second.sign(&service).expect("sign");
+        let mut concurrent = second.clone();
+        concurrent.endpoint_key = public_key(&[4; 32]).expect("key");
+        concurrent.sign(&service).expect("sign");
+        let mut invalid_higher = second.clone();
+        invalid_higher.endpoint_sequence = 3;
+        invalid_higher.sign(&[9; 32]).expect("sign");
+
+        assert_eq!(
+            select_endpoint_delegation(
+                [&first, &concurrent, &invalid_higher, &second],
+                &authorization,
+                1_700_000_100,
+                1,
+                [0; 32],
+                |candidate| candidate.endpoint_key == target_key,
+            )
+            .expect("latest delegation for the selected endpoint")
+            .endpoint_sequence,
+            2
+        );
+
+        let mut conflict = second.clone();
+        conflict.expires_at -= 1;
+        conflict.sign(&service).expect("sign");
+        assert!(matches!(
+            select_endpoint_delegation(
+                [&second, &conflict],
+                &authorization,
+                1_700_000_100,
+                1,
+                [0; 32],
+                |candidate| candidate.endpoint_key == target_key,
+            ),
             Err(AuthorityError::ConflictingSequence)
         ));
     }
@@ -810,13 +944,30 @@ mod tests {
     fn replacement_candidate_counts_are_bounded() {
         let root = [1; 32];
         let service = [2; 32];
+        let authority = AuthorityRecord {
+            root_key: public_key(&root).expect("key"),
+            epoch: 4,
+        };
         let authorization = authorization(&root, public_key(&service).expect("key"));
+        let identity = authorization.identity();
         let endpoint = delegation(&authorization, &service);
         let authorizations = vec![&authorization; MAX_SERVICE_AUTHORIZATION_CANDIDATES + 1];
         let endpoints = vec![&endpoint; MAX_ENDPOINT_DELEGATION_CANDIDATES + 1];
 
-        assert!(select_service_authorization(authorizations).is_err());
-        assert!(select_endpoint_delegation(endpoints).is_err());
+        assert!(
+            select_service_authorization(authorizations, &authority, &identity, 150, 0).is_err()
+        );
+        assert!(
+            select_endpoint_delegation(
+                endpoints,
+                &authorization,
+                1_700_000_100,
+                1,
+                [0; 32],
+                |_| true,
+            )
+            .is_err()
+        );
     }
 
     #[test]

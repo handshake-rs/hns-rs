@@ -48,8 +48,9 @@ The implemented protocol layer contains:
   named-route publication, and lookup state machines for composition by an
   authenticated transport owner;
 - strict owner-bound HNS Chat resource identity, original owner-key parity
-  recovery, HNSA authority synthesis for `hns.chat`, and bounded opaque NIP-59
-  gift-wrap and encrypted-acknowledgement values for HIP-78 transport.
+  recovery, an owner-bound authority adapter for the HIP-compliant HNSA service
+  name `chat`, and bounded opaque NIP-59 gift-wrap and
+  encrypted-acknowledgement values for the `hns.chat` HIP-78 profile.
 
 Source-independent exact V1 settlement and marketplace vectors live in
 `fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.

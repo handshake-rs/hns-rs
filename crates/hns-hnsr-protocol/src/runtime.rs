@@ -713,6 +713,9 @@ mod tests {
                         total_records: 32,
                         records_per_key: 4,
                         records_per_source: 8,
+                        verification_attempts_total: 1_024,
+                        verification_attempts_per_source: 64,
+                        verification_window_seconds: 60,
                     },
                 )
                 .expect("rendezvous"),

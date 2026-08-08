@@ -28,7 +28,9 @@ The crate provides:
 - exact route-key and rendezvous-node-ID derivation;
 - authenticated, age-limited public rendezvous contacts and XOR ordering;
 - route expiry, increasing-sequence replacement, deterministic sampling, and
-  bounded total/per-key/per-source in-memory storage;
+  bounded total/per-key/per-source in-memory storage, with capacity preflight
+  and global/per-source verification-rate limits before expensive signature
+  checks;
 - bounded synchronous reservation, renewal, confirmation, withdrawal,
   route-publication, and route-lookup services that accept canonical packets
   from an embedding transport;
@@ -92,7 +94,8 @@ Tests cover the exact envelope and hash derivations, network/relay/context
 signature binding, renewal predecessor binding, ticket and route authorization
 chains, wrong network, expiry, high-S rejection, public-contact policy, XOR
 ordering, sequence replacement, expiry, source quotas, deterministic sampling,
-reservation replay and cross-source rejection, complete live
+verification-rate limits, capacity-before-signature admission, reservation
+replay and cross-source rejection, complete live
 reservation-to-route lookup, flow-control bounds, and trailing-data rejection.
 Focused circuit-runtime source tests additionally cover full open/accept/data/
 window routing, authenticated peer binding, retained queue accounting, failed

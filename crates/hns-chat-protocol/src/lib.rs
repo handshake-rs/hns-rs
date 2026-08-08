@@ -21,8 +21,10 @@ pub use wire::{
 use hns_encoding::DecodeError;
 use thiserror::Error;
 
-/// Canonical HNSA service name for owner-bound HNS Chat.
-pub const HNS_CHAT_SERVICE_NAME: &str = "hns.chat";
+/// Human-readable HNSR profile label; this is not an HNSA service name.
+pub const HNS_CHAT_PROFILE_NAME: &str = "hns.chat";
+/// HIP-compliant HNSA service name for owner-bound HNS Chat.
+pub const HNS_CHAT_SERVICE_NAME: &str = "chat";
 /// Canonical HNSR service profile allocated by the HNSR profile registry.
 pub const HNS_CHAT_PROFILE_V1: u16 = 3;
 

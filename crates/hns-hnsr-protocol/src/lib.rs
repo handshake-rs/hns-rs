@@ -79,6 +79,8 @@ pub enum HnsrProtocolError {
     OwnerBinding(#[from] hns_chat_protocol::ChatProtocolError),
     #[error("HNSR route store capacity reached")]
     Capacity,
+    #[error("HNSR signature verification rate limit reached")]
+    VerificationRateLimited,
     #[error("stale HNSR route sequence")]
     StaleSequence,
 }

@@ -706,4 +706,106 @@ mod tests {
         assert_eq!(bounded.get(&route.route_key, 8, now).len(), 1);
         assert!(bounded.sample(8, &[2; 32], now).is_empty());
     }
+
+    #[test]
+    fn named_admission_checks_storage_capacity_before_signatures() {
+        let now = 1_700_000_000;
+        let endpoint_private = [17; 32];
+        let service_private = [12; 32];
+        let relay_private = [14; 32];
+        let (first, _, _) = route(now);
+        let mut second = first.clone();
+        let endpoint_key = authority_public_key(&endpoint_private).expect("endpoint key");
+        second.sequence = 2;
+        second.delegation.endpoint_key = endpoint_key;
+        second.delegation.endpoint_sequence = 2;
+        second.delegation.service_signature.clear();
+        second
+            .delegation
+            .sign(&service_private)
+            .expect("delegation");
+        second.tickets[0].endpoint_key = endpoint_key;
+        second.tickets[0].relay_signature.clear();
+        second.tickets[0].endpoint_signature.clear();
+        second.tickets[0]
+            .sign_relay(&relay_private)
+            .expect("relay ticket");
+        second.tickets[0]
+            .sign_endpoint(&endpoint_private)
+            .expect("ticket confirmation");
+        second.endpoint_signature.clear();
+        second.sign(&endpoint_private).expect("route");
+
+        let limits = RouteStoreLimits {
+            records_per_key: 1,
+            ..RouteStoreLimits::default()
+        };
+        let mut store = RouteStore::new(MAGIC, true, limits).expect("store");
+        store
+            .put_named_for_admission(
+                first.route_key,
+                first.encode().expect("first route"),
+                now,
+                "peer-a".to_owned(),
+            )
+            .expect("stored");
+
+        second.sequence += 1;
+        assert!(matches!(
+            store.put_named_for_admission(
+                second.route_key,
+                second.encode().expect("second route"),
+                now,
+                "peer-b".to_owned(),
+            ),
+            Err(HnsrProtocolError::Capacity)
+        ));
+    }
+
+    #[test]
+    fn named_admission_limits_global_and_per_source_verification() {
+        let now = 1_700_000_000;
+        let (mut route, _, _) = route(now);
+        route.sequence += 1;
+        let raw = route.encode().expect("structurally valid route");
+        let limits = RouteStoreLimits {
+            verification_attempts_total: 2,
+            verification_attempts_per_source: 1,
+            verification_window_seconds: 60,
+            ..RouteStoreLimits::default()
+        };
+        let mut store = RouteStore::new(MAGIC, true, limits).expect("store");
+
+        let first =
+            store.put_named_for_admission(route.route_key, raw.clone(), now, "peer-a".to_owned());
+        assert!(first.is_err());
+        assert!(!matches!(
+            first,
+            Err(HnsrProtocolError::VerificationRateLimited)
+        ));
+        assert!(matches!(
+            store.put_named_for_admission(route.route_key, raw.clone(), now, "peer-a".to_owned(),),
+            Err(HnsrProtocolError::VerificationRateLimited)
+        ));
+
+        let second_source =
+            store.put_named_for_admission(route.route_key, raw.clone(), now, "peer-b".to_owned());
+        assert!(second_source.is_err());
+        assert!(!matches!(
+            second_source,
+            Err(HnsrProtocolError::VerificationRateLimited)
+        ));
+        assert!(matches!(
+            store.put_named_for_admission(route.route_key, raw.clone(), now, "peer-c".to_owned(),),
+            Err(HnsrProtocolError::VerificationRateLimited)
+        ));
+
+        let after_window =
+            store.put_named_for_admission(route.route_key, raw, now + 60, "peer-c".to_owned());
+        assert!(after_window.is_err());
+        assert!(!matches!(
+            after_window,
+            Err(HnsrProtocolError::VerificationRateLimited)
+        ));
+    }
 }

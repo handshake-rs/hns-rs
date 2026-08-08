@@ -125,6 +125,9 @@ pub struct RouteStoreLimits {
     pub total_records: usize,
     pub records_per_key: usize,
     pub records_per_source: usize,
+    pub verification_attempts_total: usize,
+    pub verification_attempts_per_source: usize,
+    pub verification_window_seconds: u64,
 }
 
 impl Default for RouteStoreLimits {
@@ -133,6 +136,9 @@ impl Default for RouteStoreLimits {
             total_records: MAX_STORED_RECORDS,
             records_per_key: MAX_RECORDS_PER_KEY,
             records_per_source: 256,
+            verification_attempts_total: 1_024,
+            verification_attempts_per_source: 64,
+            verification_window_seconds: 60,
         }
     }
 }
@@ -155,6 +161,12 @@ struct VerifiedRoute {
     sampleable: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct VerificationWindow {
+    started_at: u64,
+    attempts: usize,
+}
+
 #[derive(Clone, Debug)]
 pub struct RouteStore {
     network_magic: u32,
@@ -162,6 +174,8 @@ pub struct RouteStore {
     limits: RouteStoreLimits,
     records: HashMap<[u8; 32], Vec<StoredRoute>>,
     source_counts: HashMap<String, usize>,
+    global_verification_window: Option<VerificationWindow>,
+    verification_windows: HashMap<String, VerificationWindow>,
     size: usize,
 }
 
@@ -174,7 +188,11 @@ impl RouteStore {
         if limits.total_records == 0
             || limits.records_per_key == 0
             || limits.records_per_source == 0
+            || limits.verification_attempts_total == 0
+            || limits.verification_attempts_per_source == 0
+            || limits.verification_window_seconds == 0
             || limits.records_per_key > limits.total_records
+            || limits.verification_attempts_per_source > limits.verification_attempts_total
         {
             return Err(HnsrProtocolError::Invalid(
                 "invalid HNSR route store limits",
@@ -186,6 +204,8 @@ impl RouteStore {
             limits,
             records: HashMap::new(),
             source_counts: HashMap::new(),
+            global_verification_window: None,
+            verification_windows: HashMap::new(),
             size: 0,
         })
     }
@@ -208,23 +228,20 @@ impl RouteStore {
         if source.is_empty() {
             return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
         }
+        self.charge_verification(&source, now)?;
         let record = RouteRecord::decode(&raw)?;
         if record.route_key != key {
             return Err(HnsrProtocolError::Invalid("HNSR route key mismatch"));
         }
+        let verified = VerifiedRoute {
+            endpoint_key: record.delegation.endpoint_key,
+            sequence: record.sequence,
+            expires_at: record.expires_at,
+            sampleable: true,
+        };
+        self.preflight_insert(&key, &verified, now, &source)?;
         record.verify(self.network_magic, now, self.allow_private)?;
-        self.insert_verified(
-            key,
-            VerifiedRoute {
-                endpoint_key: record.delegation.endpoint_key,
-                sequence: record.sequence,
-                expires_at: record.expires_at,
-                sampleable: true,
-            },
-            raw,
-            now,
-            source,
-        )
+        self.insert_verified(key, verified, raw, now, source)
     }
 
     pub fn put_named(
@@ -238,6 +255,7 @@ impl RouteStore {
         if source.is_empty() {
             return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
         }
+        self.charge_verification(&source, now)?;
         if trust.identity.network_magic != self.network_magic {
             return Err(HnsrProtocolError::Invalid(
                 "named HNSR route store network mismatch",
@@ -247,19 +265,15 @@ impl RouteStore {
         if record.route_key != key {
             return Err(HnsrProtocolError::Invalid("HNSR route key mismatch"));
         }
+        let verified = VerifiedRoute {
+            endpoint_key: record.delegation.endpoint_key,
+            sequence: record.sequence,
+            expires_at: record.expires_at,
+            sampleable: false,
+        };
+        self.preflight_insert(&key, &verified, now, &source)?;
         record.verify(trust, now)?;
-        self.insert_verified(
-            key,
-            VerifiedRoute {
-                endpoint_key: record.delegation.endpoint_key,
-                sequence: record.sequence,
-                expires_at: record.expires_at,
-                sampleable: false,
-            },
-            raw,
-            now,
-            source,
-        )
+        self.insert_verified(key, verified, raw, now, source)
     }
 
     pub fn put_named_for_admission(
@@ -272,23 +286,91 @@ impl RouteStore {
         if source.is_empty() {
             return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
         }
+        self.charge_verification(&source, now)?;
         let record = NamedRouteRecordV2::decode(&raw)?;
         if record.authorization.network_magic != self.network_magic || record.route_key != key {
             return Err(HnsrProtocolError::Invalid("HNSR route key mismatch"));
         }
+        let verified = VerifiedRoute {
+            endpoint_key: record.delegation.endpoint_key,
+            sequence: record.sequence,
+            expires_at: record.expires_at,
+            sampleable: false,
+        };
+        self.preflight_insert(&key, &verified, now, &source)?;
         record.verify_untrusted_admission(now, self.allow_private)?;
-        self.insert_verified(
-            key,
-            VerifiedRoute {
-                endpoint_key: record.delegation.endpoint_key,
-                sequence: record.sequence,
-                expires_at: record.expires_at,
-                sampleable: false,
-            },
-            raw,
-            now,
-            source,
-        )
+        self.insert_verified(key, verified, raw, now, source)
+    }
+
+    fn charge_verification(&mut self, source: &str, now: u64) -> Result<(), HnsrProtocolError> {
+        let duration = self.limits.verification_window_seconds;
+        let global = self
+            .global_verification_window
+            .get_or_insert(VerificationWindow {
+                started_at: now,
+                attempts: 0,
+            });
+        if now >= global.started_at.saturating_add(duration) {
+            *global = VerificationWindow {
+                started_at: now,
+                attempts: 0,
+            };
+            self.verification_windows.clear();
+        }
+        if global.attempts >= self.limits.verification_attempts_total {
+            return Err(HnsrProtocolError::VerificationRateLimited);
+        }
+
+        let source_window = self
+            .verification_windows
+            .entry(source.to_owned())
+            .or_insert(VerificationWindow {
+                started_at: now,
+                attempts: 0,
+            });
+        if now >= source_window.started_at.saturating_add(duration) {
+            *source_window = VerificationWindow {
+                started_at: now,
+                attempts: 0,
+            };
+        }
+        if source_window.attempts >= self.limits.verification_attempts_per_source {
+            return Err(HnsrProtocolError::VerificationRateLimited);
+        }
+        source_window.attempts += 1;
+        global.attempts += 1;
+        Ok(())
+    }
+
+    fn preflight_insert(
+        &mut self,
+        key: &[u8; 32],
+        verified: &VerifiedRoute,
+        now: u64,
+        source: &str,
+    ) -> Result<(), HnsrProtocolError> {
+        self.prune_key(key, now);
+        let previous = self.records.get(key).and_then(|items| {
+            items
+                .iter()
+                .find(|item| item.endpoint_key == verified.endpoint_key)
+        });
+        if previous.is_some_and(|item| item.sequence >= verified.sequence) {
+            return Err(HnsrProtocolError::StaleSequence);
+        }
+        let key_count = self.records.get(key).map_or(0, Vec::len);
+        if previous.is_none() && key_count >= self.limits.records_per_key {
+            return Err(HnsrProtocolError::Capacity);
+        }
+        if previous.is_none() && self.size >= self.limits.total_records {
+            return Err(HnsrProtocolError::Capacity);
+        }
+        let source_count = self.source_counts.get(source).copied().unwrap_or(0);
+        let replaces_same_source = previous.is_some_and(|item| item.source == source);
+        if source_count >= self.limits.records_per_source && !replaces_same_source {
+            return Err(HnsrProtocolError::Capacity);
+        }
+        Ok(())
     }
 
     fn insert_verified(
@@ -302,7 +384,7 @@ impl RouteStore {
         if source.is_empty() {
             return Err(HnsrProtocolError::Invalid("empty HNSR route source"));
         }
-        self.prune_key(&key, now);
+        self.preflight_insert(&key, &verified, now, &source)?;
 
         let previous = self.records.get(&key).and_then(|items| {
             items
@@ -310,26 +392,6 @@ impl RouteStore {
                 .position(|item| item.endpoint_key == verified.endpoint_key)
                 .map(|index| (index, items[index].clone()))
         });
-        if let Some((_, item)) = &previous
-            && item.sequence >= verified.sequence
-        {
-            return Err(HnsrProtocolError::StaleSequence);
-        }
-        let key_count = self.records.get(&key).map_or(0, Vec::len);
-        if previous.is_none() && key_count >= self.limits.records_per_key {
-            return Err(HnsrProtocolError::Capacity);
-        }
-        if previous.is_none() && self.size >= self.limits.total_records {
-            return Err(HnsrProtocolError::Capacity);
-        }
-        let source_count = self.source_counts.get(&source).copied().unwrap_or(0);
-        let replaces_same_source = previous
-            .as_ref()
-            .is_some_and(|(_, item)| item.source == source);
-        if source_count >= self.limits.records_per_source && !replaces_same_source {
-            return Err(HnsrProtocolError::Capacity);
-        }
-
         if let Some((index, item)) = previous {
             if let Some(items) = self.records.get_mut(&key) {
                 items.remove(index);
@@ -524,6 +586,9 @@ mod tests {
                 total_records: 4,
                 records_per_key: 2,
                 records_per_source: 1,
+                verification_attempts_total: 1_024,
+                verification_attempts_per_source: 64,
+                verification_window_seconds: 60,
             },
         )
         .expect("valid");
@@ -572,6 +637,9 @@ mod tests {
                 total_records: 4,
                 records_per_key: 2,
                 records_per_source: 1,
+                verification_attempts_total: 1_024,
+                verification_attempts_per_source: 64,
+                verification_window_seconds: 60,
             },
         )
         .expect("valid");
