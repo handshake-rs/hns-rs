@@ -2345,7 +2345,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        DEFAULT_WINDOW, EndpointReservation, HNS_NODE_V1, HnsrService, RelayConfig, RelayLimits,
+        DEFAULT_WINDOW, EndpointReservation, HNS_NODE_V1, HNS_WEB_V1, HnsrService, RelayConfig,
+        RelayLimits,
     };
 
     const MAGIC: u32 = 0x6d6f_6f6e;
@@ -2356,9 +2357,13 @@ mod tests {
     }
 
     fn requester_config() -> HnsrRequesterConfig {
+        requester_config_for_profile(HNS_NODE_V1)
+    }
+
+    fn requester_config_for_profile(profile: u16) -> HnsrRequesterConfig {
         HnsrRequesterConfig {
             network_magic: MAGIC,
-            profile: HNS_NODE_V1,
+            profile,
             allow_private_relay: true,
             maximum_circuits: 4,
             maximum_queue_bytes: MAX_CIRCUIT_QUEUE,
@@ -2367,6 +2372,10 @@ mod tests {
     }
 
     fn confirmed_reservation() -> (HnsrService, RelayTicket) {
+        confirmed_reservation_for_profile(HNS_NODE_V1)
+    }
+
+    fn confirmed_reservation_for_profile(profile: u16) -> (HnsrService, RelayTicket) {
         let config = RelayConfig {
             network_magic: MAGIC,
             transport: 0,
@@ -2374,7 +2383,7 @@ mod tests {
             host: [0; 16],
             port: 14_039,
             allow_private_address: true,
-            supported_profiles: BTreeSet::from([HNS_NODE_V1]),
+            supported_profiles: BTreeSet::from([profile]),
             limits: RelayLimits {
                 maximum_reservations: 8,
                 maximum_reservations_per_source: 2,
@@ -2386,7 +2395,7 @@ mod tests {
             None,
         );
         let relay_key = service.relay().expect("relay").relay_key();
-        let endpoint = EndpointReservation::new(MAGIC, HNS_NODE_V1, [1; 32]).expect("endpoint");
+        let endpoint = EndpointReservation::new(MAGIC, profile, [1; 32]).expect("endpoint");
         let reserve = endpoint
             .reserve(&relay_key, [3; 8], 300, 2, 65_536, [4; 16])
             .expect("reserve");
@@ -2411,7 +2420,12 @@ mod tests {
         service: &HnsrService,
         ticket: RelayTicket,
     ) -> (HnsrRequester, OpaqueRelayRuntime, [u8; 8]) {
-        open_circuit_with_config(service, ticket, OpaqueRelayConfig::default())
+        open_circuit_with_profile_and_config(
+            service,
+            ticket,
+            HNS_NODE_V1,
+            OpaqueRelayConfig::default(),
+        )
     }
 
     fn open_circuit_with_config(
@@ -2419,11 +2433,21 @@ mod tests {
         ticket: RelayTicket,
         relay_config: OpaqueRelayConfig,
     ) -> (HnsrRequester, OpaqueRelayRuntime, [u8; 8]) {
+        open_circuit_with_profile_and_config(service, ticket, HNS_NODE_V1, relay_config)
+    }
+
+    fn open_circuit_with_profile_and_config(
+        service: &HnsrService,
+        ticket: RelayTicket,
+        profile: u16,
+        relay_config: OpaqueRelayConfig,
+    ) -> (HnsrRequester, OpaqueRelayRuntime, [u8; 8]) {
         let relay_peer = peer("relay");
         let requester_peer = peer("requester");
         let endpoint_peer = peer("endpoint");
         let mut requester =
-            HnsrRequester::new([10; 16], 1, requester_config(), NOW).expect("requester");
+            HnsrRequester::new([10; 16], 1, requester_config_for_profile(profile), NOW)
+                .expect("requester");
         let open = requester
             .begin_open(
                 relay_peer.clone(),
@@ -2434,6 +2458,12 @@ mod tests {
                 DEFAULT_WINDOW,
             )
             .expect("open");
+        assert_eq!(
+            OpenBody::decode(&open.packet.body)
+                .expect("open body")
+                .profile,
+            profile
+        );
         let mut relay =
             OpaqueRelayRuntime::new([11; 16], 1, relay_config, NOW).expect("opaque relay");
         let incoming = relay
@@ -2447,6 +2477,12 @@ mod tests {
             .pop()
             .expect("incoming");
         assert_eq!(incoming.route.destination, endpoint_peer);
+        assert_eq!(
+            IncomingBody::decode(&incoming.route.packet.body)
+                .expect("incoming body")
+                .profile,
+            profile
+        );
         relay
             .acknowledge(incoming.action_id, true)
             .expect("incoming delivered");
@@ -2483,6 +2519,21 @@ mod tests {
             panic!("unexpected requester event");
         };
         (requester, relay, circuit_id)
+    }
+
+    #[test]
+    fn hns_web_profile_completes_open_incoming_and_opened() {
+        let (service, ticket) = confirmed_reservation_for_profile(HNS_WEB_V1);
+        let (requester, relay, circuit_id) = open_circuit_with_profile_and_config(
+            &service,
+            ticket,
+            HNS_WEB_V1,
+            OpaqueRelayConfig::default(),
+        );
+
+        assert_ne!(circuit_id, [0; 8]);
+        assert_eq!(requester.status().active_circuits, 1);
+        assert_eq!(relay.status().active_circuits, 1);
     }
 
     fn pending_open() -> (

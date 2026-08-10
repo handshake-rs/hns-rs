@@ -19,6 +19,11 @@ write acknowledgements, cumulative byte ceilings, deadlines, disconnect and
 policy revocation, and checksummed fail-closed restart snapshots. Adapters
 still own authenticated outer connections, clocks, scheduling, and atomic
 snapshot storage; circuit plaintext never enters the relay runtime.
+Circuit bodies admit any nonzero profile so the profile selected by a named or
+unnamed reservation flows unchanged through its ticket, route, OPEN, and
+INCOMING messages. Relay allowlists and exact requester/ticket/reservation
+matching remain the authority for profile admission; unnamed route records
+remain restricted to `HNS_NODE_V1`, while named records reject that profile.
 Snapshots retain a trusted-time high-water mark and require a caller-held
 minimum generation on restore, so clock rollback and replay of settings from
 before a later opt-out/configuration generation fail closed. Relay actions,

@@ -3,8 +3,8 @@ use hns_encoding::{Decoder, Encoder};
 use crate::record::{ReserveRequest, decode_signature, encode_signature};
 use crate::routing::RendezvousContact;
 use crate::{
-    HNS_NODE_V1, HnsrProtocolError, MAX_CONTACTS, MAX_DATA_SIZE, MAX_PACKET_SIZE, MAX_RECORD_SIZE,
-    MAX_WINDOW, MIN_WINDOW, is_zero,
+    HnsrProtocolError, MAX_CONTACTS, MAX_DATA_SIZE, MAX_PACKET_SIZE, MAX_RECORD_SIZE, MAX_WINDOW,
+    MIN_WINDOW, is_zero,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -520,7 +520,7 @@ impl IncomingBody {
     fn validate(&self) -> Result<(), HnsrProtocolError> {
         if is_zero(&self.ticket_id)
             || is_zero(&self.open_request_id)
-            || self.profile != HNS_NODE_V1
+            || self.profile == 0
             || is_zero(&self.requester_nonce)
             || !(MIN_WINDOW..=MAX_WINDOW).contains(&self.initial_window)
         {
@@ -720,7 +720,7 @@ fn validate_circuit_values(
     if is_zero(ticket_id)
         || is_zero(reservation_id)
         || public_key_invalid(endpoint_key)
-        || profile != HNS_NODE_V1
+        || profile == 0
         || is_zero(requester_nonce)
         || !(MIN_WINDOW..=MAX_WINDOW).contains(&initial_window)
     {
@@ -765,6 +765,7 @@ fn decode_reason_detail(input: &[u8]) -> Result<(u16, String), HnsrProtocolError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{HNS_NODE_V1, HNS_WEB_V1};
 
     #[test]
     fn fixed_size_circuit_bodies_round_trip() {
@@ -793,6 +794,64 @@ mod tests {
         let encoded = opened.encode().expect("valid");
         assert_eq!(encoded.len(), 28);
         assert_eq!(OpenedBody::decode(&encoded).expect("valid"), opened);
+    }
+
+    #[test]
+    fn circuit_bodies_accept_nonzero_profiles_and_reject_zero() {
+        let endpoint_key =
+            hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+                .expect("hex")
+                .try_into()
+                .expect("33 bytes");
+        for profile in [HNS_WEB_V1, 0xff00] {
+            let open = OpenBody {
+                ticket_id: [1; 32],
+                reservation_id: [2; 16],
+                endpoint_key,
+                profile,
+                requester_nonce: [3; 16],
+                initial_window: MIN_WINDOW,
+            };
+            let encoded = open.encode().expect("nonzero profile open");
+            assert_eq!(OpenBody::decode(&encoded).expect("open round trip"), open);
+
+            let incoming = IncomingBody {
+                ticket_id: [1; 32],
+                open_request_id: [4; 8],
+                profile,
+                requester_nonce: [3; 16],
+                initial_window: MIN_WINDOW,
+            };
+            let encoded = incoming.encode().expect("nonzero profile incoming");
+            assert_eq!(
+                IncomingBody::decode(&encoded).expect("incoming round trip"),
+                incoming
+            );
+        }
+
+        assert!(
+            OpenBody {
+                ticket_id: [1; 32],
+                reservation_id: [2; 16],
+                endpoint_key,
+                profile: 0,
+                requester_nonce: [3; 16],
+                initial_window: MIN_WINDOW,
+            }
+            .encode()
+            .is_err()
+        );
+        assert!(
+            IncomingBody {
+                ticket_id: [1; 32],
+                open_request_id: [4; 8],
+                profile: 0,
+                requester_nonce: [3; 16],
+                initial_window: MIN_WINDOW,
+            }
+            .encode()
+            .is_err()
+        );
     }
 
     #[test]

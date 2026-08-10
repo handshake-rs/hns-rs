@@ -39,6 +39,9 @@ The crate provides:
   deadlines, directional credit, retained write acknowledgements, per-circuit
   queues, signed per-circuit and per-reservation byte ceilings, and explicit
   disconnect, reservation, expiry, and policy revocation;
+- nonzero profile-preserving circuit establishment, with the exact profile
+  selected by the reservation and ticket carried through OPEN and INCOMING
+  while relay allowlists and requester configuration enforce admission;
 - versioned BLAKE2b-256-checksummed requester and relay snapshots that preserve
   exact settings and counters while revoking, rather than resurrecting, every
   snapshotted live circuit under a mandatory fresh process session;
@@ -64,6 +67,10 @@ The compatibility snapshot implements the unnamed endpoint-key authority
 chain. Named service identity is supplied only by the HNSA adapter and current
 authenticated HNS state from the consuming node or browser; it is never
 inferred from a rendezvous response.
+Unnamed version-1 route records remain restricted to `HNS_NODE_V1`; named
+version-2 routes continue to reject that profile. Accepting another nonzero
+profile in a circuit body does not enable it unless the reservation, ticket,
+requester configuration, and relay allowlist all select that exact profile.
 
 This crate deliberately contains no socket runtime, Tokio, persistent
 database, wallet, browser, mobile, or MeshMine dependency. Consumers bind each

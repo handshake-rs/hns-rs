@@ -10,8 +10,9 @@ Release-candidate source for the modular wallet and marketplace boundary:
 - bounded live HNSR reservation, renewal, confirmation, withdrawal,
   named-route publication, and lookup state machines, plus runtime-neutral
   requester and opaque circuit-relay routing with exact authenticated-peer and
-  ticket admission, deadlines, directional credit, retained write accounting,
-  signed byte ceilings, disconnect/policy revocation, and checksummed
+  ticket admission, nonzero profile-preserving OPEN/INCOMING establishment,
+  deadlines, directional credit, retained write accounting, signed byte
+  ceilings, disconnect/policy revocation, and checksummed
   fail-closed snapshots with caller-held anti-rollback generations and trusted
   time high-water marks, plus global/per-circuit/per-peer action bounds and
   exact pending-context translation, with sockets and atomic persistence left
