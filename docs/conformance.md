@@ -61,9 +61,10 @@ rollback. It is not the repository full gate or a deployed-network test.
 
 The NameState/resource, fee-policy, typed TRANSFER/FINALIZE,
 listing-independent Shakedex recovery, empty name-market inventory, live HNSR
-service, and owner-bound chat tranches retain focused tests and exact
-vectors where applicable. The repository's full locked qualification gate was
-not rerun for their converged `main` commit; that remains required before the
-unreleased 0.2.0 line can be published. Static vectors and in-memory service
-tests do not establish live-chain ownership, transfer maturity, renewal-block
-eligibility, durable relay recovery, deployed peer policy, or reorg behavior.
+service, and owner-bound chat tranches retain focused tests and exact vectors
+where applicable. The converged feature head
+`b33b346780c8f6a9bb18a54390019486cdab0221` passed the complete locked gate and
+17-package publication dry-run in CI run `31369025777`. Static vectors and
+in-memory service tests still do not establish live-chain ownership, transfer
+maturity, renewal-block eligibility, durable relay recovery, deployed peer
+policy, or reorg behavior.

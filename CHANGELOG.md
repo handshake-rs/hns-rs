@@ -73,9 +73,11 @@ Release-candidate source for the modular wallet and marketplace boundary:
 All public workspace packages advance together so changed crates never attempt
 to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is
 published by this source commit. The fee-policy, name-transition/recovery,
-live HNSR, and owner-bound chat additions are source- and, where applicable,
-fixture-reviewed only until the converged commit passes the consolidated
-locked qualification gate.
+live HNSR, and owner-bound chat additions passed the consolidated locked
+qualification and package dry-run at feature head
+`b33b346780c8f6a9bb18a54390019486cdab0221`. Live deployment and downstream
+product qualification remain separate, and no `0.2.0` package or tag has been
+published.
 
 ## 0.1.0 - 2026-07-29
 

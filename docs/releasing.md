@@ -54,9 +54,14 @@ not exist in their permanent crates.io `0.1.0` packages. Local publication
 patches are verification aids only and must never be used to present the old
 version as satisfying those dependencies.
 
-No `0.2.0` package or tag has been published by the preparation commit. The
-full gate, source review, intentional commit, authenticated upload, tag, and
-post-publication verification remain separate release actions.
+No `0.2.0` package or tag has been published. At feature head
+`b33b346780c8f6a9bb18a54390019486cdab0221`, CI run `31369025777` passed the
+complete locked `scripts/check.sh` gate, including both lockfile metadata
+graphs, cargo-deny, strict Clippy, all tests/targets/features, the release
+workspace build, and all 17 normalized package dry-runs; its RustSec job also
+passed. Any later release-source commit still requires its own exact-head CI.
+Authenticated upload, tagging, and post-publication verification remain
+separate release actions.
 
 The release candidate includes HNSA named-service authority objects, the
 versioned HNSA-to-HNSR named-route adapter, owner-bound HNS Chat resource and
@@ -76,10 +81,9 @@ source-verified HSD vectors. The chat crate now carries an explicit normalized
 source-package inventory, SHA-256-authenticated valid/invalid vectors, an
 external-consumer integration test, and public canonical wire bounds so a
 downstream node does not require a sibling checkout or copied types. These
-post-vector source additions and the
-converged HNSR/chat dependency graph have not yet passed this document's full
-locked gate. No downstream release may claim the API until that gate passes
-and the shared `0.2.0` packages are published.
+post-vector additions and the converged HNSR/chat dependency graph are covered
+by the exact feature-head gate above. No downstream release may claim a
+published API until the shared `0.2.0` packages exist.
 
 The runtime-neutral HNSR circuit selection passed five focused tests at exact
 source commit `bfa426adef9bb5df023b9c1235d635b9feaa6dcb` using the locked offline
@@ -92,9 +96,10 @@ Focused HNS Chat evidence is limited to the external-consumer integration
 target at exact source commit
 `87c26b21e971d45de47d08cb0a154ac28ec83d00`. The locked offline command for
 `-p hns-chat-protocol --test release_source -- --test-threads=1` passed 4 tests
-with no failures, ignored, measured, or filtered cases. The normalized package
-preflight, full locked gate, publication, tag, post-publication checks, and
-deployed mailbox qualification remain unrun.
+with no failures, ignored, measured, or filtered cases. The later feature-head
+gate covered the full crate tests and normalized package preflight.
+Publication, tagging, post-publication checks, and deployed mailbox
+qualification remain unrun.
 
 ## Private packages
 

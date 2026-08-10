@@ -143,9 +143,11 @@ the checked-in public-API resource/parser, owner-parity/false-authority, exact
 wire-bound/rejection, and fixture-sidecar cases in `tests/release_source.rs`.
 The crate's other unit tests were not selected by that command.
 
-The normalized package preflight, repository full locked gate, dependency and
-RustSec gates, publication, tag, and post-publication archive/VCS identity
-checks remain unrun for this source. A deployed mailbox is also unrun and still
+The later converged feature head
+`b33b346780c8f6a9bb18a54390019486cdab0221` passed the normalized package
+preflight, repository full locked gate, dependency policy, and RustSec jobs in
+CI run `31369025777`. Publication, tagging, and post-publication archive/VCS
+identity checks remain unrun. A deployed mailbox is also unrun and still
 requires downstream persistence/restart, canonical-chain/reorg, authenticated
 transport, abuse, installed-client, adversarial, performance, and independent
 security qualification.
