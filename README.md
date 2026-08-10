@@ -106,6 +106,13 @@ python3 scripts/verify-release.py --toolchain 1.89.0
 
 See `docs/releasing.md` before any package dry-run or irreversible publication.
 
+The workspace is an unpublished `0.2.0` release candidate. Dated source commit
+`b24b66c382de53330ec21dd3137e056a2bea3e2d` passed exact-head CI, complete
+four-language CodeQL analysis, and the explicit 17-package release preflight;
+`v0.1.0` remains the latest published and tagged release. Those results qualify
+only that exact source commit. Any later source commit must repeat the release
+gates documented in `docs/releasing.md` before publication.
+
 The HNSR service state machines are an embeddable protocol boundary, not a
 durable daemon or network transport. Persistence, restart recovery, peer
 policy, and deployment qualification remain responsibilities of the embedding

@@ -73,7 +73,11 @@ undated release-preparation commit
 `abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` passed locked CI run
 `31385655990` plus the manual 17-package release preflight run `31386373480`.
 Its CodeQL run `31385656053` remained incomplete because the
-JavaScript/TypeScript job did not leave the queue. Before upload, the release
-procedure requires exact-head CI, complete CodeQL, and a new manual release
-preflight for the exact dated source. Downstream crates may consume this API
-from crates.io only after the shared `0.2.0` line is published.
+JavaScript/TypeScript job did not leave the queue. Dated source commit
+`b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
+and RustSec run `31398600728`, all four configured CodeQL analyses in run
+`31398598588`, and the manual 17-package release preflight run `31399004538`.
+Those results qualify only that exact unpublished source commit; any later
+source commit requires the same gates before upload. Downstream crates may
+consume this API from crates.io only after the shared `0.2.0` line is
+published.

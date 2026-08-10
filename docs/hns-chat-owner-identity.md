@@ -150,11 +150,15 @@ run `31369025777`. Undated release-preparation commit
 `abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` then passed locked CI run
 `31385655990` and the manual 17-package Cargo preflight run `31386373480`. Its
 CodeQL run `31385656053` was incomplete because JavaScript/TypeScript analysis
-remained queued. Before upload, the release procedure requires exact-head CI,
-complete CodeQL, and a new manual release preflight for the exact dated source.
-Publication, tagging, and post-publication archive/VCS identity checks are
-separate actions and are not evidence supplied by this source. A deployed
-mailbox is not evidence supplied by this source; downstream persistence and
-restart, canonical-chain and reorg handling, authenticated transport, abuse,
-installed-client, adversarial, performance, and independent security
-qualification remain product responsibilities.
+remained queued. Dated source commit
+`b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
+and RustSec run `31398600728`, all four configured CodeQL analyses in run
+`31398598588`, and the manual 17-package Cargo preflight run `31399004538`.
+Those results qualify only that exact unpublished source commit; any later
+source commit requires the same gates before upload. Publication, tagging, and
+post-publication archive/VCS identity checks are separate actions and are not
+evidence supplied by this source. A deployed mailbox is not evidence supplied
+by this source; downstream persistence and restart, canonical-chain and reorg
+handling, authenticated transport, abuse, installed-client, adversarial,
+performance, and independent security qualification remain product
+responsibilities.

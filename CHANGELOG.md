@@ -84,12 +84,14 @@ undated release-preparation commit
 `31385655990` and the explicit 17-package release preflight run `31386373480`.
 Its CodeQL run `31385656053` completed Python, Rust, and Actions analysis but
 not JavaScript/TypeScript analysis, which remained queued, so it is not a
-complete CodeQL qualification. Before any upload, the release procedure must
-verify this exact dated source with successful CI, complete CodeQL, and an
-explicit manual release preflight. Creating this source commit performs none
-of those external actions and does not itself publish a package or tag. Live
-deployment and downstream product qualification remain separate from package
-publication.
+complete CodeQL qualification. The dated source commit
+`b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
+run `31398600728`, complete Python, JavaScript/TypeScript, Rust, and Actions
+CodeQL run `31398598588`, and the explicit 17-package release preflight run
+`31399004538`. Those external results qualify only that exact commit; they did
+not publish a package, create a tag, or qualify any live deployment or
+downstream product. Version `0.2.0` remains unpublished, and any later source
+commit must pass the same exact-head gates before upload.
 
 ## 0.1.0 - 2026-07-29
 

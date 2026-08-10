@@ -82,15 +82,18 @@ the manually dispatched release preflight run `31386373480`. Its CodeQL run
 JavaScript/TypeScript analysis remained queued; that run therefore is not a
 complete CodeQL qualification.
 
-Those results are historical evidence for `abf11ff`, not qualification of the
-dated source that changes these changelogs and documents. The release procedure
-requires a successful full CI run, a complete successful CodeQL run, and a
-manually dispatched explicit release preflight for that exact dated source
-before any upload. Authenticated upload, tagging, and post-publication
-verification remain separate release actions. Immediately before execution,
-confirm the intended version is either absent on crates.io or is an exact
-resumable archive from the same release commit; the execute path enforces the
-latter case.
+Those results remain historical evidence for `abf11ff`. Dated source commit
+`b24b66c382de53330ec21dd3137e056a2bea3e2d` subsequently passed the complete
+locked gate and RustSec in exact-head CI run `31398600728`, all four configured
+CodeQL analyses (Python, JavaScript/TypeScript, Rust, and Actions) in run
+`31398598588`, and all 17 real Cargo package dry-runs in manually dispatched
+release preflight run `31399004538`. Version `0.2.0` remains unpublished and
+untagged. These results qualify only `b24b66c`; any later source commit requires
+its own successful CI, complete CodeQL, and explicit release preflight before
+upload. Authenticated upload, tagging, and post-publication verification remain
+separate release actions. Immediately before execution, confirm the intended
+version is either absent on crates.io or is an exact resumable archive from the
+same release commit; the execute path enforces the latter case.
 
 The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
 here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and
