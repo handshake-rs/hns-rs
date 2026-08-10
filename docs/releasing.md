@@ -26,17 +26,30 @@ The release script publishes only these packages, in dependency order:
 16. `hns-marketplace-protocol`
 17. `hns-p2p-wire`
 
+`release/public-crates.txt` is the machine-readable authority for this list.
+The cheap release validator fails if this document, the workspace's
+publishable package set, or the dependency order diverges from that file.
+
 Internal dependencies carry both a workspace path and the shared crates.io
 version. Cargo removes each path when it creates the published package.
 
+Every public package carries its own README, exact workspace license copies,
+and a package-local changelog that points to the canonical shared release
+notes. `scripts/verify-release.py` checks those files, all required crates.io
+metadata, the shared version and internal version requirements, private
+packages, and dependency order without compiling source. The package dry-run
+then checks the normalized archives contain those files and no dependency path
+survives normalization.
+
 ## 0.1.0 publication record
 
-The original 14 allowlisted crates were published to crates.io on 2026-07-29 and are
-non-yanked. Every published package embeds release-source commit
+The original 14 allowlisted crates were published to crates.io on 2026-07-29
+and are non-yanked. Every published package embeds release-source commit
 `0ea5994c336642ea7d01c51c0e22df2008985426` in its Cargo VCS metadata.
 
-`hns-marketplace-protocol` and `hns-chat-protocol` were added after that
-publication and have no 0.1.0 publication record in this repository.
+`hns-service-authority`, `hns-marketplace-protocol`, and `hns-chat-protocol`
+were added after that publication and have no 0.1.0 publication record in this
+repository.
 
 The annotated local and `origin` `v0.1.0` tag object
 `354b286ff623424d24376f20885fb05407561d70` points to the follow-up publication
@@ -63,43 +76,12 @@ passed. Any later release-source commit still requires its own exact-head CI.
 Authenticated upload, tagging, and post-publication verification remain
 separate release actions.
 
-The release candidate includes HNSA named-service authority objects, the
-versioned HNSA-to-HNSR named-route adapter, owner-bound HNS Chat resource and
-opaque mailbox values, a generated HNSR service-profile assignment, and
-bounded live HNSR reservation and route-service state machines. The live
-service boundary remains transport- and persistence-independent; it does not
-qualify a deployed relay. The candidate also includes exact protocol-V1
-marketplace/settlement fixtures, independent
-maker settlement delegation, native-HNS hello binding,
-Shakedex fulfillment and cancellation APIs, exact Denuo version/flag handling,
-post-deadline recovery-status validation, and resumable publication identity
-checks. It also includes the exact HSD NameState/resource codec, shared
-owner-outpoint semantics, sigop-adjusted fee-policy arithmetic with explicit
-units, strict TRANSFER/FINALIZE construction, listing-independent Shakedex
-recovery, canonical empty offer-inventory responses, and pinned
-source-verified HSD vectors. The chat crate now carries an explicit normalized
-source-package inventory, SHA-256-authenticated valid/invalid vectors, an
-external-consumer integration test, and public canonical wire bounds so a
-downstream node does not require a sibling checkout or copied types. These
-post-vector additions and the converged HNSR/chat dependency graph are covered
-by the exact feature-head gate above. No downstream release may claim a
-published API until the shared `0.2.0` packages exist.
-
-The runtime-neutral HNSR circuit selection passed five focused tests at exact
-source commit `bfa426adef9bb5df023b9c1235d635b9feaa6dcb` using the locked offline
-`-p hns-hnsr-protocol circuit::tests:: -- --test-threads=1` command. This is
-narrow source qualification only; it does not replace the full locked gate,
-downstream adapter qualification, durable restart testing, or live relay
-deployment evidence.
-
-Focused HNS Chat evidence is limited to the external-consumer integration
-target at exact source commit
-`87c26b21e971d45de47d08cb0a154ac28ec83d00`. The locked offline command for
-`-p hns-chat-protocol --test release_source -- --test-threads=1` passed 4 tests
-with no failures, ignored, measured, or filtered cases. The later feature-head
-gate covered the full crate tests and normalized package preflight.
-Publication, tagging, post-publication checks, and deployed mailbox
-qualification remain unrun.
+The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
+here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and
+cross-chain marketplace values, but protocol-package qualification does not
+qualify a deployed relay, mailbox, wallet, marketplace, or downstream product.
+No downstream release may claim a published `0.2.0` API until all shared
+packages exist on crates.io.
 
 ## Private packages
 
@@ -115,10 +97,21 @@ published.
 ## Release procedure
 
 1. Update the shared version in the root `Cargo.toml`, every internal dependency
-   version in `[workspace.dependencies]`, and this changelog.
-2. Inspect the changes and commit the exact release source. The execution mode
+   version in `[workspace.dependencies]`, `CHANGELOG.md`,
+   and `release/CRATE-CHANGELOG.md`, then synchronize the package copies with
+   `./scripts/sync-release-changelogs.sh`. Before an actual upload, replace
+   `unreleased` with the release date in both changelog authorities and
+   synchronize again. The validator rejects an execution attempt whose heading
+   is still `unreleased`.
+2. Run the cheap metadata and dependency-order check while preparing source:
+
+   ```bash
+   python3 scripts/verify-release.py --toolchain 1.89.0
+   ```
+
+3. Inspect the changes and commit the exact release source. The execution mode
    refuses a dirty worktree.
-3. Qualify that exact commit once with the full locked gate, either in CI after
+4. Qualify that exact commit once with the full locked gate, either in CI after
    an explicitly authorized push or in a clean local checkout:
 
    ```bash
@@ -127,12 +120,6 @@ published.
 
    Do not repeat the same full gate locally and in CI when the source commit,
    toolchain, and gate are identical.
-4. Authenticate without placing a token in the repository:
-
-   ```bash
-   cargo login
-   ```
-
 5. Run the package-only preflight only if it was not already part of the
    qualifying gate:
 
@@ -143,10 +130,11 @@ published.
    The preflight temporarily patches unpublished workspace dependencies to
    their local paths so Cargo can verify every normalized package before the
    first dependency exists on crates.io. Those patches are not used for the
-   real upload. The preflight additionally inspects the normalized
-   `hns-chat-protocol` archive for its complete public source/test/vector
-   inventory, absence of path dependencies, and a valid vector sidecar. To
-   inspect only that package while preparing downstream source, use:
+   real upload. It also requires every normalized archive to carry README,
+   license, changelog, manifest, and exact source-commit metadata, with no
+   retained dependency paths. The HNS Chat package receives additional public
+   source/test/vector inventory and vector-sidecar checks. To inspect only that
+   package while preparing downstream source, use:
 
    ```bash
    ./scripts/publish.sh --dry-run hns-chat-protocol
@@ -154,10 +142,20 @@ published.
 
    Partial selection is deliberately unavailable in execution mode.
 
-6. Publish the allowlist:
+6. Stop and obtain explicit human authorization for the irreversible crates.io
+   upload. Authentication, publication, and tagging are never CI steps and are
+   not implied by a successful dry-run. Authenticate without placing a token in
+   the repository:
 
    ```bash
-   ./scripts/publish.sh --execute
+   cargo login
+   ```
+
+7. After checking the exact version again, perform the explicitly confirmed
+   upload. The confirmation version must equal the workspace version:
+
+   ```bash
+   ./scripts/publish.sh --execute --confirm-publish 0.2.0
    ```
 
 The execution mode is restartable, but it never skips solely because an API
@@ -168,5 +166,26 @@ current release commit. Any mismatch aborts the release. This permits a
 partially completed release to resume without accepting an unrelated artifact
 under the same version.
 
+New uploads use a 605-second propagation/cooldown interval before the next
+allowlisted crate by default, matching the ecosystem engine release procedure.
+The command waits only after a successful new upload and only when another
+crate remains; verified resume skips and the final new upload do not sleep.
+Override the non-negative interval only when crates.io communicates a different
+limit:
+
+```bash
+PUBLISH_INTERVAL_SECONDS=605 \
+  ./scripts/publish.sh --execute --confirm-publish 0.2.0
+```
+
+After the cooldown, the script downloads the newly uploaded archive and
+requires the same exact checksum and source-commit identity as a resume skip
+before it attempts the next crate. It checks the final upload immediately so
+it does not impose a pointless final cooldown. If that archive is not visible
+yet, the command exits safely; rerunning the same command after propagation
+verifies the existing version and resumes without publishing it again.
+
 After publication, push an annotated `vX.Y.Z` tag and, if it was qualified
 locally, the release commit; then confirm every package page and docs.rs build.
+Publication cannot be rolled back: yanking can discourage new resolution, but
+it cannot delete or replace an uploaded crate version.

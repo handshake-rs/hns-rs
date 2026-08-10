@@ -96,6 +96,16 @@ with:
 CI also audits the root and independent fuzz lockfiles with a pinned RustSec
 scanner.
 
+Release metadata, the shared version, internal dependency order, package docs,
+licenses, changelogs, and private-package boundaries can be checked without a
+build:
+
+```bash
+python3 scripts/verify-release.py --toolchain 1.89.0
+```
+
+See `docs/releasing.md` before any package dry-run or irreversible publication.
+
 The HNSR service state machines are an embeddable protocol boundary, not a
 durable daemon or network transport. Persistence, restart recovery, peer
 policy, and deployment qualification remain responsibilities of the embedding

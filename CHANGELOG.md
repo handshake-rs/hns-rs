@@ -61,7 +61,12 @@ Release-candidate source for the modular wallet and marketplace boundary:
   marketplace cap;
 - source-independent, versioned, SHA-256-sidecarred protocol vectors covering
   signed objects, full envelopes, descriptors, transactions, signature hashes,
-  and transaction IDs; and
+  and transaction IDs;
+- one canonical, dependency-ordered publication allowlist plus a cheap
+  metadata/version/private-package gate, package-local release notes, common
+  normalized-archive inventory checks, and an explicit version confirmation
+  before any irreversible upload, with a validated crates.io cooldown and
+  exact post-upload archive verification before dependent publication;
 - resumable publication checks requiring exact `.crate` bytes and release VCS
   identity before an existing package version is skipped; and
 - default-on HIP-76/HIP-77 requester policy, opaque ODoH proxying, and HNSR

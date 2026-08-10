@@ -5,10 +5,14 @@ repo_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
 rust_toolchain=${RUST_TOOLCHAIN:-1.89.0}
+publish_interval_seconds=${PUBLISH_INTERVAL_SECONDS-605}
 mode=${1:---dry-run}
 requested_package=${2:-}
+confirmed_version=${3:-}
+argument_count=$#
 release_commit=$(git rev-parse HEAD)
 release_tmp=
+release_manifest=release/public-crates.txt
 
 cleanup_release_tmp() {
     if [ -n "$release_tmp" ] && [ -d "$release_tmp" ]
@@ -19,25 +23,16 @@ cleanup_release_tmp() {
 
 trap cleanup_release_tmp EXIT HUP INT TERM
 
-public_crates="
-hns-encoding
-hns-primitives
-hns-covenants
-hns-dns-relay-protocol
-hns-header-consensus
-hns-service-authority
-hns-odoh-protocol
-hns-p2p-experimental
-hns-urkel-proof
-hns-transaction
-hns-chat-protocol
-hns-hnsr-protocol
-hns-script
-hns-mining
-hns-swap
-hns-marketplace-protocol
-hns-p2p-wire
-"
+public_crates=$(sed \
+    -e '/^[[:space:]]*#/d' \
+    -e '/^[[:space:]]*$/d' \
+    "$release_manifest")
+
+last_public_crate=
+for package in $public_crates
+do
+    last_public_crate=$package
+done
 
 require_public_crate() {
     requested=$1
@@ -209,10 +204,6 @@ verify_chat_source_package() {
     for relative_path in \
         .cargo_vcs_info.json \
         Cargo.toml \
-        Cargo.toml.orig \
-        LICENSE-APACHE \
-        LICENSE-MIT \
-        README.md \
         fixtures/chat-v1/hns-chat-resource-v1.txt \
         fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \
         src/binding.rs \
@@ -220,6 +211,52 @@ verify_chat_source_package() {
         src/owner.rs \
         src/wire.rs \
         tests/release_source.rs
+    do
+        if ! printf '%s\n' "$archive_entries" | grep -Fqx "$archive_root/$relative_path"
+        then
+            echo "error: normalized $package package omits $relative_path" >&2
+            exit 1
+        fi
+    done
+
+    expected_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/chat-v1/hns-chat-resource-v1.txt.sha256" |
+        awk 'NR == 1 { print $1 }')
+    actual_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/chat-v1/hns-chat-resource-v1.txt" |
+        sha256sum |
+        awk '{ print $1 }')
+    if [ "$actual_digest" != "$expected_digest" ]
+    then
+        echo "error: packaged HNS Chat vectors do not match their SHA-256 sidecar" >&2
+        exit 1
+    fi
+}
+
+verify_common_source_package() {
+    package=$1
+    version=$(package_version "$package")
+    package_target=${CARGO_TARGET_DIR:-target}
+    archive="$package_target/package/$package-$version.crate"
+    archive_root="$package-$version"
+
+    if [ ! -f "$archive" ]
+    then
+        echo "error: Cargo did not create $archive" >&2
+        exit 1
+    fi
+
+    archive_entries=$(tar -tf "$archive")
+    for relative_path in \
+        .cargo_vcs_info.json \
+        Cargo.toml \
+        Cargo.toml.orig \
+        CHANGELOG.md \
+        LICENSE-APACHE \
+        LICENSE-MIT \
+        README.md
     do
         if ! printf '%s\n' "$archive_entries" | grep -Fqx "$archive_root/$relative_path"
         then
@@ -254,24 +291,20 @@ verify_chat_source_package() {
         exit 1
     fi
 
-    expected_digest=$(tar -xOf \
-        "$archive" \
-        "$archive_root/fixtures/chat-v1/hns-chat-resource-v1.txt.sha256" |
-        awk 'NR == 1 { print $1 }')
-    actual_digest=$(tar -xOf \
-        "$archive" \
-        "$archive_root/fixtures/chat-v1/hns-chat-resource-v1.txt" |
-        sha256sum |
-        awk '{ print $1 }')
-    if [ "$actual_digest" != "$expected_digest" ]
-    then
-        echo "error: packaged HNS Chat vectors do not match their SHA-256 sidecar" >&2
-        exit 1
-    fi
+    vcs_info=$(tar -xOf "$archive" "$archive_root/.cargo_vcs_info.json")
+    compact_vcs_info=$(printf '%s' "$vcs_info" | tr -d '[:space:]')
+    case "$compact_vcs_info" in
+        *\"sha1\":\"$release_commit\"*) ;;
+        *)
+            echo "error: normalized $package package does not identify source commit $release_commit" >&2
+            exit 1
+            ;;
+    esac
 }
 
 verify_source_package() {
     package=$1
+    verify_common_source_package "$package"
     case "$package" in
         hns-chat-protocol) verify_chat_source_package ;;
     esac
@@ -300,7 +333,7 @@ verify_published_package() {
         --location \
         --silent \
         --show-error \
-        --user-agent "hns-rs-release/0.2 (https://github.com/handshake-rs/hns-rs)" \
+        --user-agent "hns-rs-release/$version (https://github.com/handshake-rs/hns-rs)" \
         --output "$published_archive" \
         "https://crates.io/api/v1/crates/$package/$version/download"
 
@@ -327,8 +360,55 @@ verify_published_package() {
     done
 }
 
+published_package_status() {
+    package=$1
+    version=$2
+    curl \
+        --silent \
+        --show-error \
+        --user-agent "hns-rs-release/$version (https://github.com/handshake-rs/hns-rs)" \
+        --output /dev/null \
+        --write-out '%{http_code}' \
+        "https://crates.io/api/v1/crates/$package/$version"
+}
+
+verify_new_upload() {
+    package=$1
+    version=$2
+
+    if [ "$package" != "$last_public_crate" ] &&
+        [ "$publish_interval_seconds" != "0" ]
+    then
+        echo "waiting ${publish_interval_seconds}s for crates.io propagation and cooldown"
+        sleep "$publish_interval_seconds"
+    fi
+
+    status=$(published_package_status "$package" "$version")
+    case "$status" in
+        200)
+            verify_published_package "$package" "$version"
+            echo "verified newly published $package $version against source $release_commit"
+            ;;
+        404)
+            echo "error: published $package $version is not yet visible for exact verification" >&2
+            echo "error: rerun the same execute command after crates.io propagation; resume verification will not republish it" >&2
+            exit 1
+            ;;
+        *)
+            echo "error: crates.io returned HTTP $status while verifying newly published $package $version" >&2
+            exit 1
+            ;;
+    esac
+}
+
 case "$mode" in
     --dry-run)
+        if [ "$argument_count" -gt 2 ]
+        then
+            echo "usage: $0 [--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
+            exit 2
+        fi
+        python3 scripts/verify-release.py --toolchain "$rust_toolchain"
         if [ -n "$requested_package" ]
         then
             require_public_crate "$requested_package"
@@ -344,17 +424,24 @@ case "$mode" in
         fi
         ;;
     --execute)
-        if [ -n "$requested_package" ]
+        if [ "$argument_count" -ne 3 ] ||
+            [ "$requested_package" != "--confirm-publish" ] ||
+            [ -z "$confirmed_version" ]
         then
-            echo "error: execution does not accept a partial package selection" >&2
+            echo "error: irreversible publication requires --confirm-publish VERSION" >&2
             exit 2
         fi
+        case "$publish_interval_seconds" in
+            *[!0-9]*|'')
+                echo "error: PUBLISH_INTERVAL_SECONDS must be a non-negative integer" >&2
+                exit 2
+                ;;
+        esac
+        python3 scripts/verify-release.py \
+            --toolchain "$rust_toolchain" \
+            --require-clean \
+            --expected-version "$confirmed_version"
         assert_private_packages
-        if [ -n "$(git status --porcelain)" ]
-        then
-            echo "error: refusing to publish from a dirty worktree" >&2
-            exit 1
-        fi
 
         cargo_home=${CARGO_HOME:-"$HOME/.cargo"}
         if [ -z "${CARGO_REGISTRY_TOKEN:-}" ] &&
@@ -368,13 +455,7 @@ case "$mode" in
         do
             version=$(package_version "$package")
 
-            status=$(curl \
-                --silent \
-                --show-error \
-                --user-agent "hns-rs-release/0.2 (https://github.com/handshake-rs/hns-rs)" \
-                --output /dev/null \
-                --write-out '%{http_code}' \
-                "https://crates.io/api/v1/crates/$package/$version")
+            status=$(published_package_status "$package" "$version")
 
             case "$status" in
                 200)
@@ -383,6 +464,7 @@ case "$mode" in
                     ;;
                 404)
                     cargo +"$rust_toolchain" publish --locked -p "$package"
+                    verify_new_upload "$package" "$version"
                     ;;
                 *)
                     echo "error: crates.io returned HTTP $status for $package $version" >&2
@@ -392,7 +474,7 @@ case "$mode" in
         done
         ;;
     *)
-        echo "usage: $0 [--dry-run [PUBLIC-PACKAGE]|--execute]" >&2
+        echo "usage: $0 [--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
         exit 2
         ;;
 esac

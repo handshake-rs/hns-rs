@@ -1,0 +1,18 @@
+# crates.io publication order. Keep one package per line.
+hns-encoding
+hns-primitives
+hns-covenants
+hns-dns-relay-protocol
+hns-header-consensus
+hns-service-authority
+hns-odoh-protocol
+hns-p2p-experimental
+hns-urkel-proof
+hns-transaction
+hns-chat-protocol
+hns-hnsr-protocol
+hns-script
+hns-mining
+hns-swap
+hns-marketplace-protocol
+hns-p2p-wire

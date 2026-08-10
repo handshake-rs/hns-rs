@@ -16,30 +16,19 @@ assert_same_file() {
   fi
 }
 
-public_crates="
-hns-chat-protocol
-hns-encoding
-hns-primitives
-hns-covenants
-hns-dns-relay-protocol
-hns-header-consensus
-hns-service-authority
-hns-hnsr-protocol
-hns-odoh-protocol
-hns-p2p-experimental
-hns-urkel-proof
-hns-transaction
-hns-script
-hns-mining
-hns-swap
-hns-marketplace-protocol
-hns-p2p-wire
-"
+public_crates=$(sed \
+  -e '/^[[:space:]]*#/d' \
+  -e '/^[[:space:]]*$/d' \
+  release/public-crates.txt)
+
+python3 scripts/verify-release.py --toolchain "$rust_toolchain"
+./scripts/check-publish-arguments.sh
 
 for package in $public_crates
 do
   assert_same_file LICENSE-APACHE "crates/$package/LICENSE-APACHE"
   assert_same_file LICENSE-MIT "crates/$package/LICENSE-MIT"
+  assert_same_file release/CRATE-CHANGELOG.md "crates/$package/CHANGELOG.md"
 done
 
 assert_same_file fixtures/hsd/name-state-resource-v1.txt \
