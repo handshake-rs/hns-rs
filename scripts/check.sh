@@ -87,4 +87,4 @@ cargo +"$rust_toolchain" check --locked --manifest-path fuzz/Cargo.toml --all-ta
 cargo +"$rust_toolchain" clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo +"$rust_toolchain" test --locked --workspace --all-targets --all-features
 cargo +"$rust_toolchain" build --locked --release --workspace --all-targets --all-features
-./scripts/publish.sh --dry-run
+./scripts/publish.sh --archive-check

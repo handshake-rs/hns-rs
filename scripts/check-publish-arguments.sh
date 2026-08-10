@@ -40,5 +40,8 @@ assert_rejected \
 assert_rejected \
     "usage:" \
     ./scripts/publish.sh --dry-run hns-encoding extra
+assert_rejected \
+    "usage:" \
+    ./scripts/publish.sh --archive-check hns-encoding extra
 
 echo "publish argument validation passed"

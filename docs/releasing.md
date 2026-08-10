@@ -37,9 +37,11 @@ Every public package carries its own README, exact workspace license copies,
 and a package-local changelog that points to the canonical shared release
 notes. `scripts/verify-release.py` checks those files, all required crates.io
 metadata, the shared version and internal version requirements, private
-packages, and dependency order without compiling source. The package dry-run
-then checks the normalized archives contain those files and no dependency path
-survives normalization.
+packages, and dependency order without compiling source. Routine qualification
+creates every normalized archive without compiling it and checks that the
+required files are present and no dependency path survives normalization. A
+separate, explicitly requested release preflight performs Cargo's real publish
+dry-run for all 17 packages.
 
 ## 0.1.0 publication record
 
@@ -67,14 +69,17 @@ not exist in their permanent crates.io `0.1.0` packages. Local publication
 patches are verification aids only and must never be used to present the old
 version as satisfying those dependencies.
 
-No `0.2.0` package or tag has been published. At feature head
-`b33b346780c8f6a9bb18a54390019486cdab0221`, CI run `31369025777` passed the
+At feature head `b33b346780c8f6a9bb18a54390019486cdab0221`, CI run
+`31369025777` passed the
 complete locked `scripts/check.sh` gate, including both lockfile metadata
 graphs, cargo-deny, strict Clippy, all tests/targets/features, the release
 workspace build, and all 17 normalized package dry-runs; its RustSec job also
-passed. Any later release-source commit still requires its own exact-head CI.
-Authenticated upload, tagging, and post-publication verification remain
-separate release actions.
+passed. That historical evidence does not qualify a later release-source
+commit: the exact release commit requires its own CI and explicit release
+preflight. Authenticated upload, tagging, and post-publication verification
+remain separate release actions. Immediately before execution, confirm the
+intended version is either absent on crates.io or is an exact resumable archive
+from the same release commit; the execute path enforces the latter case.
 
 The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
 here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and
@@ -120,8 +125,19 @@ published.
 
    Do not repeat the same full gate locally and in CI when the source commit,
    toolchain, and gate are identical.
-5. Run the package-only preflight only if it was not already part of the
-   qualifying gate:
+   Routine qualification performs archive-only packaging and custom inventory
+   validation after the workspace build; it does not repeat 17 crate builds.
+5. Run Cargo's full package dry-runs for the exact qualified commit. Prefer the
+   explicit `Release preflight` workflow so the additional compilation stays
+   separate from routine CI:
+
+   ```bash
+   gh workflow run release-preflight.yml \
+     --ref main \
+     -f expected_commit="$(git rev-parse HEAD)"
+   ```
+
+   The equivalent local command is:
 
    ```bash
    ./scripts/publish.sh --dry-run
@@ -159,12 +175,13 @@ published.
    ```
 
 The execution mode is restartable, but it never skips solely because an API
-record exists. For an already-published package/version it recreates the
-normalized `.crate`, downloads the crates.io archive, requires byte-for-byte
-SHA-256 identity, and requires both archives' `.cargo_vcs_info.json` to name the
-current release commit. Any mismatch aborts the release. This permits a
-partially completed release to resume without accepting an unrelated artifact
-under the same version.
+record exists. Before each possible upload it creates and applies the custom
+inventory checks to the exact normalized `.crate`. For an already-published
+package/version it reuses that archive, downloads the crates.io archive,
+requires byte-for-byte SHA-256 identity, and requires both archives'
+`.cargo_vcs_info.json` to name the current release commit. Any mismatch aborts
+the release. This permits a partially completed release to resume without
+accepting an unrelated artifact under the same version.
 
 New uploads use a 605-second propagation/cooldown interval before the next
 allowlisted crate by default, matching the ecosystem engine release procedure.

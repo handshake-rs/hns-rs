@@ -65,8 +65,10 @@ Release-candidate source for the modular wallet and marketplace boundary:
 - one canonical, dependency-ordered publication allowlist plus a cheap
   metadata/version/private-package gate, package-local release notes, common
   normalized-archive inventory checks, and an explicit version confirmation
-  before any irreversible upload, with a validated crates.io cooldown and
-  exact post-upload archive verification before dependent publication;
+  before any irreversible upload, with pre-upload archive inspection, a
+  separately triggered full publish-dry-run workflow, a validated crates.io
+  cooldown, and exact post-upload archive verification before dependent
+  publication;
 - resumable publication checks requiring exact `.crate` bytes and release VCS
   identity before an existing package version is skipped; and
 - default-on HIP-76/HIP-77 requester policy, opaque ODoH proxying, and HNSR
@@ -76,13 +78,12 @@ Release-candidate source for the modular wallet and marketplace boundary:
   default-off.
 
 All public workspace packages advance together so changed crates never attempt
-to overwrite the already-published `0.1.0` line. No `0.2.0` package or tag is
-published by this source commit. The fee-policy, name-transition/recovery,
-live HNSR, and owner-bound chat additions passed the consolidated locked
-qualification and package dry-run at feature head
-`b33b346780c8f6a9bb18a54390019486cdab0221`. Live deployment and downstream
-product qualification remain separate, and no `0.2.0` package or tag has been
-published.
+to overwrite the already-published `0.1.0` line. The fee-policy,
+name-transition/recovery, live HNSR, and owner-bound chat additions passed the
+consolidated locked qualification and package dry-run at feature head
+`b33b346780c8f6a9bb18a54390019486cdab0221`; the exact release commit still
+requires its own CI and explicit release preflight. Live deployment and
+downstream product qualification remain separate from package publication.
 
 ## 0.1.0 - 2026-07-29
 

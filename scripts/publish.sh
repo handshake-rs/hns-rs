@@ -12,6 +12,7 @@ confirmed_version=${3:-}
 argument_count=$#
 release_commit=$(git rev-parse HEAD)
 release_tmp=
+package_operation=publish-dry-run
 release_manifest=release/public-crates.txt
 
 cleanup_release_tmp() {
@@ -71,12 +72,28 @@ assert_private_packages() {
 dry_run_package() {
     package=$1
     shift
-    cargo +"$rust_toolchain" publish \
-        --locked \
-        --dry-run \
-        --allow-dirty \
-        -p "$package" \
-        "$@"
+    case "$package_operation" in
+        archive-check)
+            cargo +"$rust_toolchain" package \
+                --locked \
+                --no-verify \
+                --allow-dirty \
+                -p "$package" \
+                "$@"
+            ;;
+        publish-dry-run)
+            cargo +"$rust_toolchain" publish \
+                --locked \
+                --dry-run \
+                --allow-dirty \
+                -p "$package" \
+                "$@"
+            ;;
+        *)
+            echo "error: unsupported package operation $package_operation" >&2
+            exit 1
+            ;;
+    esac
 }
 
 dry_run_with_local_dependencies() {
@@ -187,10 +204,18 @@ package_version() {
     printf '%s\n' "$version"
 }
 
+package_target_dir() {
+    cargo +"$rust_toolchain" metadata \
+        --locked \
+        --no-deps \
+        --format-version 1 |
+        python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])'
+}
+
 verify_chat_source_package() {
     package=hns-chat-protocol
     version=$(package_version "$package")
-    package_target=${CARGO_TARGET_DIR:-target}
+    package_target=$(package_target_dir)
     archive="$package_target/package/$package-$version.crate"
     archive_root="$package-$version"
 
@@ -238,7 +263,7 @@ verify_chat_source_package() {
 verify_common_source_package() {
     package=$1
     version=$(package_version "$package")
-    package_target=${CARGO_TARGET_DIR:-target}
+    package_target=$(package_target_dir)
     archive="$package_target/package/$package-$version.crate"
     archive_root="$package-$version"
 
@@ -293,6 +318,12 @@ verify_common_source_package() {
 
     vcs_info=$(tar -xOf "$archive" "$archive_root/.cargo_vcs_info.json")
     compact_vcs_info=$(printf '%s' "$vcs_info" | tr -d '[:space:]')
+    if [ "$mode" = "--execute" ] &&
+        printf '%s' "$compact_vcs_info" | grep -Fq '"dirty":true'
+    then
+        echo "error: normalized $package package was created from a dirty worktree" >&2
+        exit 1
+    fi
     case "$compact_vcs_info" in
         *\"sha1\":\"$release_commit\"*) ;;
         *)
@@ -310,13 +341,20 @@ verify_source_package() {
     esac
 }
 
+package_and_verify_source_package() {
+    package=$1
+    package_operation=archive-check
+    dry_run_with_local_dependencies "$package"
+    package_operation=publish-dry-run
+    verify_source_package "$package"
+}
+
 verify_published_package() {
     package=$1
     version=$2
-    package_target=${CARGO_TARGET_DIR:-target}
+    package_target=$(package_target_dir)
     local_archive="$package_target/package/$package-$version.crate"
 
-    cargo +"$rust_toolchain" package --locked --no-verify -p "$package"
     if [ ! -f "$local_archive" ]
     then
         echo "error: Cargo did not create $local_archive" >&2
@@ -402,10 +440,29 @@ verify_new_upload() {
 }
 
 case "$mode" in
+    --archive-check)
+        if [ "$argument_count" -gt 2 ]
+        then
+            echo "usage: $0 [--archive-check [PUBLIC-PACKAGE]|--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
+            exit 2
+        fi
+        python3 scripts/verify-release.py --toolchain "$rust_toolchain"
+        if [ -n "$requested_package" ]
+        then
+            require_public_crate "$requested_package"
+            package_and_verify_source_package "$requested_package"
+        else
+            assert_private_packages
+            for package in $public_crates
+            do
+                package_and_verify_source_package "$package"
+            done
+        fi
+        ;;
     --dry-run)
         if [ "$argument_count" -gt 2 ]
         then
-            echo "usage: $0 [--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
+            echo "usage: $0 [--archive-check [PUBLIC-PACKAGE]|--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
             exit 2
         fi
         python3 scripts/verify-release.py --toolchain "$rust_toolchain"
@@ -455,6 +512,10 @@ case "$mode" in
         do
             version=$(package_version "$package")
 
+            # Build and inspect the exact normalized archive before any
+            # irreversible upload. Resume verification reuses this archive.
+            package_and_verify_source_package "$package"
+
             status=$(published_package_status "$package" "$version")
 
             case "$status" in
@@ -474,7 +535,7 @@ case "$mode" in
         done
         ;;
     *)
-        echo "usage: $0 [--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
+        echo "usage: $0 [--archive-check [PUBLIC-PACKAGE]|--dry-run [PUBLIC-PACKAGE]|--execute --confirm-publish VERSION]" >&2
         exit 2
         ;;
 esac
