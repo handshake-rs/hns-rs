@@ -60,7 +60,7 @@ source above. The published archives therefore identify the parent release
 source, not the tag target. The remote tag-object identity was confirmed with
 `git ls-remote --tags origin v0.1.0` on 2026-08-02.
 
-## 0.2.0 release candidate
+## 0.2.0 dated release source
 
 The marketplace/Denuo V2 source advances the shared workspace and every
 internal dependency requirement to `0.2.0`. This is necessary because the new
@@ -74,12 +74,23 @@ At feature head `b33b346780c8f6a9bb18a54390019486cdab0221`, CI run
 complete locked `scripts/check.sh` gate, including both lockfile metadata
 graphs, cargo-deny, strict Clippy, all tests/targets/features, the release
 workspace build, and all 17 normalized package dry-runs; its RustSec job also
-passed. That historical evidence does not qualify a later release-source
-commit: the exact release commit requires its own CI and explicit release
-preflight. Authenticated upload, tagging, and post-publication verification
-remain separate release actions. Immediately before execution, confirm the
-intended version is either absent on crates.io or is an exact resumable archive
-from the same release commit; the execute path enforces the latter case.
+passed. The immediately preceding undated release-preparation commit
+`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` subsequently passed the full
+locked gate in CI run `31385655990` and all 17 real Cargo package dry-runs in
+the manually dispatched release preflight run `31386373480`. Its CodeQL run
+`31385656053` completed Python, Rust, and Actions analysis successfully, but
+JavaScript/TypeScript analysis remained queued; that run therefore is not a
+complete CodeQL qualification.
+
+Those results are historical evidence for `abf11ff`, not qualification of the
+dated source that changes these changelogs and documents. The release procedure
+requires a successful full CI run, a complete successful CodeQL run, and a
+manually dispatched explicit release preflight for that exact dated source
+before any upload. Authenticated upload, tagging, and post-publication
+verification remain separate release actions. Immediately before execution,
+confirm the intended version is either absent on crates.io or is an exact
+resumable archive from the same release commit; the execute path enforces the
+latter case.
 
 The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
 here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and

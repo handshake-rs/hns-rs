@@ -62,9 +62,15 @@ rollback. It is not the repository full gate or a deployed-network test.
 The NameState/resource, fee-policy, typed TRANSFER/FINALIZE,
 listing-independent Shakedex recovery, empty name-market inventory, live HNSR
 service, and owner-bound chat tranches retain focused tests and exact vectors
-where applicable. The converged feature head
-`b33b346780c8f6a9bb18a54390019486cdab0221` passed the complete locked gate and
-17-package publication dry-run in CI run `31369025777`. Static vectors and
-in-memory service tests still do not establish live-chain ownership, transfer
-maturity, renewal-block eligibility, durable relay recovery, deployed peer
-policy, or reorg behavior.
+where applicable. Converged feature head
+`b33b346780c8f6a9bb18a54390019486cdab0221` passed the complete locked gate in
+CI run `31369025777`. The later undated release-preparation commit
+`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` passed locked CI run
+`31385655990` and the manually dispatched 17-package release preflight run
+`31386373480`; its CodeQL run `31385656053` was incomplete because the
+JavaScript/TypeScript job remained queued. Before upload, the release procedure
+requires successful exact-head CI, complete CodeQL, and a new manual release
+preflight for the exact dated source. Static vectors and in-memory service
+tests still do not establish live-chain ownership, transfer maturity,
+renewal-block eligibility, durable relay recovery, deployed peer policy, or
+reorg behavior.

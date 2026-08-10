@@ -66,7 +66,14 @@ these exact pinned files before calling the HSD oracle:
 - `lib/protocol/consensus.js` SHA-256
   `9342ee033ca27fe1539b6047fbd3529bb912ae2cdbe456adf7828798fb5cc8a2`.
 
-This tranche has static source, fixture, and sidecar review only. No local
-Cargo, build, test, formatting, or publication gate was run for it. The full
-locked qualification gate and publication of the shared `0.2.0` line remain
-required before downstream crates can consume the API from crates.io.
+This tranche initially had static source, fixture, and sidecar review only.
+Converged feature head `b33b346780c8f6a9bb18a54390019486cdab0221`
+subsequently passed the complete locked gate in CI run `31369025777`, and
+undated release-preparation commit
+`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` passed locked CI run
+`31385655990` plus the manual 17-package release preflight run `31386373480`.
+Its CodeQL run `31385656053` remained incomplete because the
+JavaScript/TypeScript job did not leave the queue. Before upload, the release
+procedure requires exact-head CI, complete CodeQL, and a new manual release
+preflight for the exact dated source. Downstream crates may consume this API
+from crates.io only after the shared `0.2.0` line is published.

@@ -19,9 +19,9 @@ SHA-256 sidecar. The release preflight inspects Cargo's normalized `.crate`,
 requires every boundary file, rejects any surviving path dependency, and
 authenticates the packaged vector bytes. A focused preflight is available as
 `./scripts/publish.sh --dry-run hns-chat-protocol`; it neither publishes nor
-tags. Until the full locked gate passes and `0.2.0` is intentionally published,
-downstream release source must use an immutable repository revision rather
-than a sibling path, and must not claim a crates.io release exists.
+tags. Until `0.2.0` is intentionally published, downstream release source must
+use an immutable repository revision rather than a sibling path, and must not
+claim a crates.io release exists.
 
 ## Identity and resource binding
 
@@ -144,10 +144,17 @@ wire-bound/rejection, and fixture-sidecar cases in `tests/release_source.rs`.
 The crate's other unit tests were not selected by that command.
 
 The later converged feature head
-`b33b346780c8f6a9bb18a54390019486cdab0221` passed the normalized package
-preflight, repository full locked gate, dependency policy, and RustSec jobs in
-CI run `31369025777`. Publication, tagging, and post-publication archive/VCS
-identity checks remain unrun. A deployed mailbox is also unrun and still
-requires downstream persistence/restart, canonical-chain/reorg, authenticated
-transport, abuse, installed-client, adversarial, performance, and independent
-security qualification.
+`b33b346780c8f6a9bb18a54390019486cdab0221` passed the normalized archive
+checks, repository full locked gate, dependency policy, and RustSec jobs in CI
+run `31369025777`. Undated release-preparation commit
+`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` then passed locked CI run
+`31385655990` and the manual 17-package Cargo preflight run `31386373480`. Its
+CodeQL run `31385656053` was incomplete because JavaScript/TypeScript analysis
+remained queued. Before upload, the release procedure requires exact-head CI,
+complete CodeQL, and a new manual release preflight for the exact dated source.
+Publication, tagging, and post-publication archive/VCS identity checks are
+separate actions and are not evidence supplied by this source. A deployed
+mailbox is not evidence supplied by this source; downstream persistence and
+restart, canonical-chain and reorg handling, authenticated transport, abuse,
+installed-client, adversarial, performance, and independent security
+qualification remain product responsibilities.

@@ -3,9 +3,9 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
-## 0.2.0 - unreleased
+## 0.2.0 - 2026-08-10
 
-Release-candidate source for the modular wallet and marketplace boundary:
+Release source for the modular wallet and marketplace boundary:
 
 - bounded live HNSR reservation, renewal, confirmation, withdrawal,
   named-route publication, and lookup state machines, plus runtime-neutral
@@ -78,12 +78,18 @@ Release-candidate source for the modular wallet and marketplace boundary:
   default-off.
 
 All public workspace packages advance together so changed crates never attempt
-to overwrite the already-published `0.1.0` line. The fee-policy,
-name-transition/recovery, live HNSR, and owner-bound chat additions passed the
-consolidated locked qualification and package dry-run at feature head
-`b33b346780c8f6a9bb18a54390019486cdab0221`; the exact release commit still
-requires its own CI and explicit release preflight. Live deployment and
-downstream product qualification remain separate from package publication.
+to overwrite the already-published `0.1.0` line. The immediately preceding
+undated release-preparation commit
+`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` passed locked CI run
+`31385655990` and the explicit 17-package release preflight run `31386373480`.
+Its CodeQL run `31385656053` completed Python, Rust, and Actions analysis but
+not JavaScript/TypeScript analysis, which remained queued, so it is not a
+complete CodeQL qualification. Before any upload, the release procedure must
+verify this exact dated source with successful CI, complete CodeQL, and an
+explicit manual release preflight. Creating this source commit performs none
+of those external actions and does not itself publish a package or tag. Live
+deployment and downstream product qualification remain separate from package
+publication.
 
 ## 0.1.0 - 2026-07-29
 
