@@ -9,22 +9,23 @@ deleted.
 The release script publishes only these packages, in dependency order:
 
 1. `hns-encoding`
-2. `hns-primitives`
-3. `hns-covenants`
-4. `hns-dns-relay-protocol`
-5. `hns-header-consensus`
-6. `hns-service-authority`
-7. `hns-odoh-protocol`
-8. `hns-p2p-experimental`
-9. `hns-urkel-proof`
-10. `hns-transaction`
-11. `hns-chat-protocol`
-12. `hns-hnsr-protocol`
-13. `hns-script`
-14. `hns-mining`
-15. `hns-swap`
-16. `hns-marketplace-protocol`
-17. `hns-p2p-wire`
+2. `hns-hrm`
+3. `hns-primitives`
+4. `hns-covenants`
+5. `hns-dns-relay-protocol`
+6. `hns-header-consensus`
+7. `hns-service-authority`
+8. `hns-odoh-protocol`
+9. `hns-p2p-experimental`
+10. `hns-urkel-proof`
+11. `hns-transaction`
+12. `hns-chat-protocol`
+13. `hns-hnsr-protocol`
+14. `hns-script`
+15. `hns-mining`
+16. `hns-swap`
+17. `hns-marketplace-protocol`
+18. `hns-p2p-wire`
 
 `release/public-crates.txt` is the machine-readable authority for this list.
 The cheap release validator fails if this document, the workspace's
@@ -41,7 +42,7 @@ packages, and dependency order without compiling source. Routine qualification
 creates every normalized archive without compiling it and checks that the
 required files are present and no dependency path survives normalization. A
 separate, explicitly requested release preflight performs Cargo's real publish
-dry-run for all 17 packages.
+dry-run for all 18 packages.
 
 ## 0.1.0 publication record
 
@@ -185,7 +186,7 @@ published.
    upload. The confirmation version must equal the workspace version:
 
    ```bash
-   ./scripts/publish.sh --execute --confirm-publish 0.2.0
+   ./scripts/publish.sh --execute --confirm-publish 0.3.0
    ```
 
 The execution mode is restartable, but it never skips solely because an API
@@ -206,7 +207,7 @@ limit:
 
 ```bash
 PUBLISH_INTERVAL_SECONDS=605 \
-  ./scripts/publish.sh --execute --confirm-publish 0.2.0
+  ./scripts/publish.sh --execute --confirm-publish 0.3.0
 ```
 
 After the cooldown, the script downloads the newly uploaded archive and

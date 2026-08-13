@@ -6,6 +6,7 @@ members = [
     "crates/hns-dns-relay-protocol",
     "crates/hns-encoding",
     "crates/hns-header-consensus",
+    "crates/hns-hrm",
     "crates/hns-hnsr-protocol",
     "crates/hns-mining",
     "crates/hns-marketplace-protocol",
@@ -23,7 +24,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
@@ -34,27 +35,29 @@ publish = ["crates-io"]
 
 [workspace.dependencies]
 aes-gcm = "0.10.3"
+base64 = "0.22.1"
 blake2 = "0.10.6"
 hex = "0.4.3"
 getrandom = "0.4.3"
 hkdf = "0.12.4"
-hns-chat-protocol = { version = "0.2.0", path = "crates/hns-chat-protocol" }
-hns-covenants = { version = "0.2.0", path = "crates/hns-covenants" }
-hns-dns-relay-protocol = { version = "0.2.0", path = "crates/hns-dns-relay-protocol" }
-hns-encoding = { version = "0.2.0", path = "crates/hns-encoding" }
-hns-header-consensus = { version = "0.2.0", path = "crates/hns-header-consensus" }
-hns-hnsr-protocol = { version = "0.2.0", path = "crates/hns-hnsr-protocol" }
-hns-mining = { version = "0.2.0", path = "crates/hns-mining" }
-hns-marketplace-protocol = { version = "0.2.0", path = "crates/hns-marketplace-protocol" }
-hns-odoh-protocol = { version = "0.2.0", path = "crates/hns-odoh-protocol" }
-hns-p2p-experimental = { version = "0.2.0", path = "crates/hns-p2p-experimental" }
-hns-p2p-wire = { version = "0.2.0", path = "crates/hns-p2p-wire" }
-hns-primitives = { version = "0.2.0", path = "crates/hns-primitives" }
-hns-script = { version = "0.2.0", path = "crates/hns-script" }
-hns-service-authority = { version = "0.2.0", path = "crates/hns-service-authority" }
-hns-swap = { version = "0.2.0", path = "crates/hns-swap" }
-hns-transaction = { version = "0.2.0", path = "crates/hns-transaction" }
-hns-urkel-proof = { version = "0.2.0", path = "crates/hns-urkel-proof" }
+hns-chat-protocol = { version = "0.3.0", path = "crates/hns-chat-protocol" }
+hns-covenants = { version = "0.3.0", path = "crates/hns-covenants" }
+hns-dns-relay-protocol = { version = "0.3.0", path = "crates/hns-dns-relay-protocol" }
+hns-encoding = { version = "0.3.0", path = "crates/hns-encoding" }
+hns-header-consensus = { version = "0.3.0", path = "crates/hns-header-consensus" }
+hns-hrm = { version = "0.3.0", path = "crates/hns-hrm" }
+hns-hnsr-protocol = { version = "0.3.0", path = "crates/hns-hnsr-protocol" }
+hns-mining = { version = "0.3.0", path = "crates/hns-mining" }
+hns-marketplace-protocol = { version = "0.3.0", path = "crates/hns-marketplace-protocol" }
+hns-odoh-protocol = { version = "0.3.0", path = "crates/hns-odoh-protocol" }
+hns-p2p-experimental = { version = "0.3.0", path = "crates/hns-p2p-experimental" }
+hns-p2p-wire = { version = "0.3.0", path = "crates/hns-p2p-wire" }
+hns-primitives = { version = "0.3.0", path = "crates/hns-primitives" }
+hns-script = { version = "0.3.0", path = "crates/hns-script" }
+hns-service-authority = { version = "0.3.0", path = "crates/hns-service-authority" }
+hns-swap = { version = "0.3.0", path = "crates/hns-swap" }
+hns-transaction = { version = "0.3.0", path = "crates/hns-transaction" }
+hns-urkel-proof = { version = "0.3.0", path = "crates/hns-urkel-proof" }
 hpke = { version = "0.14.0", default-features = false, features = ["alloc", "aes", "getrandom", "x25519"] }
 k256 = { version = "0.13.4", default-features = false, features = ["ecdsa", "std"] }
 serde = { version = "1.0.219", features = ["derive"] }

@@ -3,6 +3,20 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
+## 0.3.0 - unreleased
+
+- Add the first HRM Core implementation: chunk-preserving `hrm1` commitment
+  parsing and selection, strict deterministic CBOR, typed payload/envelope,
+  network-bound controller signing and verification, profile-neutral resource
+  and delegation objects, bounded recursive validation interfaces, and exact
+  migration boundaries for HRM-backed HNSA and HNSR named-route version 3.
+- Add source-independent HRM Core vectors and a standard-library Python oracle,
+  plus subject/action-bound profile dispatch, authenticated external-proof
+  expiry, pre-allocation retrieval budgets, and event-scoped rollback evidence.
+- Keep the prior `hsa1`, fixed service authorization, endpoint delegation, and
+  named-route version 2 model explicitly legacy rather than reinterpreting it
+  as HRM-backed authority.
+
 ## 0.2.0 - 2026-08-10
 
 Release source for the modular wallet and marketplace boundary:

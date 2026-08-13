@@ -1,5 +1,6 @@
 # crates.io publication order. Keep one package per line.
 hns-encoding
+hns-hrm
 hns-primitives
 hns-covenants
 hns-dns-relay-protocol

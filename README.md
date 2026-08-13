@@ -39,6 +39,8 @@ The implemented protocol layer contains:
   opened-mask mining jobs;
 - a bounded cross-protocol production-parser mutation and libFuzzer harness;
 - the canonical Denuo Experimental Handshake P2P Registries v1 and v2;
+- deterministic-CBOR Handshake Resource Manifest commitments, envelopes,
+  controller signatures, resources, delegations, and bounded validation;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
@@ -62,6 +64,9 @@ Source-independent HNS Chat resource, owner-parity, envelope, acknowledgement,
 and rejection vectors live in `fixtures/chat-v1/` with a SHA-256 sidecar. The
 same authenticated assets and their external-consumer test are included in the
 `hns-chat-protocol` source package.
+Source-independent deterministic-CBOR, controller-signature, envelope,
+commitment, and rejection vectors for HRM Core live in `fixtures/hrm-v1/` with
+a standard-library Python oracle and authenticated package copy.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and
@@ -71,7 +76,7 @@ See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 
 The public crates are:
 
-- `hns-encoding` and `hns-primitives`;
+- `hns-encoding`, `hns-hrm`, and `hns-primitives`;
 - `hns-covenants`, `hns-transaction`, `hns-header-consensus`,
   `hns-urkel-proof`, and `hns-script`;
 - `hns-swap`, `hns-marketplace-protocol`, `hns-mining`, and `hns-p2p-wire`;
@@ -106,12 +111,14 @@ python3 scripts/verify-release.py --toolchain 1.89.0
 
 See `docs/releasing.md` before any package dry-run or irreversible publication.
 
-The workspace is an unpublished `0.2.0` release candidate. Dated source commit
+The workspace is an unpublished `0.3.0` development line. The prior dated
+`0.2.0` source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` passed exact-head CI, complete
 four-language CodeQL analysis, and the explicit 17-package release preflight;
 `v0.1.0` remains the latest published and tagged release. Those results qualify
-only that exact source commit. Any later source commit must repeat the release
-gates documented in `docs/releasing.md` before publication.
+only that exact source commit and do not qualify the 18-package `0.3.0` line.
+Any later source commit must repeat the release gates documented in
+`docs/releasing.md` before publication.
 
 The HNSR service state machines are an embeddable protocol boundary, not a
 durable daemon or network transport. Persistence, restart recovery, peer

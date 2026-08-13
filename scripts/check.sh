@@ -54,6 +54,11 @@ assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt \
 assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \
   crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt.sha256
 (cd fixtures/chat-v1 && sha256sum --check hns-chat-resource-v1.txt.sha256)
+assert_same_file fixtures/hrm-v1/hns-hrm-core-v1.txt \
+  crates/hns-hrm/fixtures/hrm-v1/hns-hrm-core-v1.txt
+assert_same_file fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256 \
+  crates/hns-hrm/fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256
+(cd fixtures/hrm-v1 && sha256sum --check hns-hrm-core-v1.txt.sha256)
 assert_same_file registry/denuo-experimental-v1.toml \
   crates/hns-p2p-experimental/registry/denuo-experimental-v1.toml
 assert_same_file registry/denuo-experimental-v1.bin \
@@ -75,6 +80,8 @@ assert_same_file registry/hnsr-service-profiles-v1.sha256 \
 
 PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-marketplace-v1-fixtures.py --check
+PYTHONDONTWRITEBYTECODE=1 \
+  python3 generators/generate-hrm-v1-fixtures.py --check
 
 cargo +"$rust_toolchain" metadata --locked --format-version 1 >/dev/null
 cargo +"$rust_toolchain" metadata --locked --manifest-path fuzz/Cargo.toml --format-version 1 >/dev/null

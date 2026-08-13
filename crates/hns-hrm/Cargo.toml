@@ -1,0 +1,27 @@
+[package]
+name = "hns-hrm"
+description = "Deterministic Handshake Resource Manifest objects and validation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation = "https://docs.rs/hns-hrm"
+readme = "README.md"
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+blake2.workspace = true
+k256.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+
+[lints]
+workspace = true

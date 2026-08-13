@@ -79,6 +79,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -460,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "hns-chat-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "hns-covenants",
@@ -475,7 +481,7 @@ dependencies = [
 
 [[package]]
 name = "hns-conformance"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "hns-chat-protocol",
@@ -498,7 +504,7 @@ dependencies = [
 
 [[package]]
 name = "hns-covenants"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -510,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "hns-dns-relay-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "hns-encoding",
@@ -519,14 +525,14 @@ dependencies = [
 
 [[package]]
 name = "hns-encoding"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "hns-header-consensus"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -537,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "hns-hnsr-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "getrandom 0.4.3",
@@ -554,8 +560,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "hns-hrm"
+version = "0.3.0"
+dependencies = [
+ "base64",
+ "blake2",
+ "hex",
+ "k256",
+ "sha2 0.10.9",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "hns-marketplace-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -570,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "hns-mining"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -584,7 +603,7 @@ dependencies = [
 
 [[package]]
 name = "hns-odoh-protocol"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "blake2",
@@ -600,7 +619,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-experimental"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "hns-dns-relay-protocol",
@@ -614,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-wire"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -629,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "hns-primitives"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hex",
  "thiserror",
@@ -637,14 +656,14 @@ dependencies = [
 
 [[package]]
 name = "hns-registry-gen"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "hns-p2p-experimental",
 ]
 
 [[package]]
 name = "hns-script"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -662,7 +681,7 @@ dependencies = [
 
 [[package]]
 name = "hns-service-authority"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -674,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "hns-swap"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -691,7 +710,7 @@ dependencies = [
 
 [[package]]
 name = "hns-transaction"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",
@@ -703,7 +722,7 @@ dependencies = [
 
 [[package]]
 name = "hns-urkel-proof"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake2",
  "hex",

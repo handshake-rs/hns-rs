@@ -99,7 +99,7 @@ dry_run_package() {
 dry_run_with_local_dependencies() {
     package=$1
     case "$package" in
-        hns-encoding|hns-primitives)
+        hns-encoding|hns-hrm|hns-primitives)
             dry_run_package "$package"
             ;;
         hns-covenants|hns-header-consensus)
@@ -260,6 +260,53 @@ verify_chat_source_package() {
     fi
 }
 
+verify_hrm_source_package() {
+    package=hns-hrm
+    version=$(package_version "$package")
+    package_target=$(package_target_dir)
+    archive="$package_target/package/$package-$version.crate"
+    archive_root="$package-$version"
+
+    if [ ! -f "$archive" ]
+    then
+        echo "error: Cargo did not create $archive" >&2
+        exit 1
+    fi
+
+    archive_entries=$(tar -tf "$archive")
+    for relative_path in \
+        fixtures/hrm-v1/hns-hrm-core-v1.txt \
+        fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256 \
+        src/cbor.rs \
+        src/commitment.rs \
+        src/lib.rs \
+        src/model.rs \
+        src/validation.rs \
+        tests/release_source.rs
+    do
+        if ! printf '%s\n' "$archive_entries" | grep -Fqx "$archive_root/$relative_path"
+        then
+            echo "error: normalized $package package omits $relative_path" >&2
+            exit 1
+        fi
+    done
+
+    expected_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256" |
+        awk 'NR == 1 { print $1 }')
+    actual_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/hrm-v1/hns-hrm-core-v1.txt" |
+        sha256sum |
+        awk '{ print $1 }')
+    if [ "$actual_digest" != "$expected_digest" ]
+    then
+        echo "error: packaged HRM vectors do not match their SHA-256 sidecar" >&2
+        exit 1
+    fi
+}
+
 verify_common_source_package() {
     package=$1
     version=$(package_version "$package")
@@ -338,6 +385,7 @@ verify_source_package() {
     verify_common_source_package "$package"
     case "$package" in
         hns-chat-protocol) verify_chat_source_package ;;
+        hns-hrm) verify_hrm_source_package ;;
     esac
 }
 
