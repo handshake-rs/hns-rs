@@ -102,6 +102,10 @@ dry_run_with_local_dependencies() {
         hns-encoding|hns-hrm|hns-primitives)
             dry_run_package "$package"
             ;;
+        hns-rollback-journal)
+            dry_run_package "$package" \
+                --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"'
+            ;;
         hns-covenants|hns-header-consensus)
             dry_run_package "$package" \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \

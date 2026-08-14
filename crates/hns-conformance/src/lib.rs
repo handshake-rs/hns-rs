@@ -11,6 +11,7 @@ use hns_mining::Block;
 use hns_odoh_protocol::OdnsPacket;
 use hns_p2p_experimental::DenuoExtensionEnvelope;
 use hns_p2p_wire::{Frame, NetworkMagic};
+use hns_rollback_journal::JournalRecord;
 use hns_script::parse_script;
 use hns_service_authority::{
     EndpointDelegationV1 as LegacyEndpointDelegationV1, ServiceAuthorizationV1,
@@ -68,6 +69,8 @@ impl AcceptanceMask {
     pub const HRM_HNSA_ENDPOINT_DELEGATION_V1: u32 = 1 << 23;
     /// HRM HNSA-HNSR NamedRouteV3 parser.
     pub const HRM_HNSA_HNSR_NAMED_ROUTE_V3: u32 = 1 << 24;
+    /// External anti-rollback journal v1 parser.
+    pub const ROLLBACK_JOURNAL_V1: u32 = 1 << 25;
 
     /// Whether the named parser bit accepted the input.
     pub const fn contains(self, parser: u32) -> bool {
@@ -160,6 +163,10 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     accepted.record(
         AcceptanceMask::HRM_HNSA_HNSR_NAMED_ROUTE_V3,
         NamedRouteRecordV3::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::ROLLBACK_JOURNAL_V1,
+        JournalRecord::decode(input).is_ok(),
     );
     accepted.record(
         AcceptanceMask::HNS_CHAT_ENVELOPE,
@@ -299,6 +306,8 @@ mod tests {
         include_str!("../../../registry/hnsr-service-profiles-v1.toml");
     const HNSA_HNSR_V3_FIXTURES: &str =
         include_str!("../../../fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt");
+    const ROLLBACK_JOURNAL_V1_FIXTURES: &str =
+        include_str!("../../../fixtures/rollback-journal-v1/rollback-journal-v1.txt");
 
     fn fixture_bytes(document: &str, name: &str) -> Vec<u8> {
         let value = document
@@ -411,6 +420,10 @@ mod tests {
         let route_mask = exercise_production_parsers(&route).expect("bounded");
         assert!(route_mask.contains(AcceptanceMask::HRM_HNSA_HNSR_NAMED_ROUTE_V3));
         assert!(!route_mask.contains(AcceptanceMask::LEGACY_HNSA_HNSR_NAMED_ROUTE_V2));
+
+        let journal = fixture_bytes(ROLLBACK_JOURNAL_V1_FIXTURES, "prepared_record");
+        let journal_mask = exercise_production_parsers(&journal).expect("bounded");
+        assert!(journal_mask.contains(AcceptanceMask::ROLLBACK_JOURNAL_V1));
     }
 
     #[test]
@@ -433,6 +446,7 @@ mod tests {
                 .to_vec(),
             fixture_bytes(HNSA_HNSR_V3_FIXTURES, "endpoint_delegation"),
             fixture_bytes(HNSA_HNSR_V3_FIXTURES, "named_route_record_v3"),
+            fixture_bytes(ROLLBACK_JOURNAL_V1_FIXTURES, "prepared_record"),
         ];
         let mut mutations = 0_usize;
         for seed in seeds {

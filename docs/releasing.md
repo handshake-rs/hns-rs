@@ -9,23 +9,24 @@ deleted.
 The release script publishes only these packages, in dependency order:
 
 1. `hns-encoding`
-2. `hns-hrm`
-3. `hns-primitives`
-4. `hns-covenants`
-5. `hns-dns-relay-protocol`
-6. `hns-header-consensus`
-7. `hns-service-authority`
-8. `hns-odoh-protocol`
-9. `hns-p2p-experimental`
-10. `hns-urkel-proof`
-11. `hns-transaction`
-12. `hns-chat-protocol`
-13. `hns-hnsr-protocol`
-14. `hns-script`
-15. `hns-mining`
-16. `hns-swap`
-17. `hns-marketplace-protocol`
-18. `hns-p2p-wire`
+2. `hns-rollback-journal`
+3. `hns-hrm`
+4. `hns-primitives`
+5. `hns-covenants`
+6. `hns-dns-relay-protocol`
+7. `hns-header-consensus`
+8. `hns-service-authority`
+9. `hns-odoh-protocol`
+10. `hns-p2p-experimental`
+11. `hns-urkel-proof`
+12. `hns-transaction`
+13. `hns-chat-protocol`
+14. `hns-hnsr-protocol`
+15. `hns-script`
+16. `hns-mining`
+17. `hns-swap`
+18. `hns-marketplace-protocol`
+19. `hns-p2p-wire`
 
 `release/public-crates.txt` is the machine-readable authority for this list.
 The cheap release validator fails if this document, the workspace's
@@ -42,7 +43,7 @@ packages, and dependency order without compiling source. Routine qualification
 creates every normalized archive without compiling it and checks that the
 required files are present and no dependency path survives normalization. A
 separate, explicitly requested release preflight performs Cargo's real publish
-dry-run for all 18 packages.
+dry-run for all 19 packages.
 
 ## 0.1.0 publication record
 

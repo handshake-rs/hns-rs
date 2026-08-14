@@ -14,6 +14,7 @@ members = [
     "crates/hns-p2p-experimental",
     "crates/hns-p2p-wire",
     "crates/hns-primitives",
+    "crates/hns-rollback-journal",
     "crates/hns-script",
     "crates/hns-service-authority",
     "crates/hns-swap",
@@ -53,6 +54,7 @@ hns-odoh-protocol = { version = "0.3.0", path = "crates/hns-odoh-protocol" }
 hns-p2p-experimental = { version = "0.3.0", path = "crates/hns-p2p-experimental" }
 hns-p2p-wire = { version = "0.3.0", path = "crates/hns-p2p-wire" }
 hns-primitives = { version = "0.3.0", path = "crates/hns-primitives" }
+hns-rollback-journal = { version = "0.3.0", path = "crates/hns-rollback-journal" }
 hns-script = { version = "0.3.0", path = "crates/hns-script" }
 hns-service-authority = { version = "0.3.0", path = "crates/hns-service-authority" }
 hns-swap = { version = "0.3.0", path = "crates/hns-swap" }

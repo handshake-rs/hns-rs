@@ -41,6 +41,9 @@ The implemented protocol layer contains:
 - the canonical Denuo Experimental Handshake P2P Registries v1 and v2;
 - deterministic-CBOR Handshake Resource Manifest commitments, envelopes,
   controller signatures, resources, delegations, and bounded validation;
+- a canonical external anti-rollback journal contract with exact fenced
+  transitions, sealed recovery snapshots, and explicit native/browser/mobile
+  protection boundaries;
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
@@ -68,6 +71,10 @@ same authenticated assets and their external-consumer test are included in the
 Source-independent deterministic-CBOR, controller-signature, envelope,
 commitment, and rejection vectors for HRM Core live in `fixtures/hrm-v1/` with
 a standard-library Python oracle and authenticated package copy.
+Source-independent external rollback-journal records and every
+`NeverInitialized`/`Stable`/`Prepared`/`Retired` transition live in
+`fixtures/rollback-journal-v1/`, including exact 64-bit revisions beyond
+JavaScript's `Number` range.
 Source-independent HRM-backed HNSA and HNSR NamedRouteV3 vectors live in
 `fixtures/hnsa-hnsr-v3/`. They pin the complete signed chain, generation and
 route replacement failures, durable authority/requester/storage snapshots,
@@ -83,7 +90,7 @@ See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 
 The public crates are:
 
-- `hns-encoding`, `hns-hrm`, and `hns-primitives`;
+- `hns-encoding`, `hns-rollback-journal`, `hns-hrm`, and `hns-primitives`;
 - `hns-covenants`, `hns-transaction`, `hns-header-consensus`,
   `hns-urkel-proof`, and `hns-script`;
 - `hns-swap`, `hns-marketplace-protocol`, `hns-mining`, and `hns-p2p-wire`;
@@ -124,7 +131,7 @@ The workspace is an unpublished `0.3.0` development line. The prior dated
 four-language CodeQL analysis, and the explicit 17-package release preflight.
 Those 17 packages are the latest published line; every registry archive names
 that exact VCS commit. `v0.1.0` remains the latest tagged release. Neither that
-publication nor its qualification results qualify the 18-package `0.3.0` line.
+publication nor its qualification results qualify the 19-package `0.3.0` line.
 Any later source commit must repeat the release gates documented in
 `docs/releasing.md` before publication.
 

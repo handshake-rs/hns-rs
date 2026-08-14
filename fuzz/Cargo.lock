@@ -515,6 +515,7 @@ dependencies = [
  "hns-odoh-protocol",
  "hns-p2p-experimental",
  "hns-p2p-wire",
+ "hns-rollback-journal",
  "hns-script",
  "hns-service-authority",
  "hns-swap",
@@ -661,6 +662,15 @@ name = "hns-primitives"
 version = "0.3.0"
 dependencies = [
  "hex",
+ "thiserror",
+]
+
+[[package]]
+name = "hns-rollback-journal"
+version = "0.3.0"
+dependencies = [
+ "blake2",
+ "hns-encoding",
  "thiserror",
 ]
 

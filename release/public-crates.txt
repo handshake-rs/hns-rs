@@ -1,5 +1,6 @@
 # crates.io publication order. Keep one package per line.
 hns-encoding
+hns-rollback-journal
 hns-hrm
 hns-primitives
 hns-covenants

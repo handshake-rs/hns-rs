@@ -18,6 +18,7 @@ hns-mining.workspace = true
 hns-odoh-protocol.workspace = true
 hns-p2p-experimental.workspace = true
 hns-p2p-wire.workspace = true
+hns-rollback-journal.workspace = true
 hns-script.workspace = true
 hns-service-authority.workspace = true
 hns-swap.workspace = true

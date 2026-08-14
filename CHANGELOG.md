@@ -5,6 +5,12 @@ The workspace crates use a shared version and follow Semantic Versioning.
 
 ## 0.3.0 - unreleased
 
+- Add a platform-neutral, canonical external anti-rollback journal contract
+  with installation/network/role/key binding, explicit privileged provisioning
+  and enrollment, exact fenced journal CAS, sealed old/new snapshots, a
+  no-abort prepared transition, deterministic crash recovery, terminal
+  retirement, honest protection classes, and fail-closed native,
+  browser-extension, and mobile integration requirements.
 - Add the first HRM Core implementation: chunk-preserving `hrm1` commitment
   parsing and selection, strict deterministic CBOR, typed payload/envelope,
   network-bound controller signing and verification, profile-neutral resource

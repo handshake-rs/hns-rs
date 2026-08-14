@@ -59,6 +59,11 @@ assert_same_file fixtures/hrm-v1/hns-hrm-core-v1.txt \
 assert_same_file fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256 \
   crates/hns-hrm/fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256
 (cd fixtures/hrm-v1 && sha256sum --check hns-hrm-core-v1.txt.sha256)
+assert_same_file fixtures/rollback-journal-v1/rollback-journal-v1.txt \
+  crates/hns-rollback-journal/fixtures/rollback-journal-v1/rollback-journal-v1.txt
+assert_same_file fixtures/rollback-journal-v1/rollback-journal-v1.txt.sha256 \
+  crates/hns-rollback-journal/fixtures/rollback-journal-v1/rollback-journal-v1.txt.sha256
+(cd fixtures/rollback-journal-v1 && sha256sum --check rollback-journal-v1.txt.sha256)
 assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt \
   crates/hns-service-authority/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt
 assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256 \
@@ -91,6 +96,8 @@ PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-marketplace-v1-fixtures.py --check
 PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-hrm-v1-fixtures.py --check
+PYTHONDONTWRITEBYTECODE=1 \
+  python3 generators/generate-rollback-journal-v1-fixtures.py --check
 PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-hnsa-hnsr-v3-fixtures.py --check
 
