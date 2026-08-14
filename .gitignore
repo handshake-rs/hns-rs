@@ -3,3 +3,4 @@
 /dist/
 *.profraw
 *.proptest-regressions
+__pycache__/

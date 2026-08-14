@@ -5,14 +5,17 @@ use hns_chat_protocol::{ChatAcknowledgementV1, ChatEnvelopeV1, parse_chat_bindin
 use hns_covenants::{Covenant, NameState, Resource, hash_name};
 use hns_dns_relay_protocol::{DnsRelay, GetDnsRelay};
 use hns_header_consensus::Header;
-use hns_hnsr_protocol::{HnsrPacket, NamedRouteRecordV2};
+use hns_hnsr_protocol::{HnsrPacket, NamedRouteRecordV2, NamedRouteRecordV3};
 use hns_marketplace_protocol::{CrossChainMessage, NameMarketMessage};
 use hns_mining::Block;
 use hns_odoh_protocol::OdnsPacket;
 use hns_p2p_experimental::DenuoExtensionEnvelope;
 use hns_p2p_wire::{Frame, NetworkMagic};
 use hns_script::parse_script;
-use hns_service_authority::{EndpointDelegationV1, ServiceAuthorizationV1};
+use hns_service_authority::{
+    EndpointDelegationV1 as LegacyEndpointDelegationV1, ServiceAuthorizationV1,
+    hrm::EndpointDelegationV1 as HrmEndpointDelegationV1,
+};
 use hns_swap::SwapProof;
 use hns_transaction::Transaction;
 use hns_urkel_proof::HsdUrkelProof;
@@ -50,11 +53,21 @@ impl AcceptanceMask {
     pub const NAME_STATE: u32 = 1 << 15;
     pub const NAME_RESOURCE: u32 = 1 << 16;
     pub const HIP79_SERVICE_AUTHORIZATION: u32 = 1 << 17;
-    pub const HIP79_ENDPOINT_DELEGATION: u32 = 1 << 18;
-    pub const HNSA_HNSR_NAMED_ROUTE: u32 = 1 << 19;
+    /// Legacy HSA1 endpoint delegation parser.
+    pub const LEGACY_HIP79_ENDPOINT_DELEGATION: u32 = 1 << 18;
+    /// Backward-compatible name for [`Self::LEGACY_HIP79_ENDPOINT_DELEGATION`].
+    pub const HIP79_ENDPOINT_DELEGATION: u32 = Self::LEGACY_HIP79_ENDPOINT_DELEGATION;
+    /// Legacy HSA1 HNSR NamedRouteV2 parser.
+    pub const LEGACY_HNSA_HNSR_NAMED_ROUTE_V2: u32 = 1 << 19;
+    /// Backward-compatible name for [`Self::LEGACY_HNSA_HNSR_NAMED_ROUTE_V2`].
+    pub const HNSA_HNSR_NAMED_ROUTE: u32 = Self::LEGACY_HNSA_HNSR_NAMED_ROUTE_V2;
     pub const HNS_CHAT_ENVELOPE: u32 = 1 << 20;
     pub const HNS_CHAT_ACKNOWLEDGEMENT: u32 = 1 << 21;
     pub const HNS_CHAT_BINDING: u32 = 1 << 22;
+    /// HRM HNSA EndpointDelegationV1 parser.
+    pub const HRM_HNSA_ENDPOINT_DELEGATION_V1: u32 = 1 << 23;
+    /// HRM HNSA-HNSR NamedRouteV3 parser.
+    pub const HRM_HNSA_HNSR_NAMED_ROUTE_V3: u32 = 1 << 24;
 
     /// Whether the named parser bit accepted the input.
     pub const fn contains(self, parser: u32) -> bool {
@@ -134,11 +147,19 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     );
     accepted.record(
         AcceptanceMask::HIP79_ENDPOINT_DELEGATION,
-        EndpointDelegationV1::decode(input).is_ok(),
+        LegacyEndpointDelegationV1::decode(input).is_ok(),
     );
     accepted.record(
         AcceptanceMask::HNSA_HNSR_NAMED_ROUTE,
         NamedRouteRecordV2::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HRM_HNSA_ENDPOINT_DELEGATION_V1,
+        HrmEndpointDelegationV1::decode(input).is_ok(),
+    );
+    accepted.record(
+        AcceptanceMask::HRM_HNSA_HNSR_NAMED_ROUTE_V3,
+        NamedRouteRecordV3::decode(input).is_ok(),
     );
     accepted.record(
         AcceptanceMask::HNS_CHAT_ENVELOPE,
@@ -276,6 +297,8 @@ mod tests {
         include_str!("../../../fixtures/chat-v1/hns-chat-resource-v1.txt");
     const HNSR_PROFILE_REGISTRY: &str =
         include_str!("../../../registry/hnsr-service-profiles-v1.toml");
+    const HNSA_HNSR_V3_FIXTURES: &str =
+        include_str!("../../../fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt");
 
     fn fixture_bytes(document: &str, name: &str) -> Vec<u8> {
         let value = document
@@ -378,6 +401,16 @@ mod tests {
                 .expect("bounded")
                 .contains(AcceptanceMask::HNS_CHAT_BINDING)
         );
+
+        let endpoint = fixture_bytes(HNSA_HNSR_V3_FIXTURES, "endpoint_delegation");
+        let endpoint_mask = exercise_production_parsers(&endpoint).expect("bounded");
+        assert!(endpoint_mask.contains(AcceptanceMask::HRM_HNSA_ENDPOINT_DELEGATION_V1));
+        assert!(!endpoint_mask.contains(AcceptanceMask::LEGACY_HIP79_ENDPOINT_DELEGATION));
+
+        let route = fixture_bytes(HNSA_HNSR_V3_FIXTURES, "named_route_record_v3");
+        let route_mask = exercise_production_parsers(&route).expect("bounded");
+        assert!(route_mask.contains(AcceptanceMask::HRM_HNSA_HNSR_NAMED_ROUTE_V3));
+        assert!(!route_mask.contains(AcceptanceMask::LEGACY_HNSA_HNSR_NAMED_ROUTE_V2));
     }
 
     #[test]
@@ -398,6 +431,8 @@ mod tests {
             fixture_value(CHAT_RESOURCE_FIXTURES, "valid_explicit")
                 .as_bytes()
                 .to_vec(),
+            fixture_bytes(HNSA_HNSR_V3_FIXTURES, "endpoint_delegation"),
+            fixture_bytes(HNSA_HNSR_V3_FIXTURES, "named_route_record_v3"),
         ];
         let mut mutations = 0_usize;
         for seed in seeds {

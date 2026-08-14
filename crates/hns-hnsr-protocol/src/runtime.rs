@@ -9,6 +9,10 @@
 
 use std::collections::{BTreeSet, HashMap};
 
+use hns_service_authority::{
+    authority_state::CurrentCommittedNamedService,
+    hrm::{NamedServiceIdentity, ServiceGenerationObservation, VerifiedNamedService},
+};
 use zeroize::Zeroizing;
 
 use crate::body::{
@@ -17,9 +21,13 @@ use crate::body::{
 };
 use crate::record::{RelayTicket, ReserveRequest, public_key, validate_host, verify_withdrawal};
 use crate::{
-    HnsrOpcode, HnsrPacket, HnsrProtocolError, MAX_CIRCUITS, MAX_CONTACTS, MAX_TICKET_LIFETIME,
-    RouteStore, RouteStoreLimits,
+    HnsrOpcode, HnsrPacket, HnsrProtocolError, HrmNamedRoutePolicy, MAX_CIRCUITS, MAX_CONTACTS,
+    MAX_TICKET_LIFETIME, NamedRouteV3LedgerSnapshot, RouteStore, RouteStoreLimits,
 };
+
+const ROUTES_BODY_FIXED_SIZE: usize = 1;
+const ROUTES_BODY_RECORD_PREFIX_SIZE: usize = 2;
+const ROUTES_BODY_MAX_SIZE: usize = crate::MAX_PACKET_SIZE - 12;
 
 const MAX_RESERVATION_ID_ATTEMPTS: usize = 8;
 
@@ -421,8 +429,17 @@ impl RelayService {
     }
 }
 
+/// Volatile wire rendezvous service.
+///
+/// This compatibility surface returns directly from in-memory route and V3
+/// ledger mutations. It makes no persistence-before-reply guarantee. A node
+/// which retains its V3 admission ledger across restart uses
+/// [`crate::LeasedPersistentRendezvousService`] through its guarded
+/// `handle_and_emit` boundary instead. Live route bytes are volatile in either
+/// mode.
 pub struct RendezvousService {
     routes: RouteStore,
+    allow_legacy_named_v2_publication: bool,
 }
 
 impl RendezvousService {
@@ -431,13 +448,145 @@ impl RendezvousService {
         allow_private_routes: bool,
         limits: RouteStoreLimits,
     ) -> Result<Self, HnsrProtocolError> {
+        Self::new_with_legacy_named_v2(network_magic, allow_private_routes, limits, false)
+    }
+
+    /// Construct a rendezvous service with an explicit publication choice for
+    /// the superseded `hsa1`-backed version-2 named route model.
+    ///
+    /// The ordinary `GETROUTE` wire operation never returns legacy V2, even
+    /// when this compatibility switch is enabled. An embedding which still
+    /// needs V2 lookup must call [`Self::get_legacy_named_v2`] explicitly.
+    pub fn new_with_legacy_named_v2(
+        network_magic: u32,
+        allow_private_routes: bool,
+        limits: RouteStoreLimits,
+        allow_legacy_named_v2_publication: bool,
+    ) -> Result<Self, HnsrProtocolError> {
         Ok(Self {
             routes: RouteStore::new(network_magic, allow_private_routes, limits)?,
+            allow_legacy_named_v2_publication,
         })
     }
 
     pub const fn route_count(&self) -> usize {
         self.routes.len()
+    }
+
+    /// Mutation marker for the volatile V3 storage-admission replay ledger.
+    pub const fn named_v3_ledger_revision(&self) -> u64 {
+        self.routes.named_v3_ledger_revision()
+    }
+
+    /// Greatest trusted time at which expired V3 ledger scopes were deleted.
+    pub const fn named_v3_pruned_through(&self) -> u64 {
+        self.routes.named_v3_pruned_through()
+    }
+
+    /// Snapshot the volatile replay ledger after time-based safe pruning.
+    ///
+    /// This method does not retain an exact pending proposal or withhold a
+    /// reply. Use [`crate::LeasedPersistentRendezvousService`] through its
+    /// guarded `handle_and_emit` boundary for enforced durable ordering,
+    /// including conflict and horizon-extending stale errors.
+    pub fn named_v3_ledger_snapshot(
+        &mut self,
+        now: u64,
+    ) -> Result<NamedRouteV3LedgerSnapshot, HnsrProtocolError> {
+        self.routes.named_v3_ledger_snapshot(now)
+    }
+
+    /// Restore a compatible authenticated snapshot into an empty service.
+    ///
+    /// `minimum_revision` is the embedding's authenticated anti-rollback
+    /// floor; a lower snapshot is incompatible even if its checksum is valid.
+    pub fn restore_named_v3_ledger(
+        &mut self,
+        snapshot: NamedRouteV3LedgerSnapshot,
+        now: u64,
+        minimum_revision: u64,
+    ) -> Result<(), HnsrProtocolError> {
+        self.routes
+            .restore_named_v3_ledger(snapshot, now, minimum_revision)
+    }
+
+    /// Store a V3 route under durably committed, still-current active HNSA
+    /// authority.
+    pub fn put_named_v3(
+        &mut self,
+        key: [u8; 32],
+        raw: Vec<u8>,
+        committed_service: &CurrentCommittedNamedService<'_>,
+        policy: HrmNamedRoutePolicy,
+        now: u64,
+        source: String,
+    ) -> Result<u64, HnsrProtocolError> {
+        self.routes
+            .put_named_v3(key, raw, committed_service, policy, now, source)
+    }
+
+    /// Apply durably committed, still-current HNSA authority to live bytes
+    /// without lowering the storage-admission replay ledger.
+    ///
+    /// Active authority revalidates the namespace and a committed withdrawal
+    /// removes its live bytes.
+    pub fn revalidate_named_v3_current(
+        &mut self,
+        identity: &NamedServiceIdentity,
+        committed_service: &CurrentCommittedNamedService<'_>,
+        policy: HrmNamedRoutePolicy,
+        now: u64,
+    ) -> Result<usize, HnsrProtocolError> {
+        self.routes
+            .revalidate_named_v3_current(identity, committed_service, policy, now)
+    }
+
+    /// Remove live bytes under a durably committed, still-current withdrawal
+    /// while retaining endpoint and route replay high-water state.
+    pub fn invalidate_named_v3_withdrawal(
+        &mut self,
+        identity: &NamedServiceIdentity,
+        committed_service: &CurrentCommittedNamedService<'_>,
+        now: u64,
+    ) -> Result<usize, HnsrProtocolError> {
+        self.routes
+            .invalidate_named_v3_withdrawal(identity, committed_service, now)
+    }
+
+    /// Low-level revalidation without a current committed authority guard.
+    #[doc(hidden)]
+    pub fn revalidate_named_v3_current_uncommitted(
+        &mut self,
+        service: &VerifiedNamedService,
+        policy: HrmNamedRoutePolicy,
+        now: u64,
+    ) -> Result<usize, HnsrProtocolError> {
+        self.routes
+            .revalidate_named_v3_current_uncommitted(service, policy, now)
+    }
+
+    /// Low-level withdrawal application without a current committed authority
+    /// guard.
+    #[doc(hidden)]
+    pub fn invalidate_named_v3_withdrawal_uncommitted(
+        &mut self,
+        identity: &NamedServiceIdentity,
+        observation: &ServiceGenerationObservation,
+    ) -> Result<usize, HnsrProtocolError> {
+        self.routes
+            .invalidate_named_v3_withdrawal_uncommitted(identity, observation)
+    }
+
+    /// Explicit non-wire compatibility lookup for superseded version-2 named
+    /// routes. Results remain untrusted candidates and are never substituted
+    /// for an HRM-backed version-3 identity.
+    pub fn get_legacy_named_v2(
+        &mut self,
+        route_key: &[u8; 32],
+        maximum: usize,
+        now: u64,
+    ) -> Vec<Vec<u8>> {
+        self.routes.get_named_v2(route_key, maximum, now)
     }
 
     fn handle(
@@ -449,12 +598,20 @@ impl RendezvousService {
         match packet.opcode {
             HnsrOpcode::PutRoute => {
                 let put = PutRouteBody::decode(&packet.body)?;
-                let stored_until = match put.record.first() {
-                    Some(1) => {
+                let stored_until = match put.record.get(..2) {
+                    Some([1, 0]) => {
                         self.routes
                             .put(put.route_key, put.record, now, source.to_owned())?
                     }
-                    Some(2) => self.routes.put_named_for_admission(
+                    Some([2, 1]) if self.allow_legacy_named_v2_publication => {
+                        self.routes.put_named_v2_for_admission(
+                            put.route_key,
+                            put.record,
+                            now,
+                            source.to_owned(),
+                        )?
+                    }
+                    Some([3, 2]) => self.routes.put_named_v3_for_admission(
                         put.route_key,
                         put.record,
                         now,
@@ -478,10 +635,32 @@ impl RendezvousService {
             }
             HnsrOpcode::GetRoute => {
                 let get = GetRouteBody::decode(&packet.body)?;
-                let records = self.routes.get(
-                    &get.route_key,
-                    usize::from(get.maximum_records).min(MAX_CONTACTS),
-                    now,
+                let maximum = usize::from(get.maximum_records).min(MAX_CONTACTS);
+                // The wire lookup exposes only the current HRM-backed named
+                // model plus the domain-separated original unnamed model.
+                // Legacy V2 never enters this response as an implicit fallback.
+                let mut records = self.routes.get_named_v3(&get.route_key, maximum, now);
+                let remaining = maximum.saturating_sub(records.len());
+                records.extend(self.routes.get_unnamed_v1(&get.route_key, remaining, now));
+                // Route records are individually bounded by 8192 bytes, but a
+                // response may request sixteen of them while the enclosing
+                // packet is only 65535 bytes. Preserve the deterministic V3-
+                // then-unnamed ordering and return its longest fitting prefix.
+                let mut response_size = ROUTES_BODY_FIXED_SIZE;
+                records.truncate(
+                    records
+                        .iter()
+                        .take_while(|record| {
+                            let next = response_size
+                                .saturating_add(ROUTES_BODY_RECORD_PREFIX_SIZE)
+                                .saturating_add(record.len());
+                            if next > ROUTES_BODY_MAX_SIZE {
+                                return false;
+                            }
+                            response_size = next;
+                            true
+                        })
+                        .count(),
                 );
                 Ok(Some(HnsrPacket::new(
                     HnsrOpcode::Routes,
@@ -496,6 +675,12 @@ impl RendezvousService {
     }
 }
 
+/// Volatile combined relay/rendezvous runtime.
+///
+/// Its optional [`RendezvousService`] does not provide a durable V3 ledger
+/// boundary. Persistent rendezvous embeddings keep the relay plane separate
+/// and use [`crate::LeasedPersistentRendezvousService`] through its guarded
+/// `handle_and_emit` boundary for route packets.
 pub struct HnsrService {
     relay: Option<RelayService>,
     rendezvous: Option<RendezvousService>,
@@ -517,6 +702,12 @@ impl HnsrService {
 
     pub fn rendezvous(&self) -> Option<&RendezvousService> {
         self.rendezvous.as_ref()
+    }
+
+    /// Borrow the rendezvous plane for explicit model-specific maintenance or
+    /// legacy compatibility lookup.
+    pub fn rendezvous_mut(&mut self) -> Option<&mut RendezvousService> {
+        self.rendezvous.as_mut()
     }
 
     pub fn handle(
@@ -689,6 +880,10 @@ mod tests {
     const NOW: u64 = 1_700_000_000;
 
     fn service() -> HnsrService {
+        service_with_legacy_named_v2(false)
+    }
+
+    fn service_with_legacy_named_v2(allow_legacy_named_v2: bool) -> HnsrService {
         let config = RelayConfig {
             network_magic: MAGIC,
             transport: 0,
@@ -706,7 +901,7 @@ mod tests {
         HnsrService::new(
             Some(RelayService::new(config, [4; 32]).expect("relay")),
             Some(
-                RendezvousService::new(
+                RendezvousService::new_with_legacy_named_v2(
                     MAGIC,
                     true,
                     RouteStoreLimits {
@@ -717,6 +912,7 @@ mod tests {
                         verification_attempts_per_source: 64,
                         verification_window_seconds: 60,
                     },
+                    allow_legacy_named_v2,
                 )
                 .expect("rendezvous"),
             ),
@@ -781,7 +977,7 @@ mod tests {
 
     #[test]
     fn live_reservation_publication_and_lookup_verify_complete_named_chain() {
-        let mut service = service();
+        let mut service = service_with_legacy_named_v2(true);
         let relay_key = service.relay().expect("relay").relay_key();
         let endpoint = EndpointReservation::new(MAGIC, PROFILE, [3; 32]).expect("endpoint");
         let reserve = endpoint
@@ -849,8 +1045,16 @@ mod tests {
             .expect("lookup")
             .expect("response");
         let routes = RoutesBody::decode(&routes.body).expect("routes");
-        assert_eq!(routes.records.len(), 1);
-        let discovered = NamedRouteRecordV2::decode(&routes.records[0]).expect("route");
+        assert!(
+            routes.records.is_empty(),
+            "wire GETROUTE must not fall back to legacy V2"
+        );
+        let legacy_records = service
+            .rendezvous_mut()
+            .expect("rendezvous")
+            .get_legacy_named_v2(&route.route_key, 4, NOW + 1);
+        assert_eq!(legacy_records.len(), 1);
+        let discovered = NamedRouteRecordV2::decode(&legacy_records[0]).expect("route");
         discovered
             .verify(
                 &NamedRouteTrust {

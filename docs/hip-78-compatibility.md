@@ -45,9 +45,12 @@ The crate provides:
 - versioned BLAKE2b-256-checksummed requester and relay snapshots that preserve
   exact settings and counters while revoking, rather than resurrecting, every
   snapshotted live circuit under a mandatory fresh process session;
-- version-2 HNSA named routes with stable service-derived keys, profile-aware
-  relay tickets, full-client verification, bounded rendezvous admission, and
-  exclusion from unnamed route sampling; and
+- explicitly isolated legacy version-2 HNSA named routes plus HRM/HNSA-backed
+  version-3/type-2 named routes with stable service-derived keys,
+  profile-aware relay tickets, full-current committed-authority verification,
+  bounded rendezvous admission, independent endpoint/route product counters,
+  permanent requester replay state, and exclusion from unnamed route
+  sampling; and
 - the hsd Phase 2 regtest evidence artifact at
   `fixtures/hsd/hnsr-regtest-phase1.json`.
 
@@ -68,9 +71,11 @@ chain. Named service identity is supplied only by the HNSA adapter and current
 authenticated HNS state from the consuming node or browser; it is never
 inferred from a rendezvous response.
 Unnamed version-1 route records remain restricted to `HNS_NODE_V1`; named
-version-2 routes continue to reject that profile. Accepting another nonzero
-profile in a circuit body does not enable it unless the reservation, ticket,
-requester configuration, and relay allowlist all select that exact profile.
+versions 2 and 3 continue to reject that profile and use distinct authority and
+replacement namespaces. Version 2 is explicit compatibility only and is never
+returned as fallback for version 3. Accepting another nonzero profile in a
+circuit body does not enable it unless the reservation, ticket, requester
+configuration, and relay allowlist all select that exact profile.
 
 This crate deliberately contains no socket runtime, Tokio, persistent
 database, wallet, browser, mobile, or MeshMine dependency. Consumers bind each
@@ -81,6 +86,11 @@ session on restore. Consumers also remain responsible for iterative lookup
 scheduling, three-store publication quorum, replication, inner Brontide, and
 priority below direct blockchain traffic. Snapshot restore deliberately drops
 all live connection authority; it is durable recovery, not circuit resumption.
+HRM-backed named-route consumers additionally persist the committed
+subject-wide HNSA authority state and permanent requester product counters.
+Rendezvous nodes may persist the separate finite admission ledger, but it is
+not requester replay protection. Native and asynchronous browser/mobile
+adapters must complete exact CAS before releasing a current route.
 
 Requester/client and opaque relay participation default on and have independent
 persistent opt-outs. Endpoint/output-node and rendezvous-directory

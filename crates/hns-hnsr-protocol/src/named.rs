@@ -696,14 +696,17 @@ mod tests {
                 "peer-a".to_owned(),
             )
             .expect("stored");
-        assert_eq!(fully_verified.get(&route.route_key, 8, now).len(), 1);
+        assert_eq!(
+            fully_verified.get_named_v2(&route.route_key, 8, now).len(),
+            1
+        );
         assert!(fully_verified.sample(8, &[1; 32], now).is_empty());
 
         let mut bounded = RouteStore::new(MAGIC, true, RouteStoreLimits::default()).expect("store");
         bounded
             .put_named_for_admission(route.route_key, raw, now, "peer-b".to_owned())
             .expect("stored");
-        assert_eq!(bounded.get(&route.route_key, 8, now).len(), 1);
+        assert_eq!(bounded.get_named_v2(&route.route_key, 8, now).len(), 1);
         assert!(bounded.sample(8, &[2; 32], now).is_empty());
     }
 

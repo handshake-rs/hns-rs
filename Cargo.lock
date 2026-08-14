@@ -545,16 +545,19 @@ dependencies = [
 name = "hns-hnsr-protocol"
 version = "0.3.0"
 dependencies = [
+ "base64",
  "blake2",
  "getrandom 0.4.3",
  "hex",
  "hns-chat-protocol",
  "hns-covenants",
  "hns-encoding",
+ "hns-hrm",
  "hns-primitives",
  "hns-service-authority",
  "hns-transaction",
  "k256",
+ "sha2 0.10.9",
  "thiserror",
  "zeroize",
 ]
@@ -686,7 +689,9 @@ dependencies = [
  "blake2",
  "hex",
  "hns-encoding",
+ "hns-hrm",
  "k256",
+ "sha2 0.10.9",
  "thiserror",
  "zeroize",
 ]

@@ -15,8 +15,9 @@ tests.
 | DNS relay | HIP PR 76 at `25f6d99cdd2b766f9eb6bb3b72d9dc804efd6131`; HSD PR 958 at `ea31be1554f3235bfa96bdd394e6d33e7dda8080` | draft; Denuo Experimental V1 |
 | ODoH relay | HIP PR 77 at `d3ae6be483663ed6cf0ead4f4b4f17a80b1d1162`; HSD PR 959 at `909311d97c794eb59ed2eb0b095a122607ae078e` | draft; Denuo Experimental V1 |
 | HNSR | HIP PR 78 at `53b962e901ffa796f4ccf66a5d53956d7421c58c`; HSD PR 960 at `2fc40f1c61ff16a2f39d9514cd950d1560430ced` | draft; Denuo Experimental V1 |
-| HNSA | HIP PR 79 at `c0487e5af779158cbef0591ac363b7e956255c7d` | draft; transport-independent authority objects |
-| HNSA/HNSR named routes | local `HIP-xxxx-HNSA-HNSR.md`, based on HIP PRs 78 and 79 at the commits above | draft; route version 2 with canonical private service profiles |
+| Legacy HNSA | HIP PR 79 at `c0487e5af779158cbef0591ac363b7e956255c7d` | superseded `hsa1` experiment retained only as explicit compatibility types |
+| HRM Core and HNSA | local `HIP-xxxx-HRM.md` and `HIP-xxxx-HNSA.md`, dated 2026-08-01 | draft; deterministic HRM plus `hns.named-service/v1`, with no application-profile assignment |
+| HNSA/HNSR named routes | local `HIP-xxxx-HNSA-HNSR.md`, dated 2026-08-03, plus the pinned HNSR draft above | draft; HRM-backed route version 3/type 2, distinct from legacy version 2/type 1 |
 | HNS Chat owner binding | `docs/hns-chat-owner-identity.md` and `fixtures/chat-v1/hns-chat-resource-v1.txt` | workspace-defined owner-key identity and opaque HIP-78 payload boundary; downstream NIP cryptography remains separately qualified |
 | Private assignment registries | `registry/denuo-experimental-v1.toml`, `registry/denuo-experimental-v2.toml`, and `registry/hnsr-service-profiles-v1.toml`, with their canonical binaries/hashes | production-supported Denuo Experimental packet and HNSR service-profile registries; not official assignments |
 
@@ -58,3 +59,18 @@ independent implementation of their documented bytes rather than an external
 protocol oracle. The recovery FINALIZE transaction uses independently encoded
 HSD transaction, covenant, script, and hash rules. Use `--check` for a read-only
 deterministic source/sidecar comparison.
+
+HRM Core vectors are regenerated with
+`python3 generators/generate-hrm-v1-fixtures.py --write`. The standard-library
+oracle independently implements deterministic CBOR, commitment hashing,
+BLAKE2b domains, RFC6979 secp256k1 signing, strict DER, and low-S
+normalization. HRM-backed HNSA and HNSR version-3 vectors are regenerated with
+`python3 generators/generate-hnsa-hnsr-v3-fixtures.py --write`; that second
+oracle composes the independently generated HRM encoding with the exact HNSA
+resource/delegation IDs, endpoint authority, HNSR relay tickets, and route
+signature. It also independently encodes the canonical bounded HRM/HNSA
+authority aggregate, permanent requester replay state, and finite rendezvous
+ledger snapshots, including their corruption checksums and CAS fingerprints.
+Its private profile and service label are test data, not assigned application
+semantics. Both generators support `--check` and authenticate their root and
+package-local copies with complete-file SHA-256 sidecars.

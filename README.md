@@ -44,8 +44,9 @@ The implemented protocol layer contains:
 - semantic wire-assignment profiles;
 - the versioned Denuo extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
-  #79 HNSA service-authority objects, and the local versioned HNSA/HNSR named
-  route adapter;
+  #79 legacy HNSA compatibility objects, the HRM-backed
+  `hns.named-service/v1` profile and endpoint authority, and explicitly
+  separated HNSA/HNSR named-route versions 2 and 3;
 - bounded in-process HNSR reservation, renewal, confirmation, withdrawal,
   named-route publication, and lookup state machines for composition by an
   authenticated transport owner;
@@ -67,6 +68,12 @@ same authenticated assets and their external-consumer test are included in the
 Source-independent deterministic-CBOR, controller-signature, envelope,
 commitment, and rejection vectors for HRM Core live in `fixtures/hrm-v1/` with
 a standard-library Python oracle and authenticated package copy.
+Source-independent HRM-backed HNSA and HNSR NamedRouteV3 vectors live in
+`fixtures/hnsa-hnsr-v3/`. They pin the complete signed chain, generation and
+route replacement failures, durable authority/requester/storage snapshots,
+and 64-bit values beyond JavaScript's exact `Number` range; profile `0xff00`
+remains fixture-private test data rather than a deployed application
+assignment.
 
 See `docs/protocol-authority.md` and `docs/provenance.md` for fixture authority,
 `docs/experimental-p2p-registry.md` for assignment status and governance, and

@@ -13,6 +13,21 @@ The workspace crates use a shared version and follow Semantic Versioning.
 - Add source-independent HRM Core vectors and a standard-library Python oracle,
   plus subject/action-bound profile dispatch, authenticated external-proof
   expiry, pre-allocation retrieval budgets, and event-scoped rollback evidence.
+- Add the HRM-backed `hns.named-service/v1` resource and service-delegation
+  profile, bounded service-signed endpoint delegations, and a durable bounded
+  subject-wide authority aggregate with trusted-time, exact CAS, generation
+  tombstones, and atomic accepted-reorganization invalidation.
+- Add HNSR named-route version 3 with separate internal-admission and
+  current-HRM requester verification, independent endpoint/route product
+  counters, finite storage ledgers, permanent requester replay state, exact
+  sync/async fenced CAS, ordered authority/requester operation leases,
+  committed-authority production wrappers, and a leased
+  persistence-before-emission rendezvous boundary.
+- Add source-independent HNSA/HNSR v3 vectors covering the complete HRM,
+  resource, service delegation, endpoint delegation, relay ticket, and route
+  chain plus canonical authority/requester/storage snapshots, including
+  replacement, withdrawal/restoration, equivocation, malformed-object,
+  persistence/restart, and JavaScript-unsafe-integer cases.
 - Keep the prior `hsa1`, fixed service authorization, endpoint delegation, and
   named-route version 2 model explicitly legacy rather than reinterpreting it
   as HRM-backed authority.

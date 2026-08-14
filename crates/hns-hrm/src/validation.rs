@@ -67,6 +67,11 @@ impl ValidationLimits {
 
 /// Current HNS state authenticated by a full node, header-rooted proof, or
 /// locally accepted DNSSEC trust path before entering this crate.
+///
+/// This is a caller-constructible external trust-boundary input, **not** a
+/// chain-proof type. Browser/page, extension message, mobile WebView, and wire
+/// input must never construct it directly. A trusted native node or authority
+/// broker must first authenticate current HNS state and then populate it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthenticatedNameState {
     pub network_magic: u32,
@@ -86,6 +91,12 @@ pub struct AuthenticatedNameState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Caller-supplied pairing of authenticated current HNS state and retrieved
+/// manifest bytes.
+///
+/// This type is not proof that `name_state` was authenticated. Only a trusted
+/// node/native authority broker may construct it for validation; never map a
+/// page, extension, WebView, or wire payload directly into this structure.
 pub struct ResolvedManifest {
     pub name_state: AuthenticatedNameState,
     pub envelope: Vec<u8>,
@@ -249,7 +260,11 @@ pub struct AcceptedReorganization {
 }
 
 impl AcceptedReorganization {
-    fn matches(self, previous: RollbackState, current: RollbackState) -> bool {
+    /// Match this exact accepted chain event to two persisted observations.
+    ///
+    /// Profile-specific rollback state may reuse the same evidence only when
+    /// its previous and current observations belong to this exact event.
+    pub fn matches(self, previous: RollbackState, current: RollbackState) -> bool {
         self.previous_chain_height == previous.chain_height
             && self.previous_chain_work == previous.chain_work
             && self.previous_chain_anchor == previous.chain_anchor
@@ -283,17 +298,193 @@ pub enum ProofLink {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatedAuthorization {
-    pub network_magic: u32,
-    pub subject: [u8; 32],
-    pub resource_id: [u8; 32],
-    pub profile: String,
-    pub action: String,
-    pub expires_at: u64,
-    pub proof_chain: Vec<ProofLink>,
+    network_magic: u32,
+    subject: [u8; 32],
+    resource_id: [u8; 32],
+    profile: String,
+    action: String,
+    expires_at: u64,
+    proof_chain: Vec<ProofLink>,
     /// Every observation must be persisted atomically before operational use.
-    pub rollback_observations: Vec<RollbackState>,
-    pub fetched_objects: usize,
-    pub fetched_bytes: usize,
+    rollback_observations: Vec<RollbackState>,
+    fetched_objects: usize,
+    fetched_bytes: usize,
+    current_snapshot: ValidatedManifestSnapshot,
+}
+
+/// Authenticated complete current HRM state for one HNS subject.
+///
+/// Unlike [`ValidatedAuthorization`], this result does not require a selected
+/// resource to exist. Profile adapters use it to observe authoritative
+/// complete-snapshot removal without accepting caller-paired raw envelope
+/// bytes. The private snapshot can only be produced after the current HNS
+/// commitment, envelope hash, controller signature, context, time, finality,
+/// and rollback rules have all succeeded.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedCurrentManifest {
+    network_magic: u32,
+    subject: [u8; 32],
+    expires_at: u64,
+    /// Persist this observation atomically before operational use.
+    rollback_observation: RollbackState,
+    fetched_objects: usize,
+    fetched_bytes: usize,
+    current_snapshot: ValidatedManifestSnapshot,
+}
+
+/// Exact current manifest data authenticated while producing an HRM decision.
+///
+/// The fields stay private and instances are created only by
+/// [`validate_authorization`] or [`validate_current_manifest`]. Profile crates
+/// may inspect the snapshot through these accessors without re-decoding,
+/// re-fetching, or trusting caller-paired envelope bytes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedManifestSnapshot {
+    validated_at: u64,
+    sequence: u64,
+    envelope_hash: [u8; 32],
+    controller: Controller,
+    payload_issued_at: u64,
+    payload_expires_at: u64,
+    resources: Vec<ResourceEntry>,
+    delegations: Vec<Delegation>,
+    rollback_state: RollbackState,
+    accepted_reorganization: Option<AcceptedReorganization>,
+}
+
+impl ValidatedAuthorization {
+    pub const fn current_snapshot(&self) -> &ValidatedManifestSnapshot {
+        &self.current_snapshot
+    }
+
+    pub const fn network_magic(&self) -> u32 {
+        self.network_magic
+    }
+
+    pub const fn subject(&self) -> [u8; 32] {
+        self.subject
+    }
+
+    pub const fn resource_id(&self) -> [u8; 32] {
+        self.resource_id
+    }
+
+    pub fn profile(&self) -> &str {
+        &self.profile
+    }
+
+    pub fn action(&self) -> &str {
+        &self.action
+    }
+
+    pub const fn expires_at(&self) -> u64 {
+        self.expires_at
+    }
+
+    pub fn proof_chain(&self) -> &[ProofLink] {
+        &self.proof_chain
+    }
+
+    /// Return every rollback observation that must be persisted atomically
+    /// before the authorization is used operationally.
+    pub fn rollback_observations(&self) -> &[RollbackState] {
+        &self.rollback_observations
+    }
+
+    pub const fn fetched_objects(&self) -> usize {
+        self.fetched_objects
+    }
+
+    pub const fn fetched_bytes(&self) -> usize {
+        self.fetched_bytes
+    }
+}
+
+impl ValidatedCurrentManifest {
+    pub const fn current_snapshot(&self) -> &ValidatedManifestSnapshot {
+        &self.current_snapshot
+    }
+
+    pub const fn network_magic(&self) -> u32 {
+        self.network_magic
+    }
+
+    pub const fn subject(&self) -> [u8; 32] {
+        self.subject
+    }
+
+    pub const fn expires_at(&self) -> u64 {
+        self.expires_at
+    }
+
+    pub const fn rollback_observation(&self) -> RollbackState {
+        self.rollback_observation
+    }
+
+    pub const fn fetched_objects(&self) -> usize {
+        self.fetched_objects
+    }
+
+    pub const fn fetched_bytes(&self) -> usize {
+        self.fetched_bytes
+    }
+}
+
+impl ValidatedManifestSnapshot {
+    /// Return the validation clock used for the enclosing HRM decision.
+    ///
+    /// Profile consumers must use this value for any additional temporal
+    /// constraints derived from the authenticated snapshot instead of
+    /// accepting a second, caller-supplied clock.
+    pub const fn validated_at(&self) -> u64 {
+        self.validated_at
+    }
+
+    pub const fn sequence(&self) -> u64 {
+        self.sequence
+    }
+
+    pub const fn envelope_hash(&self) -> [u8; 32] {
+        self.envelope_hash
+    }
+
+    pub const fn controller(&self) -> &Controller {
+        &self.controller
+    }
+
+    pub const fn payload_issued_at(&self) -> u64 {
+        self.payload_issued_at
+    }
+
+    pub const fn payload_expires_at(&self) -> u64 {
+        self.payload_expires_at
+    }
+
+    /// Return every resource from the authenticated complete snapshot.
+    pub fn resources(&self) -> &[ResourceEntry] {
+        &self.resources
+    }
+
+    /// Find one resource in the authenticated complete snapshot.
+    ///
+    /// HRM structural validation guarantees resource identifiers are unique.
+    pub fn resource(&self, resource_id: &[u8; 32]) -> Option<&ResourceEntry> {
+        self.resources
+            .iter()
+            .find(|resource| &resource.resource_id == resource_id)
+    }
+
+    pub fn delegations(&self) -> &[Delegation] {
+        &self.delegations
+    }
+
+    pub const fn rollback_state(&self) -> RollbackState {
+        self.rollback_state
+    }
+
+    pub const fn accepted_reorganization(&self) -> Option<AcceptedReorganization> {
+        self.accepted_reorganization
+    }
 }
 
 #[derive(Debug, Error)]
@@ -334,6 +525,92 @@ pub enum ValidationError {
     Deadline,
     #[error("HRM sequence rollback was not justified by an accepted reorganization")]
     Rollback,
+}
+
+/// Authenticate the complete current HRM for one expected HNS subject.
+///
+/// This entry point deliberately performs no resource or action selection, so
+/// a profile can treat absence from a complete snapshot as revocation while
+/// retaining provenance and rollback protection. It does not authorize any
+/// resource by itself.
+pub fn validate_current_manifest(
+    root: ResolvedManifest,
+    expected_network_magic: u32,
+    expected_subject: [u8; 32],
+    now: u64,
+    limits: ValidationLimits,
+    previous_observations: &RollbackObservations,
+) -> Result<ValidatedCurrentManifest, ValidationError> {
+    limits.validate()?;
+    let started_at = Instant::now();
+    if root.name_state.subject != expected_subject {
+        return Err(ValidationError::ResolverContext);
+    }
+    let fetched_bytes = root.envelope.len();
+    if fetched_bytes > limits.maximum_fetched_bytes {
+        return Err(ValidationError::Budget);
+    }
+
+    let state = &root.name_state;
+    if state.network_magic != expected_network_magic
+        || !state.has_current_owner
+        || state.revoked
+        || state.expired
+        || !state.finality_accepted
+    {
+        return Err(ValidationError::NameState);
+    }
+    let commitment = select_commitment(&state.commitment_records, &limits.commitment)?;
+    if started_at.elapsed().as_millis() >= u128::from(limits.maximum_validation_milliseconds) {
+        return Err(ValidationError::Deadline);
+    }
+    if Sha256::digest(&root.envelope).as_slice() != commitment.envelope_hash {
+        return Err(ValidationError::EnvelopeHash);
+    }
+    let envelope = Envelope::decode(&root.envelope)?;
+    envelope.validate_context(
+        expected_network_magic,
+        expected_subject,
+        commitment.sequence,
+        now,
+        0,
+    )?;
+    if started_at.elapsed().as_millis() >= u128::from(limits.maximum_validation_milliseconds) {
+        return Err(ValidationError::Deadline);
+    }
+    let observation = rollback_observation(state, &commitment);
+    if let Some(previous) = previous_observations.get(&(expected_network_magic, expected_subject)) {
+        validate_rollback(
+            *previous,
+            observation,
+            state.accepted_reorganization.as_ref(),
+        )?;
+    }
+    let expires_at = envelope
+        .payload
+        .expires_at
+        .min(now.saturating_add(limits.maximum_cache_lifetime));
+    let snapshot = ValidatedManifestSnapshot {
+        validated_at: now,
+        sequence: commitment.sequence,
+        envelope_hash: commitment.envelope_hash,
+        controller: envelope.payload.controller.clone(),
+        payload_issued_at: envelope.payload.issued_at,
+        payload_expires_at: envelope.payload.expires_at,
+        resources: envelope.payload.resources.clone(),
+        delegations: envelope.payload.delegations.clone(),
+        rollback_state: observation,
+        accepted_reorganization: state.accepted_reorganization,
+    };
+    Ok(ValidatedCurrentManifest {
+        network_magic: expected_network_magic,
+        subject: expected_subject,
+        expires_at,
+        rollback_observation: observation,
+        fetched_objects: 1,
+        fetched_bytes,
+        current_snapshot: snapshot,
+    })
 }
 
 /// Validate current authorization for one resource and action.
@@ -394,6 +671,7 @@ where
         rollback_observations: authorized.observations,
         fetched_objects: context.fetched_objects,
         fetched_bytes: context.fetched_bytes,
+        current_snapshot: authorized.snapshot,
     })
 }
 
@@ -421,6 +699,7 @@ pub fn validate_rollback(
 struct AuthorizedResource {
     resource: ResourceEntry,
     delegations: Vec<Delegation>,
+    snapshot: ValidatedManifestSnapshot,
     expires_at: u64,
     permits_subdelegation: bool,
     proof_chain: Vec<ProofLink>,
@@ -676,6 +955,18 @@ where
             }
         };
         Ok(AuthorizedResource {
+            snapshot: ValidatedManifestSnapshot {
+                validated_at: self.now,
+                sequence: commitment.sequence,
+                envelope_hash: commitment.envelope_hash,
+                controller: envelope.payload.controller.clone(),
+                payload_issued_at: envelope.payload.issued_at,
+                payload_expires_at: envelope.payload.expires_at,
+                resources: envelope.payload.resources.clone(),
+                delegations: envelope.payload.delegations.clone(),
+                rollback_state: observation,
+                accepted_reorganization: state.accepted_reorganization,
+            },
             resource,
             delegations: envelope.payload.delegations,
             expires_at,
@@ -1180,10 +1471,122 @@ mod tests {
             &no_proofs(),
         )
         .expect("authorization");
-        assert_eq!(result.resource_id, [2; 32]);
-        assert_eq!(result.proof_chain.len(), 1);
-        assert_eq!(result.rollback_observations[0].sequence, 7);
-        assert_eq!(result.fetched_objects, 1);
+        assert_eq!(result.network_magic(), MAGIC);
+        assert_eq!(result.subject(), subject(1));
+        assert_eq!(result.resource_id(), [2; 32]);
+        assert_eq!(result.profile(), "test.local/v1");
+        assert_eq!(result.action(), "operate");
+        assert_eq!(result.expires_at(), NOW + 500);
+        assert_eq!(result.proof_chain().len(), 1);
+        assert_eq!(result.rollback_observations()[0].sequence, 7);
+        assert_eq!(result.fetched_objects(), 1);
+        let snapshot = result.current_snapshot();
+        assert_eq!(snapshot.validated_at(), NOW);
+        assert_eq!(snapshot.sequence(), 7);
+        assert_eq!(
+            snapshot.envelope_hash(),
+            result.rollback_observations()[0].envelope_hash
+        );
+        assert_eq!(
+            snapshot.controller().public_key,
+            public_key(&[1; 32]).expect("controller key")
+        );
+        assert_eq!(snapshot.payload_issued_at(), NOW - 100);
+        assert_eq!(snapshot.payload_expires_at(), NOW + 1_000);
+        assert_eq!(
+            snapshot
+                .resource(&result.resource_id())
+                .expect("authorized resource")
+                .resource_id,
+            result.resource_id()
+        );
+        assert!(snapshot.delegations().is_empty());
+        assert_eq!(snapshot.rollback_state(), result.rollback_observations()[0]);
+        assert_eq!(snapshot.accepted_reorganization(), None);
+    }
+
+    #[test]
+    fn authenticates_complete_snapshot_when_requested_resource_is_absent() {
+        let resolved = manifest(1, 1, 8, NOW - 100, NOW + 1_000, Vec::new(), Vec::new());
+        let result = validate_current_manifest(
+            resolved,
+            MAGIC,
+            subject(1),
+            NOW,
+            ValidationLimits::default(),
+            &BTreeMap::new(),
+        )
+        .expect("current manifest");
+        assert_eq!(result.network_magic(), MAGIC);
+        assert_eq!(result.subject(), subject(1));
+        assert_eq!(result.fetched_objects(), 1);
+        assert!(result.fetched_bytes() > 0);
+        assert_eq!(result.rollback_observation().sequence, 8);
+        let snapshot = result.current_snapshot();
+        assert_eq!(snapshot.validated_at(), NOW);
+        assert_eq!(snapshot.sequence(), 8);
+        assert!(snapshot.resources().is_empty());
+        assert!(snapshot.resource(&resource_id(2)).is_none());
+        assert!(snapshot.delegations().is_empty());
+    }
+
+    #[test]
+    fn complete_snapshot_authentication_preserves_context_hash_and_rollback_rules() {
+        let validate = |resolved, previous: &RollbackObservations| {
+            validate_current_manifest(
+                resolved,
+                MAGIC,
+                subject(1),
+                NOW,
+                ValidationLimits::default(),
+                previous,
+            )
+        };
+
+        let mut wrong_hash = root(&key(1), 7);
+        wrong_hash.envelope[0] ^= 1;
+        assert!(matches!(
+            validate(wrong_hash, &BTreeMap::new()),
+            Err(ValidationError::EnvelopeHash)
+        ));
+
+        let mut wrong_network = root(&key(1), 7);
+        wrong_network.name_state.network_magic ^= 1;
+        assert!(matches!(
+            validate(wrong_network, &BTreeMap::new()),
+            Err(ValidationError::NameState)
+        ));
+
+        assert!(matches!(
+            validate_current_manifest(
+                root(&key(1), 7),
+                MAGIC,
+                subject(99),
+                NOW,
+                ValidationLimits::default(),
+                &BTreeMap::new(),
+            ),
+            Err(ValidationError::ResolverContext)
+        ));
+
+        let current = root(&key(1), 7);
+        let commitment = select_commitment(
+            &current.name_state.commitment_records,
+            &CommitmentLimits::default(),
+        )
+        .expect("commitment");
+        let mut previous = BTreeMap::new();
+        previous.insert(
+            (MAGIC, subject(1)),
+            RollbackState {
+                sequence: 8,
+                ..rollback_observation(&current.name_state, &commitment)
+            },
+        );
+        assert!(matches!(
+            validate(current, &previous),
+            Err(ValidationError::Rollback)
+        ));
     }
 
     #[test]
@@ -1342,9 +1745,9 @@ mod tests {
             &proofs,
         )
         .expect("external authorization");
-        assert_eq!(result.expires_at, NOW + 25);
-        assert_eq!(result.fetched_objects, 3);
-        assert_eq!(result.fetched_bytes, root_len + proof.len() + 7);
+        assert_eq!(result.expires_at(), NOW + 25);
+        assert_eq!(result.fetched_objects(), 3);
+        assert_eq!(result.fetched_bytes(), root_len + proof.len() + 7);
         assert_eq!(
             profiles.seen_external.borrow().as_slice(),
             &[SeenExternalContext {
@@ -1496,9 +1899,9 @@ mod tests {
             &no_proofs(),
         )
         .expect("one level");
-        assert_eq!(result.proof_chain.len(), 2);
-        assert_eq!(result.rollback_observations.len(), 2);
-        assert_eq!(result.fetched_objects, 2);
+        assert_eq!(result.proof_chain().len(), 2);
+        assert_eq!(result.rollback_observations().len(), 2);
+        assert_eq!(result.fetched_objects(), 2);
 
         let top = manifest(
             40,
@@ -1590,8 +1993,8 @@ mod tests {
             &no_proofs(),
         )
         .expect("multi level");
-        assert_eq!(result.proof_chain.len(), 3);
-        assert_eq!(result.rollback_observations.len(), 3);
+        assert_eq!(result.proof_chain().len(), 3);
+        assert_eq!(result.rollback_observations().len(), 3);
     }
 
     #[test]
@@ -1913,6 +2316,17 @@ mod tests {
 
     #[test]
     fn rollback_requires_exact_event_scoped_reorganization_evidence() {
+        fn evidence(previous: RollbackState, current: RollbackState) -> AcceptedReorganization {
+            AcceptedReorganization {
+                previous_chain_height: previous.chain_height,
+                previous_chain_work: previous.chain_work,
+                previous_chain_anchor: previous.chain_anchor,
+                current_chain_height: current.chain_height,
+                current_chain_work: current.chain_work,
+                current_chain_anchor: current.chain_anchor,
+            }
+        }
+
         let previous = RollbackState {
             network_magic: MAGIC,
             subject: subject(1),
@@ -1934,6 +2348,52 @@ mod tests {
         };
         validate_rollback(previous, advanced, None).expect("advance");
 
+        let isolated_triggers = [
+            (
+                "lower sequence",
+                RollbackState {
+                    sequence: 8,
+                    chain_height: 21,
+                    chain_work: [10; 32],
+                    chain_anchor: [3; 32],
+                    ..previous
+                },
+            ),
+            (
+                "equal-sequence different envelope",
+                RollbackState {
+                    envelope_hash: [5; 32],
+                    chain_height: 21,
+                    chain_work: [10; 32],
+                    chain_anchor: [4; 32],
+                    ..previous
+                },
+            ),
+            (
+                "lower chain work",
+                RollbackState {
+                    sequence: 10,
+                    envelope_hash: [6; 32],
+                    chain_height: 18,
+                    chain_work: [8; 32],
+                    chain_anchor: [7; 32],
+                    ..previous
+                },
+            ),
+        ];
+        for (label, current) in isolated_triggers {
+            assert!(
+                matches!(
+                    validate_rollback(previous, current, None),
+                    Err(ValidationError::Rollback)
+                ),
+                "{label} did not require accepted reorganization evidence"
+            );
+            let exact = evidence(previous, current);
+            validate_rollback(previous, current, Some(&exact))
+                .unwrap_or_else(|_| panic!("exact evidence rejected for {label}"));
+        }
+
         let rolled_back = RollbackState {
             sequence: 8,
             envelope_hash: [5; 32],
@@ -1942,23 +2402,62 @@ mod tests {
             chain_anchor: [6; 32],
             ..previous
         };
-        let evidence = AcceptedReorganization {
+        let exact = evidence(previous, rolled_back);
+        validate_rollback(previous, rolled_back, Some(&exact)).expect("accepted reorg");
+
+        let mismatched_events = [
+            AcceptedReorganization {
+                previous_chain_height: exact.previous_chain_height + 1,
+                ..exact
+            },
+            AcceptedReorganization {
+                previous_chain_work: [0x11; 32],
+                ..exact
+            },
+            AcceptedReorganization {
+                previous_chain_anchor: [0x12; 32],
+                ..exact
+            },
+            AcceptedReorganization {
+                current_chain_height: exact.current_chain_height + 1,
+                ..exact
+            },
+            AcceptedReorganization {
+                current_chain_work: [0x13; 32],
+                ..exact
+            },
+            AcceptedReorganization {
+                current_chain_anchor: [0x14; 32],
+                ..exact
+            },
+        ];
+        for wrong_event in mismatched_events {
+            assert!(matches!(
+                validate_rollback(previous, rolled_back, Some(&wrong_event)),
+                Err(ValidationError::Rollback)
+            ));
+        }
+
+        let unchanged_anchor = RollbackState {
+            chain_anchor: previous.chain_anchor,
+            ..rolled_back
+        };
+        let same_anchor_event = evidence(previous, unchanged_anchor);
+        assert!(matches!(
+            validate_rollback(previous, unchanged_anchor, Some(&same_anchor_event)),
+            Err(ValidationError::Rollback)
+        ));
+
+        let forward_with_event = AcceptedReorganization {
             previous_chain_height: previous.chain_height,
             previous_chain_work: previous.chain_work,
             previous_chain_anchor: previous.chain_anchor,
-            current_chain_height: rolled_back.chain_height,
-            current_chain_work: rolled_back.chain_work,
-            current_chain_anchor: rolled_back.chain_anchor,
+            current_chain_height: advanced.chain_height,
+            current_chain_work: advanced.chain_work,
+            current_chain_anchor: advanced.chain_anchor,
         };
-        validate_rollback(previous, rolled_back, Some(&evidence)).expect("accepted reorg");
-        let wrong_event = AcceptedReorganization {
-            current_chain_anchor: [7; 32],
-            ..evidence
-        };
-        assert!(matches!(
-            validate_rollback(previous, rolled_back, Some(&wrong_event)),
-            Err(ValidationError::Rollback)
-        ));
+        validate_rollback(previous, advanced, Some(&forward_with_event))
+            .expect("event evidence must not turn a forward transition into a rollback");
         assert!(matches!(
             validate_rollback(
                 previous,

@@ -4,7 +4,10 @@ pub mod body;
 pub mod circuit;
 pub mod envelope;
 pub mod named;
+pub mod named_hrm;
+mod persistent_routing;
 pub mod record;
+pub mod requester_hrm;
 pub mod routing;
 pub mod runtime;
 
@@ -21,13 +24,31 @@ pub use circuit::{
 pub use envelope::{HnsrOpcode, HnsrPacket};
 pub use named::{NamedRoutePolicy, NamedRouteRecordV2, NamedRouteTrust, named_route_key};
 pub use named::{OwnerBoundChatRouteTrust, verify_owner_bound_chat_route};
+#[doc(hidden)]
+pub use named_hrm::select_named_route_v3_uncommitted;
+pub use named_hrm::{HrmNamedRoutePolicy, NamedRouteRecordV3, named_route_key_v3};
+pub use persistent_routing::{
+    LeasedPersistentRendezvousError, LeasedPersistentRendezvousService,
+    LeasedPersistentRouteMutationError, NamedRouteV3Emission, NamedRouteV3GuardedCallbackError,
+    NamedRouteV3LeaseContext, NamedRouteV3LeaseLost, NamedRouteV3LedgerExpectation,
+    NamedRouteV3LedgerStorageState, NamedRouteV3OpenError, NamedRouteV3SoleOwnerLease,
+    NamedRouteV3StorageNamespace,
+};
 pub use record::{
     EndpointDelegation, RelayTicket, ReserveRequest, RouteRecord, public_key, sign_withdrawal,
     verify_withdrawal,
 };
+pub use requester_hrm::{
+    CurrentNamedRouteV3, HeldNamedRouteV3OperationLeases, HeldNamedRouteV3RequesterLease,
+    NamedRouteV3LeaseAcquireError, NamedRouteV3LeaseScopeError, NamedRouteV3OperationLeaseWitness,
+    NamedRouteV3RequesterExpectation, NamedRouteV3RequesterLeaseKey,
+    NamedRouteV3RequesterLeaseWitness, NamedRouteV3RequesterOperationError,
+    NamedRouteV3RequesterSnapshot, NamedRouteV3RequesterState, NamedRouteV3RequesterStorageState,
+    ReconfirmedNamedRouteV3RequesterState,
+};
 pub use routing::{
-    RendezvousContact, RouteStore, RouteStoreLimits, compare_distance, rendezvous_node_id,
-    route_key, sample_score,
+    NamedRouteV3LedgerSnapshot, RendezvousContact, RouteRecordModel, RouteStore, RouteStoreLimits,
+    compare_distance, rendezvous_node_id, route_key, sample_score,
 };
 pub use runtime::{
     ConfirmedReservation, EndpointReservation, HnsrService, RelayConfig, RelayLimits, RelayService,
@@ -81,8 +102,24 @@ pub enum HnsrProtocolError {
     Capacity,
     #[error("HNSR signature verification rate limit reached")]
     VerificationRateLimited,
-    #[error("stale HNSR route sequence")]
+    #[error("stale HNSR endpoint-delegation or route sequence")]
     StaleSequence,
+    #[error("conflicting canonical HNSR endpoint delegations or routes have the same sequence")]
+    ConflictingSequence,
+    #[error("corrupt HNSR named-route replay-ledger snapshot")]
+    CorruptNamedRouteLedgerSnapshot,
+    #[error("incompatible HNSR named-route replay-ledger snapshot")]
+    IncompatibleNamedRouteLedgerSnapshot,
+    #[error("HNSR named-route replay-ledger revision space exhausted")]
+    NamedRouteLedgerRevisionExhausted,
+    #[error("corrupt HNSR named-route requester snapshot")]
+    CorruptNamedRouteRequesterSnapshot,
+    #[error("incompatible HNSR named-route requester snapshot")]
+    IncompatibleNamedRouteRequesterSnapshot,
+    #[error("HNSR named-route requester revision space exhausted")]
+    NamedRouteRequesterRevisionExhausted,
+    #[error("HNSR trusted clock rollback detected")]
+    ClockRollback,
 }
 
 pub(crate) fn is_zero(value: &[u8]) -> bool {

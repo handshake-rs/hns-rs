@@ -163,12 +163,16 @@ published.
    first dependency exists on crates.io. Those patches are not used for the
    real upload. It also requires every normalized archive to carry README,
    license, changelog, manifest, and exact source-commit metadata, with no
-   retained dependency paths. The HNS Chat package receives additional public
-   source/test/vector inventory and vector-sidecar checks. To inspect only that
-   package while preparing downstream source, use:
+   retained dependency paths. The HNS Chat, HRM, HNSA, and HNSA/HNSR packages
+   receive additional public source/test/vector inventory and vector-sidecar
+   checks. To inspect one package while preparing downstream source, use for
+   example:
 
    ```bash
    ./scripts/publish.sh --dry-run hns-chat-protocol
+   ./scripts/publish.sh --archive-check hns-hrm
+   ./scripts/publish.sh --archive-check hns-service-authority
+   ./scripts/publish.sh --archive-check hns-hnsr-protocol
    ```
 
    Partial selection is deliberately unavailable in execution mode.

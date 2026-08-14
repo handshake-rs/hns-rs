@@ -1,5 +1,18 @@
 #![doc = "Transport-independent wire types for the draft Handshake Named Service Authority protocol."]
 
+/// HRM-backed named-service authority defined by the current HNSA draft.
+///
+/// The types at this crate's root are the superseded `hsa1` experiment and
+/// remain available only for explicit legacy compatibility. They are never
+/// accepted by this module's decoders or validators.
+pub mod hrm;
+
+/// Durable subject-wide HRM/HNSA authority state and committed production paths.
+pub mod authority_state;
+
+/// Scoped, fenced operation-lease capabilities for durable HNSA consumers.
+pub mod lease;
+
 use blake2::Blake2bVar;
 use blake2::digest::{Update, VariableOutput};
 use hns_encoding::{DecodeError, Decoder, Encoder};

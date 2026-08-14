@@ -107,14 +107,20 @@ dry_run_with_local_dependencies() {
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
                 --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"'
             ;;
-        hns-dns-relay-protocol|hns-service-authority|hns-odoh-protocol)
+        hns-dns-relay-protocol|hns-odoh-protocol)
             dry_run_package "$package" \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"'
+            ;;
+        hns-service-authority)
+            dry_run_package "$package" \
+                --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-hrm.path="crates/hns-hrm"'
             ;;
         hns-chat-protocol)
             dry_run_package "$package" \
                 --config 'patch.crates-io.hns-covenants.path="crates/hns-covenants"' \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-hrm.path="crates/hns-hrm"' \
                 --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
                 --config 'patch.crates-io.hns-service-authority.path="crates/hns-service-authority"' \
                 --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
@@ -124,6 +130,7 @@ dry_run_with_local_dependencies() {
                 --config 'patch.crates-io.hns-chat-protocol.path="crates/hns-chat-protocol"' \
                 --config 'patch.crates-io.hns-covenants.path="crates/hns-covenants"' \
                 --config 'patch.crates-io.hns-encoding.path="crates/hns-encoding"' \
+                --config 'patch.crates-io.hns-hrm.path="crates/hns-hrm"' \
                 --config 'patch.crates-io.hns-primitives.path="crates/hns-primitives"' \
                 --config 'patch.crates-io.hns-service-authority.path="crates/hns-service-authority"' \
                 --config 'patch.crates-io.hns-transaction.path="crates/hns-transaction"'
@@ -307,6 +314,69 @@ verify_hrm_source_package() {
     fi
 }
 
+verify_hnsa_hnsr_v3_vectors() {
+    package=$1
+    version=$(package_version "$package")
+    package_target=$(package_target_dir)
+    archive="$package_target/package/$package-$version.crate"
+    archive_root="$package-$version"
+
+    if [ ! -f "$archive" ]
+    then
+        echo "error: Cargo did not create $archive" >&2
+        exit 1
+    fi
+
+    archive_entries=$(tar -tf "$archive")
+    for relative_path in \
+        fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt \
+        fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256 \
+        tests/release_source.rs
+    do
+        if ! printf '%s\n' "$archive_entries" | grep -Fqx "$archive_root/$relative_path"
+        then
+            echo "error: normalized $package package omits $relative_path" >&2
+            exit 1
+        fi
+    done
+
+    case "$package" in
+        hns-service-authority)
+            package_sources='src/authority_state.rs src/hrm.rs src/lease.rs src/lib.rs'
+            ;;
+        hns-hnsr-protocol)
+            package_sources='src/lib.rs src/named_hrm.rs src/persistent_routing.rs src/requester_hrm.rs src/routing.rs src/runtime.rs'
+            ;;
+        *)
+            echo "error: unsupported HNSA/HNSR vector package $package" >&2
+            exit 1
+            ;;
+    esac
+    for relative_path in $package_sources
+    do
+        if ! printf '%s\n' "$archive_entries" | grep -Fqx "$archive_root/$relative_path"
+        then
+            echo "error: normalized $package package omits $relative_path" >&2
+            exit 1
+        fi
+    done
+
+    expected_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256" |
+        awk 'NR == 1 { print $1 }')
+    actual_digest=$(tar -xOf \
+        "$archive" \
+        "$archive_root/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt" |
+        sha256sum |
+        awk '{ print $1 }')
+    if [ "$actual_digest" != "$expected_digest" ]
+    then
+        echo "error: packaged HNSA/HNSR v3 vectors do not match their SHA-256 sidecar" >&2
+        exit 1
+    fi
+}
+
 verify_common_source_package() {
     package=$1
     version=$(package_version "$package")
@@ -386,6 +456,7 @@ verify_source_package() {
     case "$package" in
         hns-chat-protocol) verify_chat_source_package ;;
         hns-hrm) verify_hrm_source_package ;;
+        hns-service-authority|hns-hnsr-protocol) verify_hnsa_hnsr_v3_vectors "$package" ;;
     esac
 }
 

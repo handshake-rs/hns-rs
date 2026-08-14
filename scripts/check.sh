@@ -59,6 +59,15 @@ assert_same_file fixtures/hrm-v1/hns-hrm-core-v1.txt \
 assert_same_file fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256 \
   crates/hns-hrm/fixtures/hrm-v1/hns-hrm-core-v1.txt.sha256
 (cd fixtures/hrm-v1 && sha256sum --check hns-hrm-core-v1.txt.sha256)
+assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt \
+  crates/hns-service-authority/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt
+assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256 \
+  crates/hns-service-authority/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256
+assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt \
+  crates/hns-hnsr-protocol/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt
+assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256 \
+  crates/hns-hnsr-protocol/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256
+(cd fixtures/hnsa-hnsr-v3 && sha256sum --check hnsa-hnsr-v3.txt.sha256)
 assert_same_file registry/denuo-experimental-v1.toml \
   crates/hns-p2p-experimental/registry/denuo-experimental-v1.toml
 assert_same_file registry/denuo-experimental-v1.bin \
@@ -82,6 +91,8 @@ PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-marketplace-v1-fixtures.py --check
 PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-hrm-v1-fixtures.py --check
+PYTHONDONTWRITEBYTECODE=1 \
+  python3 generators/generate-hnsa-hnsr-v3-fixtures.py --check
 
 cargo +"$rust_toolchain" metadata --locked --format-version 1 >/dev/null
 cargo +"$rust_toolchain" metadata --locked --manifest-path fuzz/Cargo.toml --format-version 1 >/dev/null
