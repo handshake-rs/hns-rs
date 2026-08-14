@@ -74,8 +74,9 @@ JavaScript/TypeScript job remained queued. Dated source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
 and RustSec run `31398600728`, all four configured CodeQL analyses in run
 `31398598588`, and the manually dispatched 17-package release preflight run
-`31399004538`. Those results qualify only that exact unpublished source commit;
-any later source commit requires the same gates before upload. Static vectors
-and in-memory service tests still do not establish live-chain ownership,
+`31399004538`. The non-yanked `0.2.0` packages were subsequently verified
+against that exact source commit as recorded in `docs/releasing.md`; any later
+source commit requires its own gates. Static vectors and in-memory service
+tests still do not establish live-chain ownership,
 transfer maturity, renewal-block eligibility, durable relay recovery, deployed
 peer policy, or reorg behavior.

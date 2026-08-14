@@ -117,10 +117,11 @@ complete CodeQL qualification. The dated source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
 run `31398600728`, complete Python, JavaScript/TypeScript, Rust, and Actions
 CodeQL run `31398598588`, and the explicit 17-package release preflight run
-`31399004538`. Those external results qualify only that exact commit; they did
-not publish a package, create a tag, or qualify any live deployment or
-downstream product. Version `0.2.0` remains unpublished, and any later source
-commit must pass the same exact-head gates before upload.
+`31399004538`. On 2026-08-14 UTC, all 17 packages were published non-yanked
+from that exact source commit; the registry archives and checksums are recorded
+in `release/0.2.0-crates.sha256`. No `v0.2.0` tag was created. Those artifacts
+qualify the exact protocol packages only, not any live deployment or downstream
+product. Any later source commit must pass its own exact-head gates.
 
 ## 0.1.0 - 2026-07-29
 

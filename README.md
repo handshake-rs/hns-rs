@@ -121,9 +121,10 @@ See `docs/releasing.md` before any package dry-run or irreversible publication.
 The workspace is an unpublished `0.3.0` development line. The prior dated
 `0.2.0` source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` passed exact-head CI, complete
-four-language CodeQL analysis, and the explicit 17-package release preflight;
-`v0.1.0` remains the latest published and tagged release. Those results qualify
-only that exact source commit and do not qualify the 18-package `0.3.0` line.
+four-language CodeQL analysis, and the explicit 17-package release preflight.
+Those 17 packages are the latest published line; every registry archive names
+that exact VCS commit. `v0.1.0` remains the latest tagged release. Neither that
+publication nor its qualification results qualify the 18-package `0.3.0` line.
 Any later source commit must repeat the release gates documented in
 `docs/releasing.md` before publication.
 

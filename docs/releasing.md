@@ -61,7 +61,7 @@ source above. The published archives therefore identify the parent release
 source, not the tag target. The remote tag-object identity was confirmed with
 `git ls-remote --tags origin v0.1.0` on 2026-08-02.
 
-## 0.2.0 dated release source
+## 0.2.0 publication record
 
 The marketplace/Denuo V2 source advances the shared workspace and every
 internal dependency requirement to `0.2.0`. This is necessary because the new
@@ -88,20 +88,25 @@ Those results remain historical evidence for `abf11ff`. Dated source commit
 locked gate and RustSec in exact-head CI run `31398600728`, all four configured
 CodeQL analyses (Python, JavaScript/TypeScript, Rust, and Actions) in run
 `31398598588`, and all 17 real Cargo package dry-runs in manually dispatched
-release preflight run `31399004538`. Version `0.2.0` remains unpublished and
-untagged. These results qualify only `b24b66c`; any later source commit requires
-its own successful CI, complete CodeQL, and explicit release preflight before
-upload. Authenticated upload, tagging, and post-publication verification remain
-separate release actions. Immediately before execution, confirm the intended
-version is either absent on crates.io or is an exact resumable archive from the
-same release commit; the execute path enforces the latter case.
+release preflight run `31399004538`.
+
+On 2026-08-14 UTC, the 17 packages were published to crates.io from 05:45:02
+through 07:37:56. All are non-yanked. Every downloaded archive matched its
+registry checksum and its `.cargo_vcs_info.json` identifies exact source commit
+`b24b66c382de53330ec21dd3137e056a2bea3e2d` and the correct package path. The
+verified archive hashes are retained in `release/0.2.0-crates.sha256`.
+`hns-hrm` did not exist in the 0.2.0 source and has no 0.2.0 package. No remote
+`v0.2.0` tag exists; `v0.1.0` remains the latest tagged release.
+
+These results and artifacts qualify only the exact published protocol
+packages. Any later source commit requires its own successful CI, complete
+CodeQL, and explicit release preflight. Publication does not qualify a live
+relay, mailbox, wallet, marketplace, node, or other downstream product.
 
 The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
 here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and
-cross-chain marketplace values, but protocol-package qualification does not
-qualify a deployed relay, mailbox, wallet, marketplace, or downstream product.
-No downstream release may claim a published `0.2.0` API until all shared
-packages exist on crates.io.
+cross-chain marketplace values. HRM Core and the HRM-backed HNSA/HNSR v3 work
+are instead part of the unpublished 0.3.0 line.
 
 ## Private packages
 

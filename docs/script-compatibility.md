@@ -77,7 +77,7 @@ JavaScript/TypeScript job did not leave the queue. Dated source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
 and RustSec run `31398600728`, all four configured CodeQL analyses in run
 `31398598588`, and the manual 17-package release preflight run `31399004538`.
-Those results qualify only that exact unpublished source commit; any later
-source commit requires the same gates before upload. Downstream crates may
-consume this API from crates.io only after the shared `0.2.0` line is
-published.
+The non-yanked `0.2.0` package was subsequently verified against that exact
+source commit as recorded in `docs/releasing.md`. Any later source commit
+requires its own gates; this package record does not qualify a downstream
+wallet, node, or other product.

@@ -2,7 +2,7 @@
 
 Status: source-implemented protocol boundary for software-controlled standard
 single-key owner outputs. Installed-device, full Nostr-vector, regtest,
-publication, release, and mainnet qualification remain separate gates.
+downstream-product release, and mainnet qualification remain separate gates.
 
 ## Release-source boundary
 
@@ -19,9 +19,10 @@ SHA-256 sidecar. The release preflight inspects Cargo's normalized `.crate`,
 requires every boundary file, rejects any surviving path dependency, and
 authenticates the packaged vector bytes. A focused preflight is available as
 `./scripts/publish.sh --dry-run hns-chat-protocol`; it neither publishes nor
-tags. Until `0.2.0` is intentionally published, downstream release source must
-use an immutable repository revision rather than a sibling path, and must not
-claim a crates.io release exists.
+tags. Version `0.2.0` is now published from the exact qualified source commit;
+the archive/VCS verification record is in `docs/releasing.md`. Downstream
+release source may use that registry package or an immutable repository
+revision, never a sibling path.
 
 ## Identity and resource binding
 
@@ -125,9 +126,9 @@ multisignature owners, watch-only names, Ledger/hardware owners without typed
 BIP-340 and NIP-44 device operations, or imported names whose encrypted wallet
 does not possess the controlling private key.
 
-No source in this crate authorizes mainnet use, publishes a package, exposes a
-private key, creates a NIP-06 identity, or introduces a transport beside
-HIP-78.
+No API in this crate authorizes mainnet use, performs registry publication,
+exposes a private key, creates a NIP-06 identity, or introduces a transport
+beside HIP-78.
 
 ## Qualification status
 
@@ -154,11 +155,11 @@ remained queued. Dated source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
 and RustSec run `31398600728`, all four configured CodeQL analyses in run
 `31398598588`, and the manual 17-package Cargo preflight run `31399004538`.
-Those results qualify only that exact unpublished source commit; any later
-source commit requires the same gates before upload. Publication, tagging, and
-post-publication archive/VCS identity checks are separate actions and are not
-evidence supplied by this source. A deployed mailbox is not evidence supplied
-by this source; downstream persistence and restart, canonical-chain and reorg
-handling, authenticated transport, abuse, installed-client, adversarial,
+The non-yanked `0.2.0` package was subsequently verified against that exact
+source commit as recorded in `docs/releasing.md`; no `v0.2.0` tag was created.
+Any later source commit requires its own gates. A deployed mailbox is not
+qualified by the protocol package; downstream persistence and restart,
+canonical-chain and reorg handling, authenticated transport, abuse,
+installed-client, adversarial,
 performance, and independent security qualification remain product
 responsibilities.
