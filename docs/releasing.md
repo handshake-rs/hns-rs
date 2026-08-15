@@ -97,7 +97,8 @@ registry checksum and its `.cargo_vcs_info.json` identifies exact source commit
 `b24b66c382de53330ec21dd3137e056a2bea3e2d` and the correct package path. The
 verified archive hashes are retained in `release/0.2.0-crates.sha256`.
 `hns-hrm` did not exist in the 0.2.0 source and has no 0.2.0 package. No remote
-`v0.2.0` tag exists; `v0.1.0` remains the latest tagged release.
+`v0.2.0` tag was created; `v0.1.0` remained the latest tagged release until
+`v0.3.0`.
 
 These results and artifacts qualify only the exact published protocol
 packages. Any later source commit requires its own successful CI, complete
@@ -107,7 +108,33 @@ relay, mailbox, wallet, marketplace, node, or other downstream product.
 The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
 here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and
 cross-chain marketplace values. HRM Core and the HRM-backed HNSA/HNSR v3 work
-are instead part of the unpublished 0.3.0 line.
+are part of the 0.3.0 release recorded below.
+
+## 0.3.0 publication record
+
+Dated release-source commit
+`d0cde9ded6f8f93f96f16daafc094849c6d484bf` passed the complete locked CI
+gate and RustSec in run `31863271873`, all four configured CodeQL analyses in
+run `31863271863`, and all 19 Cargo publication dry-runs in release-preflight
+run `31863520941`.
+
+On 2026-08-15 UTC, the 19 packages were published to crates.io from 04:09:36
+through 04:32:59. All exact-version API records are visible and non-yanked.
+Every independently downloaded archive matched both its normalized local
+source archive and crates.io API checksum. Every local and downloaded
+`.cargo_vcs_info.json` identifies exact source commit
+`d0cde9ded6f8f93f96f16daafc094849c6d484bf`, the corresponding
+`crates/<package>` path, and omits `dirty`, Cargo's clean-source
+representation. The verified hashes are retained in
+`release/0.3.0-crates.sha256`. `hns-rollback-journal` and `hns-hrm` were
+published for the first time in this release.
+
+The remote annotated tag object
+`593b137ef36816d0780642a8b676c0972152c88e` is named `v0.3.0` and peels
+directly to the published release-source commit. The GitHub release uses that
+tag. Publication qualifies only these protocol packages; every live relay,
+mailbox, wallet, marketplace, node, browser, or other downstream product needs
+its own integration and release qualification.
 
 ## Private packages
 

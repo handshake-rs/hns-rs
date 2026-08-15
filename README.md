@@ -125,15 +125,15 @@ python3 scripts/verify-release.py --toolchain 1.89.0
 
 See `docs/releasing.md` before any package dry-run or irreversible publication.
 
-The workspace is an unpublished `0.3.0` development line. The prior dated
-`0.2.0` source commit
-`b24b66c382de53330ec21dd3137e056a2bea3e2d` passed exact-head CI, complete
-four-language CodeQL analysis, and the explicit 17-package release preflight.
-Those 17 packages are the latest published line; every registry archive names
-that exact VCS commit. `v0.1.0` remains the latest tagged release. Neither that
-publication nor its qualification results qualify the 19-package `0.3.0` line.
-Any later source commit must repeat the release gates documented in
-`docs/releasing.md` before publication.
+The dated `0.3.0` source commit
+`d0cde9ded6f8f93f96f16daafc094849c6d484bf` passed exact-head CI, RustSec,
+complete four-language CodeQL analysis, and the explicit 19-package release
+preflight. All 19 packages were published non-yanked from that exact source on
+2026-08-15 UTC and independently verified byte-for-byte against the registry;
+their hashes are recorded in `release/0.3.0-crates.sha256`. Annotated tag
+`v0.3.0` peels directly to the published source commit. Any later source commit
+must repeat the release gates documented in `docs/releasing.md` before
+publication.
 
 The HNSR service state machines are an embeddable protocol boundary, not a
 durable daemon or network transport. Persistence, restart recovery, peer

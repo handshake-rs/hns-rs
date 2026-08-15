@@ -38,6 +38,18 @@ The workspace crates use a shared version and follow Semantic Versioning.
   named-route version 2 model explicitly legacy rather than reinterpreting it
   as HRM-backed authority.
 
+Dated release-source commit
+`d0cde9ded6f8f93f96f16daafc094849c6d484bf` passed the complete locked CI
+gate and RustSec in run `31863271873`, all four configured CodeQL analyses in
+run `31863271863`, and all 19 Cargo publication dry-runs in release-preflight
+run `31863520941`. On 2026-08-15 UTC, all 19 packages were published
+non-yanked from that exact source commit and independently verified against
+their normalized local archives and crates.io checksums. The exact archive
+hashes are retained in `release/0.3.0-crates.sha256`; annotated tag `v0.3.0`
+peels directly to the published source commit. These artifacts qualify the
+protocol packages only, not any deployed node, wallet, browser, relay,
+marketplace, or production value workflow.
+
 ## 0.2.0 - 2026-08-10
 
 Release source for the modular wallet and marketplace boundary:
