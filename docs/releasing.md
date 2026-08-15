@@ -147,7 +147,7 @@ published.
    Do not repeat the same full gate locally and in CI when the source commit,
    toolchain, and gate are identical.
    Routine qualification performs archive-only packaging and custom inventory
-   validation after the workspace build; it does not repeat 17 crate builds.
+   validation after the workspace build; it does not repeat 19 crate builds.
 5. Run Cargo's full package dry-runs for the exact qualified commit. Prefer the
    explicit `Release preflight` workflow so the additional compilation stays
    separate from routine CI:

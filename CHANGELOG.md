@@ -3,7 +3,7 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
-## 0.3.0 - unreleased
+## 0.3.0 - 2026-08-15
 
 - Add a platform-neutral, canonical external anti-rollback journal contract
   with installation/network/role/key binding, explicit privileged provisioning
