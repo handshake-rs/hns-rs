@@ -4,12 +4,14 @@ mod crypto;
 mod denuo;
 mod market;
 mod price;
+mod relay_acceptance;
 mod swap;
 mod types;
 
 pub use denuo::*;
 pub use market::*;
 pub use price::*;
+pub use relay_acceptance::*;
 pub use swap::*;
 pub use types::*;
 

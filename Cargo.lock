@@ -587,6 +587,7 @@ dependencies = [
  "hns-primitives",
  "hns-swap",
  "k256",
+ "sha2 0.10.9",
  "thiserror",
  "zeroize",
 ]
