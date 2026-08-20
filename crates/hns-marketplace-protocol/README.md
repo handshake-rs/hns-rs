@@ -11,9 +11,12 @@ and prices use reduced rational values; floating-point arithmetic is never used.
 Fill grants delegate an independent per-session maker settlement key from the
 long-term marketplace identity. Session hellos bind both settlement
 authorities, exact amounts, SHA-256 hashlock, descriptor commitments, and
-timeouts; native HNS sides can be constructed and verified directly against
-`hns-swap::HnsHtlc`. New-funding admission is time-gated separately from
-historical status and reorganization validation.
+timeouts. A distinct maker-signed session proposal carries those exact terms
+to the designated taker, which verifies the proposal before adding its
+signature and producing the funding-capable session hello. Native HNS sides
+can be constructed and verified directly against `hns-swap::HnsHtlc`.
+New-funding admission is time-gated separately from historical status and
+reorganization validation.
 
 An empty `OfferInventory` is the canonical response when a name-market board
 has no listings. Empty `GetOffers` requests and empty `Offers` object batches

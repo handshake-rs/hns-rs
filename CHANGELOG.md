@@ -3,6 +3,12 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
+## Unreleased
+
+- Add a distinct canonical maker-signed swap-session proposal and Denuo
+  message so two independent wallets can complete the maker-to-taker
+  countersigning round trip before either wallet is allowed to fund.
+
 ## 0.3.0 - 2026-08-15
 
 - Add a platform-neutral, canonical external anti-rollback journal contract

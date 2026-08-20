@@ -1052,7 +1052,7 @@ mod tests {
         session_header.created_at = 126;
         session_header.expires_at = 140;
         session_header.signer_public_key = grant.header.signer_public_key;
-        let mut hello = SwapSessionHello {
+        let hello = SwapSessionHello {
             header: session_header,
             fill_grant_hash: grant.grant_hash,
             swap_session_id: grant.swap_session_id,
@@ -1080,13 +1080,17 @@ mod tests {
             maker_signature: [0; 64],
             taker_signature: [0; 64],
         };
-        hello.sign_maker(&[9; 32]).unwrap();
+        let proposal = hello.into_maker_proposal(&[9; 32]).unwrap();
+        proposal
+            .verify_for_grant(&intent, &grant, &round, verifier, None, 130)
+            .unwrap();
         assert!(
-            hello
+            proposal
+                .terms()
                 .verify_for_grant(&intent, &grant, &round, verifier, None, 130)
                 .is_err()
         );
-        hello.accept_taker(&[8; 32]).unwrap();
+        let hello = proposal.accept_taker(network(), 130, &[8; 32]).unwrap();
         hello
             .verify_for_grant(&intent, &grant, &round, verifier, None, 130)
             .unwrap();

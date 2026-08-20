@@ -42,18 +42,20 @@ maker's long-term identity. Match requests likewise require the taker's
 ephemeral settlement key to differ from its request-signing identity. A grant
 authorizes a reservation only; it does not move funds.
 
-A swap-session hello freezes the verified grant and round hashes, both native
+A swap session freezes the verified grant and round hashes, both native
 amounts, SHA-256 hashlock, each chain's lock-descriptor commitment, Unix-time
 refund deadline, and minimum confirmation depth. The delegated maker
-settlement authority signs the complete proposal, then the grant's designated
-taker settlement authority signs the same bytes. The hello continues to carry
-the long-term maker identity in its header and verification requires it to
-match the grant signer. Funding validation requires both settlement signatures,
-and a `Confirmed` funding status must meet the chain-specific minimum
-confirmation count frozen in those signed terms. The maker funds the
-offered-asset chain and the taker funds the received-asset chain; redemption
-authority is the opposite party for each chain, while refund authority is its
-funder. Third-party status signatures are rejected.
+settlement authority first signs a canonical `SwapSessionProposal` carrying
+the complete terms. The grant-designated taker verifies that proposal and then
+signs the identical bytes, producing the canonical `SwapSessionHello`. A
+proposal is never accepted by a funding or status boundary: funding validation
+requires the fully accepted hello and both settlement signatures. The hello
+continues to carry the long-term maker identity in its header and verification
+requires it to match the grant signer. A `Confirmed` funding status must meet
+the chain-specific minimum confirmation count frozen in those signed terms.
+The maker funds the offered-asset chain and the taker funds the received-asset
+chain; redemption authority is the opposite party for each chain, while
+refund authority is its funder. Third-party status signatures are rejected.
 
 The intent publisher always funds the offered-asset chain first, and that lock
 has the later deadline; this gives the counterparty time to use the revealed

@@ -165,6 +165,15 @@ impl SwapSessionHello {
         Ok(())
     }
 
+    /// Sign these complete terms as the maker and convert them into the
+    /// canonical wire object that the designated taker can independently
+    /// verify before countersigning.
+    pub fn into_maker_proposal(mut self, private_key: &[u8; 32]) -> Result<SwapSessionProposal> {
+        self.taker_signature = [0; 64];
+        self.sign_maker(private_key)?;
+        SwapSessionProposal::from_maker_signed(self)
+    }
+
     /// Accept the maker-signed terms as the designated taker. This refuses to
     /// sign an unauthenticated maker proposal.
     pub fn accept_taker(&mut self, private_key: &[u8; 32]) -> Result<()> {
@@ -195,6 +204,21 @@ impl SwapSessionHello {
         Ok(())
     }
 
+    fn verify_maker_proposal_at(&self, expected_network: NetworkBinding, now: u64) -> Result<()> {
+        self.validate_fields()?;
+        if self.header.network != expected_network {
+            return Err(MarketplaceError::NetworkMismatch);
+        }
+        if now >= self.received_refund_deadline.value {
+            return Err(MarketplaceError::Expired {
+                expires_at: self.received_refund_deadline.value,
+                now,
+            });
+        }
+        self.header.validate_at(expected_network, now)?;
+        self.verify_maker_signature()
+    }
+
     /// Action gate for admitting a new funding broadcast. Historical funding
     /// and reorg status validation deliberately uses [`Self::verify_agreement`]
     /// instead, because receiving a status cannot create new funding.
@@ -222,6 +246,20 @@ impl SwapSessionHello {
         previous_round: Option<&PriceRound>,
         now: u64,
     ) -> Result<()> {
+        let expected_network =
+            self.verify_terms_for_grant(intent, grant, round, verifier, previous_round, now)?;
+        self.verify_at(expected_network, now)
+    }
+
+    fn verify_terms_for_grant(
+        &self,
+        intent: &MarketIntent,
+        grant: &FillGrant,
+        round: &PriceRound,
+        verifier: PriceRoundVerifier<'_>,
+        previous_round: Option<&PriceRound>,
+        now: u64,
+    ) -> Result<NetworkBinding> {
         let expected_network = verifier.expected_network();
         grant.verify_for_price_round(intent, round, verifier, previous_round, now)?;
         let received_asset = intent.header.pair.other(intent.offered_asset)?;
@@ -245,7 +283,7 @@ impl SwapSessionHello {
                 "swap session hello does not bind its fill grant",
             ));
         }
-        self.verify_at(expected_network, now)
+        Ok(expected_network)
     }
 
     /// Construct and commit the exact native-HNS HTLC for one side of this
@@ -348,31 +386,39 @@ impl SwapSessionHello {
     pub fn decode(input: &[u8]) -> Result<Self> {
         check_input(input)?;
         let mut decoder = Decoder::new(input);
+        let mut message = Self::decode_unsigned_from(&mut decoder)?;
+        message.maker_signature = decoder.read_array()?;
+        message.taker_signature = decoder.read_array()?;
+        decoder.finish()?;
+        message.validate_fields()?;
+        message.verify_signatures()?;
+        Ok(message)
+    }
+
+    fn decode_unsigned_from(decoder: &mut Decoder<'_>) -> Result<Self> {
         let message = Self {
-            header: SignedObjectHeader::decode_from(&mut decoder)?,
+            header: SignedObjectHeader::decode_from(decoder)?,
             fill_grant_hash: decoder.read_array()?,
             swap_session_id: decoder.read_array()?,
             maker_settlement_public_key: decoder.read_array()?,
             taker_settlement_public_key: decoder.read_array()?,
-            offered_asset: AssetId::decode_from(&mut decoder)?,
-            offered_amount: AssetAmount::decode_from(&mut decoder)?,
-            received_asset: AssetId::decode_from(&mut decoder)?,
-            received_amount: AssetAmount::decode_from(&mut decoder)?,
+            offered_asset: AssetId::decode_from(decoder)?,
+            offered_amount: AssetAmount::decode_from(decoder)?,
+            received_asset: AssetId::decode_from(decoder)?,
+            received_amount: AssetAmount::decode_from(decoder)?,
             price_round_hash: decoder.read_array()?,
             hashlock: decoder.read_array()?,
-            first_funding_chain: ChainId::decode_from(&mut decoder)?,
+            first_funding_chain: ChainId::decode_from(decoder)?,
             offered_lock_commitment: decoder.read_array()?,
-            offered_refund_deadline: SettlementDeadline::decode_from(&mut decoder)?,
+            offered_refund_deadline: SettlementDeadline::decode_from(decoder)?,
             offered_minimum_confirmations: decoder.read_u32_le()?,
             received_lock_commitment: decoder.read_array()?,
-            received_refund_deadline: SettlementDeadline::decode_from(&mut decoder)?,
+            received_refund_deadline: SettlementDeadline::decode_from(decoder)?,
             received_minimum_confirmations: decoder.read_u32_le()?,
-            maker_signature: decoder.read_array()?,
-            taker_signature: decoder.read_array()?,
+            maker_signature: [0; 64],
+            taker_signature: [0; 64],
         };
-        decoder.finish()?;
         message.validate_fields()?;
-        message.verify_signatures()?;
         Ok(message)
     }
 
@@ -490,6 +536,95 @@ impl SwapSessionHello {
                 "settlement chain is outside the swap session",
             ))
         }
+    }
+}
+
+/// Canonical maker-signed session terms sent to the grant-designated taker
+/// before a fully accepted [`SwapSessionHello`] exists.
+///
+/// This distinct wire type closes the two-party signing round trip without
+/// weakening the funding boundary: a proposal cannot be used where a fully
+/// countersigned hello is required, and accepting it verifies the maker's
+/// signature before adding the taker signature over the identical bytes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SwapSessionProposal {
+    hello: SwapSessionHello,
+}
+
+impl SwapSessionProposal {
+    pub fn from_maker_signed(hello: SwapSessionHello) -> Result<Self> {
+        if hello.taker_signature != [0; 64] {
+            return Err(MarketplaceError::Invalid(
+                "swap session proposal already has a taker signature",
+            ));
+        }
+        hello.validate_fields()?;
+        hello.verify_maker_signature()?;
+        Ok(Self { hello })
+    }
+
+    pub const fn terms(&self) -> &SwapSessionHello {
+        &self.hello
+    }
+
+    pub fn verify_at(&self, expected_network: NetworkBinding, now: u64) -> Result<()> {
+        self.hello.verify_maker_proposal_at(expected_network, now)
+    }
+
+    pub fn verify_for_grant(
+        &self,
+        intent: &MarketIntent,
+        grant: &FillGrant,
+        round: &PriceRound,
+        verifier: PriceRoundVerifier<'_>,
+        previous_round: Option<&PriceRound>,
+        now: u64,
+    ) -> Result<()> {
+        let expected_network = self.hello.verify_terms_for_grant(
+            intent,
+            grant,
+            round,
+            verifier,
+            previous_round,
+            now,
+        )?;
+        self.verify_at(expected_network, now)
+    }
+
+    pub fn accept_taker(
+        mut self,
+        expected_network: NetworkBinding,
+        now: u64,
+        private_key: &[u8; 32],
+    ) -> Result<SwapSessionHello> {
+        self.verify_at(expected_network, now)?;
+        self.hello.accept_taker(private_key)?;
+        self.hello.verify_signatures()?;
+        Ok(self.hello)
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        self.hello.validate_fields()?;
+        if self.hello.taker_signature != [0; 64] {
+            return Err(MarketplaceError::Invalid(
+                "swap session proposal already has a taker signature",
+            ));
+        }
+        self.hello.verify_maker_signature()?;
+        encode_fixed_versioned(MAX_SWAP_MESSAGE_SIZE, |encoder| {
+            encoder.put_bytes(&self.hello.encode_unsigned()?);
+            encoder.put_bytes(&self.hello.maker_signature);
+            Ok(())
+        })
+    }
+
+    pub fn decode(input: &[u8]) -> Result<Self> {
+        check_input(input)?;
+        let mut decoder = Decoder::new(input);
+        let mut hello = SwapSessionHello::decode_unsigned_from(&mut decoder)?;
+        hello.maker_signature = decoder.read_array()?;
+        decoder.finish()?;
+        Self::from_maker_signed(hello)
     }
 }
 
@@ -1004,7 +1139,7 @@ mod tests {
     use hns_primitives::BlockHash;
 
     use super::*;
-    use crate::{MARKETPLACE_PROTOCOL_VERSION, MarketPair};
+    use crate::{CrossChainMessage, MARKETPLACE_PROTOCOL_VERSION, MarketPair};
 
     fn network() -> NetworkBinding {
         NetworkBinding {
@@ -1078,16 +1213,32 @@ mod tests {
 
     #[test]
     fn session_hello_is_signed_bounded_and_canonical() {
-        let mut maker_only = unsigned_hello();
-        maker_only.sign_maker(&[9; 32]).unwrap();
-        assert!(maker_only.verify_at(network(), 150).is_err());
+        let proposal = unsigned_hello().into_maker_proposal(&[9; 32]).unwrap();
+        proposal.verify_at(network(), 150).unwrap();
+        assert!(proposal.terms().verify_at(network(), 150).is_err());
+        let encoded_proposal = proposal.encode().unwrap();
+        let decoded_proposal = SwapSessionProposal::decode(&encoded_proposal).unwrap();
+        assert_eq!(decoded_proposal, proposal);
+        let proposal_envelope = CrossChainMessage::SwapSessionProposal(proposal.clone())
+            .encode_envelope(77)
+            .unwrap();
+        assert_eq!(
+            CrossChainMessage::decode_envelope(&proposal_envelope).unwrap(),
+            (77, CrossChainMessage::SwapSessionProposal(proposal.clone()))
+        );
         assert!(matches!(
-            maker_only.accept_taker(&[9; 32]),
+            proposal.clone().accept_taker(network(), 150, &[9; 32]),
             Err(MarketplaceError::SigningKeyMismatch)
         ));
-        maker_only.accept_taker(&[8; 32]).unwrap();
-        let hello = maker_only;
+        assert!(matches!(
+            proposal.clone().accept_taker(network(), 500, &[8; 32]),
+            Err(MarketplaceError::Expired { .. })
+        ));
+        let hello = decoded_proposal
+            .accept_taker(network(), 150, &[8; 32])
+            .unwrap();
         hello.verify_at(network(), 150).unwrap();
+        assert!(SwapSessionProposal::from_maker_signed(hello.clone()).is_err());
         assert!(matches!(
             hello.verify_at(network(), 200),
             Err(MarketplaceError::Expired { .. })
@@ -1111,6 +1262,9 @@ mod tests {
         let mut trailing = encoded;
         trailing.push(0);
         assert!(SwapSessionHello::decode(&trailing).is_err());
+        let mut trailing_proposal = encoded_proposal;
+        trailing_proposal.push(0);
+        assert!(SwapSessionProposal::decode(&trailing_proposal).is_err());
     }
 
     #[test]

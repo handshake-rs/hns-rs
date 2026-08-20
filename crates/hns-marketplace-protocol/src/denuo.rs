@@ -9,6 +9,7 @@ use hns_p2p_experimental::{
     MATCH_REQUEST_MESSAGE_TYPE, PRICE_OBSERVATION_INV_MESSAGE_TYPE, PRICE_OBSERVATION_MESSAGE_TYPE,
     PRICE_ROUND_MESSAGE_TYPE, SWAP_FUNDING_STATUS_MESSAGE_TYPE, SWAP_REDEEM_STATUS_MESSAGE_TYPE,
     SWAP_REFUND_STATUS_MESSAGE_TYPE, SWAP_SESSION_HELLO_MESSAGE_TYPE,
+    SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
 };
 use hns_primitives::BlockHash;
 use hns_swap::{FixedPriceListing, ListingCancellation};
@@ -16,7 +17,7 @@ use hns_swap::{FixedPriceListing, ListingCancellation};
 use crate::{
     FillGrant, MarketIntent, MarketIntentCancellation, MarketplaceError, MatchReject, MatchRequest,
     PriceObservation, PriceRound, Result, SwapFundingStatus, SwapRedeemStatus, SwapRefundStatus,
-    SwapSessionHello, ensure_size,
+    SwapSessionHello, SwapSessionProposal, ensure_size,
 };
 
 pub const NAME_MARKET_PROTOCOL_VERSION: u16 = ATOMIC_MARKET_PROTOCOL_VERSION;
@@ -196,6 +197,7 @@ pub enum CrossChainMessage {
     SwapFundingStatus(SwapFundingStatus),
     SwapRedeemStatus(SwapRedeemStatus),
     SwapRefundStatus(SwapRefundStatus),
+    SwapSessionProposal(SwapSessionProposal),
 }
 
 impl CrossChainMessage {
@@ -261,6 +263,9 @@ impl CrossChainMessage {
             Self::SwapFundingStatus(status) => (SWAP_FUNDING_STATUS_MESSAGE_TYPE, status.encode()?),
             Self::SwapRedeemStatus(status) => (SWAP_REDEEM_STATUS_MESSAGE_TYPE, status.encode()?),
             Self::SwapRefundStatus(status) => (SWAP_REFUND_STATUS_MESSAGE_TYPE, status.encode()?),
+            Self::SwapSessionProposal(proposal) => {
+                (SWAP_SESSION_PROPOSAL_MESSAGE_TYPE, proposal.encode()?)
+            }
         };
         Ok((encoded.0, ensure_size(encoded.1, MAX_DENUO_MARKET_PAYLOAD)?))
     }
@@ -308,6 +313,9 @@ impl CrossChainMessage {
             SWAP_REFUND_STATUS_MESSAGE_TYPE => {
                 Ok(Self::SwapRefundStatus(SwapRefundStatus::decode(payload)?))
             }
+            SWAP_SESSION_PROPOSAL_MESSAGE_TYPE => Ok(Self::SwapSessionProposal(
+                SwapSessionProposal::decode(payload)?,
+            )),
             _ => Err(MarketplaceError::UnknownMessage {
                 protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 message_type,

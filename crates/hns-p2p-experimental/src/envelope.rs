@@ -39,6 +39,7 @@ pub const SWAP_SESSION_HELLO_MESSAGE_TYPE: u16 = 12;
 pub const SWAP_FUNDING_STATUS_MESSAGE_TYPE: u16 = 13;
 pub const SWAP_REDEEM_STATUS_MESSAGE_TYPE: u16 = 14;
 pub const SWAP_REFUND_STATUS_MESSAGE_TYPE: u16 = 15;
+pub const SWAP_SESSION_PROPOSAL_MESSAGE_TYPE: u16 = 16;
 
 const REGISTRY_HELLO_MESSAGE_TYPE: u16 = 1;
 const REGISTRY_HELLO_ACK_MESSAGE_TYPE: u16 = 2;
@@ -346,6 +347,11 @@ impl DenuoExtensionEnvelope {
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_REFUND_STATUS_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapRefundStatus),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
+            ) => Some(KnownMessage::SwapSessionProposal),
             (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, _) | (_, ATOMIC_MARKET_PROTOCOL_ID, _) => {
                 return Err(EnvelopeError::UnknownMessage {
                     protocol_id: self.protocol_id,
@@ -520,6 +526,7 @@ pub enum KnownMessage {
     SwapFundingStatus,
     SwapRedeemStatus,
     SwapRefundStatus,
+    SwapSessionProposal,
 }
 
 impl KnownMessage {
@@ -856,6 +863,10 @@ mod tests {
                 SWAP_REFUND_STATUS_MESSAGE_TYPE,
                 KnownMessage::SwapRefundStatus,
             ),
+            (
+                SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
+                KnownMessage::SwapSessionProposal,
+            ),
         ];
         for (message_type, expected) in messages {
             let envelope = DenuoExtensionEnvelope {
@@ -919,12 +930,12 @@ mod tests {
 
         let mut unknown_v2 = v1_reserved;
         unknown_v2.registry_version = DENUO_V2_REGISTRY_VERSION;
-        unknown_v2.message_type = 16;
+        unknown_v2.message_type = 17;
         assert!(matches!(
             unknown_v2.classify(),
             Err(EnvelopeError::UnknownMessage {
                 protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                message_type: 16,
+                message_type: 17,
             })
         ));
     }

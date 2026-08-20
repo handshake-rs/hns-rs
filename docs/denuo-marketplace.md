@@ -43,6 +43,7 @@ The V2-only protocol assigns:
 | 5–8 | `PRICE_OBSERVATION_INV`, `GET_PRICE_OBSERVATION`, `PRICE_OBSERVATION`, `PRICE_ROUND` |
 | 9–11 | `MATCH_REQUEST`, `FILL_GRANT`, `MATCH_REJECT` |
 | 12–15 | `SWAP_SESSION_HELLO`, `SWAP_FUNDING_STATUS`, `SWAP_REDEEM_STATUS`, `SWAP_REFUND_STATUS` |
+| 16 | `SWAP_SESSION_PROPOSAL` |
 
 Inventories contain at most 4096 nonzero, sorted, unique content hashes. The
 typed Denuo payload maximum is 512 KiB and remains below the outer extension
@@ -60,13 +61,14 @@ funding, confirmation, redemption, preimage, refund, and reorganization state
 from locally verified chain evidence rather than trusting a peer status.
 Funding statuses repeat the frozen chain-specific lock commitment and exact
 native amount so a hint cannot be confused with another session's funding.
-Session hellos contain maker and taker settlement authorities and two
-domain-separated signatures over identical terms. The maker's long-term
-identity signs the fill grant to delegate an independent maker settlement key;
-that settlement key proposes the hello and the grant-designated taker accepts.
-Funding is rejected until both signatures verify. Funding and refund status on
-a chain is authorized by that chain's funder (maker for the offered chain,
-taker for the received chain);
+Session proposals and hellos contain maker and taker settlement authorities.
+The maker's long-term identity signs the fill grant to delegate an independent
+maker settlement key; that key signs the type-16 proposal, and the
+grant-designated taker verifies it before returning a type-12 hello with a
+second domain-separated signature over the identical terms. Funding is
+rejected until the accepted hello and both signatures verify. Funding and
+refund status on a chain is authorized by that chain's funder (maker for the
+offered chain, taker for the received chain);
 redeem status is authorized by the opposite party. Statuses signed by any third
 party are rejected, but remain hints even when authorized.
 The chain module still verifies the actual transaction, inclusion, finality,
