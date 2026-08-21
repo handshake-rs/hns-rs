@@ -1,20 +1,22 @@
 # hns-marketplace-protocol
 
 Canonical, bounded, runtime-independent wire objects for the Handshake name
-market and bilateral market-price cross-chain swaps.
+market and bilateral direct fixed-terms HNS/BTC swaps.
 
 The crate contains no wallet, database, async runtime, network client, Bitcoin
 runtime, Ethereum runtime, browser API, or platform ABI. Every decoder bounds
 variable input and requires complete consumption. Money uses integer base units
-and prices use reduced rational values; floating-point arithmetic is never used.
+and exchange terms use the exact integer amounts signed by a maker; floating-
+point arithmetic is never used.
 
-Fill grants delegate an independent per-session maker settlement key from the
-long-term marketplace identity. Session hellos bind both settlement
-authorities, exact amounts, SHA-256 hashlock, descriptor commitments, and
-timeouts. A distinct maker-signed session proposal carries those exact terms
-to the designated taker, which verifies the proposal before adding its
-signature and producing the funding-capable session hello. Native HNS sides
-can be constructed and verified directly against `hns-swap::HnsHtlc`.
+Each direct offer delegates an independent per-offer maker settlement key from
+the long-term marketplace identity. A signed offer take chooses that exact
+offer and binds a taker settlement key. Session hellos bind both settlement
+authorities, the exact offer amounts, SHA-256 hashlock, descriptor commitments,
+and timeouts. A distinct maker-signed session proposal carries those exact
+terms to the designated taker, which verifies the proposal before adding its
+signature and producing the funding-capable session hello. Native HNS sides can
+be constructed and verified directly against `hns-swap::HnsHtlc`.
 New-funding admission is time-gated separately from historical status and
 reorganization validation.
 

@@ -1,23 +1,21 @@
 use hns_encoding::{Decoder, Encoder};
 use hns_p2p_experimental::{
-    ATOMIC_MARKET_PROTOCOL_ID, ATOMIC_MARKET_PROTOCOL_VERSION, CANCEL_MARKET_INTENT_MESSAGE_TYPE,
+    ATOMIC_MARKET_PROTOCOL_ID, ATOMIC_MARKET_PROTOCOL_VERSION, CANCEL_DIRECT_OFFER_MESSAGE_TYPE,
     CROSS_CHAIN_MARKET_MAX_PAYLOAD, CROSS_CHAIN_MARKET_PROTOCOL_ID,
     CROSS_CHAIN_MARKET_PROTOCOL_VERSION as DENUO_CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
-    DENUO_V1_REGISTRY_VERSION, DENUO_V2_REGISTRY_VERSION, DenuoExtensionEnvelope,
-    FILL_GRANT_MESSAGE_TYPE, GET_MARKET_INTENT_MESSAGE_TYPE, GET_PRICE_OBSERVATION_MESSAGE_TYPE,
-    MARKET_INTENT_INV_MESSAGE_TYPE, MARKET_INTENT_MESSAGE_TYPE, MATCH_REJECT_MESSAGE_TYPE,
-    MATCH_REQUEST_MESSAGE_TYPE, PRICE_OBSERVATION_INV_MESSAGE_TYPE, PRICE_OBSERVATION_MESSAGE_TYPE,
-    PRICE_ROUND_MESSAGE_TYPE, SWAP_FUNDING_STATUS_MESSAGE_TYPE, SWAP_REDEEM_STATUS_MESSAGE_TYPE,
+    DENUO_V1_REGISTRY_VERSION, DENUO_V2_REGISTRY_VERSION, DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
+    DIRECT_OFFER_MESSAGE_TYPE, DenuoExtensionEnvelope, GET_DIRECT_OFFER_MESSAGE_TYPE,
+    SWAP_FUNDING_STATUS_MESSAGE_TYPE, SWAP_REDEEM_STATUS_MESSAGE_TYPE,
     SWAP_REFUND_STATUS_MESSAGE_TYPE, SWAP_SESSION_HELLO_MESSAGE_TYPE,
-    SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
+    SWAP_SESSION_PROPOSAL_MESSAGE_TYPE, TAKE_DIRECT_OFFER_MESSAGE_TYPE,
 };
 use hns_primitives::BlockHash;
 use hns_swap::{FixedPriceListing, ListingCancellation};
 
 use crate::{
-    FillGrant, MarketIntent, MarketIntentCancellation, MarketplaceError, MatchReject, MatchRequest,
-    PriceObservation, PriceRound, Result, SwapFundingStatus, SwapRedeemStatus, SwapRefundStatus,
-    SwapSessionHello, SwapSessionProposal, ensure_size,
+    DirectOffer, DirectOfferCancellation, DirectOfferTake, MarketplaceError, Result,
+    SwapFundingStatus, SwapRedeemStatus, SwapRefundStatus, SwapSessionHello, SwapSessionProposal,
+    ensure_size,
 };
 
 pub const NAME_MARKET_PROTOCOL_VERSION: u16 = ATOMIC_MARKET_PROTOCOL_VERSION;
@@ -182,17 +180,12 @@ impl NameMarketMessage {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CrossChainMessage {
-    MarketIntentInventory(Vec<[u8; 32]>),
-    GetMarketIntent([u8; 32]),
-    MarketIntent(MarketIntent),
-    CancelMarketIntent(MarketIntentCancellation),
-    PriceObservationInventory(Vec<[u8; 32]>),
-    GetPriceObservation([u8; 32]),
-    PriceObservation(PriceObservation),
-    PriceRound(PriceRound),
-    MatchRequest(MatchRequest),
-    FillGrant(FillGrant),
-    MatchReject(MatchReject),
+    /// Sorted identifiers for currently live fixed-term HNS/BTC offers.
+    DirectOfferInventory(Vec<[u8; 32]>),
+    GetDirectOffer([u8; 32]),
+    DirectOffer(DirectOffer),
+    CancelDirectOffer(DirectOfferCancellation),
+    TakeDirectOffer(DirectOfferTake),
     SwapSessionHello(SwapSessionHello),
     SwapFundingStatus(SwapFundingStatus),
     SwapRedeemStatus(SwapRedeemStatus),
@@ -233,32 +226,18 @@ impl CrossChainMessage {
 
     fn encode_payload(&self) -> Result<(u16, Vec<u8>)> {
         let encoded = match self {
-            Self::MarketIntentInventory(hashes) => (
-                MARKET_INTENT_INV_MESSAGE_TYPE,
-                encode_hashes(hashes, false)?,
+            Self::DirectOfferInventory(hashes) => (
+                DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
+                encode_hashes(hashes, true)?,
             ),
-            Self::GetMarketIntent(hash) => {
-                (GET_MARKET_INTENT_MESSAGE_TYPE, encode_nonzero_hash(*hash)?)
+            Self::GetDirectOffer(hash) => {
+                (GET_DIRECT_OFFER_MESSAGE_TYPE, encode_nonzero_hash(*hash)?)
             }
-            Self::MarketIntent(intent) => (MARKET_INTENT_MESSAGE_TYPE, intent.encode()?),
-            Self::CancelMarketIntent(cancellation) => {
-                (CANCEL_MARKET_INTENT_MESSAGE_TYPE, cancellation.encode()?)
+            Self::DirectOffer(offer) => (DIRECT_OFFER_MESSAGE_TYPE, offer.encode()?),
+            Self::CancelDirectOffer(cancellation) => {
+                (CANCEL_DIRECT_OFFER_MESSAGE_TYPE, cancellation.encode()?)
             }
-            Self::PriceObservationInventory(hashes) => (
-                PRICE_OBSERVATION_INV_MESSAGE_TYPE,
-                encode_hashes(hashes, false)?,
-            ),
-            Self::GetPriceObservation(hash) => (
-                GET_PRICE_OBSERVATION_MESSAGE_TYPE,
-                encode_nonzero_hash(*hash)?,
-            ),
-            Self::PriceObservation(observation) => {
-                (PRICE_OBSERVATION_MESSAGE_TYPE, observation.encode()?)
-            }
-            Self::PriceRound(round) => (PRICE_ROUND_MESSAGE_TYPE, round.encode()?),
-            Self::MatchRequest(request) => (MATCH_REQUEST_MESSAGE_TYPE, request.encode()?),
-            Self::FillGrant(grant) => (FILL_GRANT_MESSAGE_TYPE, grant.encode()?),
-            Self::MatchReject(rejection) => (MATCH_REJECT_MESSAGE_TYPE, rejection.encode()?),
+            Self::TakeDirectOffer(take) => (TAKE_DIRECT_OFFER_MESSAGE_TYPE, take.encode()?),
             Self::SwapSessionHello(hello) => (SWAP_SESSION_HELLO_MESSAGE_TYPE, hello.encode()?),
             Self::SwapFundingStatus(status) => (SWAP_FUNDING_STATUS_MESSAGE_TYPE, status.encode()?),
             Self::SwapRedeemStatus(status) => (SWAP_REDEEM_STATUS_MESSAGE_TYPE, status.encode()?),
@@ -278,29 +257,19 @@ impl CrossChainMessage {
             });
         }
         match message_type {
-            MARKET_INTENT_INV_MESSAGE_TYPE => {
-                Ok(Self::MarketIntentInventory(decode_hashes(payload, false)?))
+            DIRECT_OFFER_INVENTORY_MESSAGE_TYPE => {
+                Ok(Self::DirectOfferInventory(decode_hashes(payload, true)?))
             }
-            GET_MARKET_INTENT_MESSAGE_TYPE => {
-                Ok(Self::GetMarketIntent(decode_nonzero_hash(payload)?))
+            GET_DIRECT_OFFER_MESSAGE_TYPE => {
+                Ok(Self::GetDirectOffer(decode_nonzero_hash(payload)?))
             }
-            MARKET_INTENT_MESSAGE_TYPE => Ok(Self::MarketIntent(MarketIntent::decode(payload)?)),
-            CANCEL_MARKET_INTENT_MESSAGE_TYPE => Ok(Self::CancelMarketIntent(
-                MarketIntentCancellation::decode(payload)?,
+            DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::DirectOffer(DirectOffer::decode(payload)?)),
+            CANCEL_DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::CancelDirectOffer(
+                DirectOfferCancellation::decode(payload)?,
             )),
-            PRICE_OBSERVATION_INV_MESSAGE_TYPE => Ok(Self::PriceObservationInventory(
-                decode_hashes(payload, false)?,
-            )),
-            GET_PRICE_OBSERVATION_MESSAGE_TYPE => {
-                Ok(Self::GetPriceObservation(decode_nonzero_hash(payload)?))
+            TAKE_DIRECT_OFFER_MESSAGE_TYPE => {
+                Ok(Self::TakeDirectOffer(DirectOfferTake::decode(payload)?))
             }
-            PRICE_OBSERVATION_MESSAGE_TYPE => {
-                Ok(Self::PriceObservation(PriceObservation::decode(payload)?))
-            }
-            PRICE_ROUND_MESSAGE_TYPE => Ok(Self::PriceRound(PriceRound::decode(payload)?)),
-            MATCH_REQUEST_MESSAGE_TYPE => Ok(Self::MatchRequest(MatchRequest::decode(payload)?)),
-            FILL_GRANT_MESSAGE_TYPE => Ok(Self::FillGrant(FillGrant::decode(payload)?)),
-            MATCH_REJECT_MESSAGE_TYPE => Ok(Self::MatchReject(MatchReject::decode(payload)?)),
             SWAP_SESSION_HELLO_MESSAGE_TYPE => {
                 Ok(Self::SwapSessionHello(SwapSessionHello::decode(payload)?))
             }
@@ -479,12 +448,12 @@ mod tests {
 
     #[test]
     fn inventories_are_sorted_unique_bounded_and_v2_only_for_cross_chain() {
-        let message = CrossChainMessage::MarketIntentInventory(vec![[1; 32], [2; 32]]);
+        let message = CrossChainMessage::DirectOfferInventory(vec![[1; 32], [2; 32]]);
         let encoded = message.encode_envelope(7).unwrap();
         assert_eq!(
             hex::encode(&encoded),
             concat!(
-                "444e55310200020001000100000007000000000000004100000002",
+                "444e55310200020002000100000007000000000000004100000002",
                 "0101010101010101010101010101010101010101010101010101010101010101",
                 "0202020202020202020202020202020202020202020202020202020202020202"
             )
@@ -494,7 +463,7 @@ mod tests {
             (7, message)
         );
 
-        let duplicate = CrossChainMessage::MarketIntentInventory(vec![[1; 32], [1; 32]]);
+        let duplicate = CrossChainMessage::DirectOfferInventory(vec![[1; 32], [1; 32]]);
         assert!(duplicate.encode_envelope(7).is_err());
 
         let mut wrong_registry = DenuoExtensionEnvelope::decode_canonical(&encoded).unwrap();
