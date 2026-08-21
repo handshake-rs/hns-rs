@@ -21,25 +21,21 @@ pub const ATOMIC_MARKET_PROTOCOL_ID: u16 = 0x0001;
 pub const ATOMIC_MARKET_PROTOCOL_VERSION: u16 = 1;
 pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const CROSS_CHAIN_MARKET_PROTOCOL_ID: u16 = 0x0002;
-pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 1;
+/// Version 2 removes reporter/source price rounds. It carries direct signed
+/// HNS/BTC offers and their settlement lifecycle only.
+pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 2;
 pub const CROSS_CHAIN_MARKET_MAX_PAYLOAD: usize = 512 * 1024;
 
-pub const MARKET_INTENT_INV_MESSAGE_TYPE: u16 = 1;
-pub const GET_MARKET_INTENT_MESSAGE_TYPE: u16 = 2;
-pub const MARKET_INTENT_MESSAGE_TYPE: u16 = 3;
-pub const CANCEL_MARKET_INTENT_MESSAGE_TYPE: u16 = 4;
-pub const PRICE_OBSERVATION_INV_MESSAGE_TYPE: u16 = 5;
-pub const GET_PRICE_OBSERVATION_MESSAGE_TYPE: u16 = 6;
-pub const PRICE_OBSERVATION_MESSAGE_TYPE: u16 = 7;
-pub const PRICE_ROUND_MESSAGE_TYPE: u16 = 8;
-pub const MATCH_REQUEST_MESSAGE_TYPE: u16 = 9;
-pub const FILL_GRANT_MESSAGE_TYPE: u16 = 10;
-pub const MATCH_REJECT_MESSAGE_TYPE: u16 = 11;
-pub const SWAP_SESSION_HELLO_MESSAGE_TYPE: u16 = 12;
-pub const SWAP_FUNDING_STATUS_MESSAGE_TYPE: u16 = 13;
-pub const SWAP_REDEEM_STATUS_MESSAGE_TYPE: u16 = 14;
-pub const SWAP_REFUND_STATUS_MESSAGE_TYPE: u16 = 15;
-pub const SWAP_SESSION_PROPOSAL_MESSAGE_TYPE: u16 = 16;
+pub const DIRECT_OFFER_INVENTORY_MESSAGE_TYPE: u16 = 1;
+pub const GET_DIRECT_OFFER_MESSAGE_TYPE: u16 = 2;
+pub const DIRECT_OFFER_MESSAGE_TYPE: u16 = 3;
+pub const CANCEL_DIRECT_OFFER_MESSAGE_TYPE: u16 = 4;
+pub const TAKE_DIRECT_OFFER_MESSAGE_TYPE: u16 = 5;
+pub const SWAP_SESSION_PROPOSAL_MESSAGE_TYPE: u16 = 6;
+pub const SWAP_SESSION_HELLO_MESSAGE_TYPE: u16 = 7;
+pub const SWAP_FUNDING_STATUS_MESSAGE_TYPE: u16 = 8;
+pub const SWAP_REDEEM_STATUS_MESSAGE_TYPE: u16 = 9;
+pub const SWAP_REFUND_STATUS_MESSAGE_TYPE: u16 = 10;
 
 const REGISTRY_HELLO_MESSAGE_TYPE: u16 = 1;
 const REGISTRY_HELLO_ACK_MESSAGE_TYPE: u16 = 2;
@@ -275,58 +271,28 @@ impl DenuoExtensionEnvelope {
             (
                 DENUO_V2_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                MARKET_INTENT_INV_MESSAGE_TYPE,
-            ) => Some(KnownMessage::MarketIntentInventory),
+                DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
+            ) => Some(KnownMessage::DirectOfferInventory),
             (
                 DENUO_V2_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                GET_MARKET_INTENT_MESSAGE_TYPE,
-            ) => Some(KnownMessage::GetMarketIntent),
+                GET_DIRECT_OFFER_MESSAGE_TYPE,
+            ) => Some(KnownMessage::GetDirectOffer),
             (
                 DENUO_V2_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                MARKET_INTENT_MESSAGE_TYPE,
-            ) => Some(KnownMessage::MarketIntent),
+                DIRECT_OFFER_MESSAGE_TYPE,
+            ) => Some(KnownMessage::DirectOffer),
             (
                 DENUO_V2_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                CANCEL_MARKET_INTENT_MESSAGE_TYPE,
-            ) => Some(KnownMessage::CancelMarketIntent),
+                CANCEL_DIRECT_OFFER_MESSAGE_TYPE,
+            ) => Some(KnownMessage::CancelDirectOffer),
             (
                 DENUO_V2_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                PRICE_OBSERVATION_INV_MESSAGE_TYPE,
-            ) => Some(KnownMessage::PriceObservationInventory),
-            (
-                DENUO_V2_REGISTRY_VERSION,
-                CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                GET_PRICE_OBSERVATION_MESSAGE_TYPE,
-            ) => Some(KnownMessage::GetPriceObservation),
-            (
-                DENUO_V2_REGISTRY_VERSION,
-                CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                PRICE_OBSERVATION_MESSAGE_TYPE,
-            ) => Some(KnownMessage::PriceObservation),
-            (
-                DENUO_V2_REGISTRY_VERSION,
-                CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                PRICE_ROUND_MESSAGE_TYPE,
-            ) => Some(KnownMessage::PriceRound),
-            (
-                DENUO_V2_REGISTRY_VERSION,
-                CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                MATCH_REQUEST_MESSAGE_TYPE,
-            ) => Some(KnownMessage::MatchRequest),
-            (
-                DENUO_V2_REGISTRY_VERSION,
-                CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                FILL_GRANT_MESSAGE_TYPE,
-            ) => Some(KnownMessage::FillGrant),
-            (
-                DENUO_V2_REGISTRY_VERSION,
-                CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                MATCH_REJECT_MESSAGE_TYPE,
-            ) => Some(KnownMessage::MatchReject),
+                TAKE_DIRECT_OFFER_MESSAGE_TYPE,
+            ) => Some(KnownMessage::TakeDirectOffer),
             (
                 DENUO_V2_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
@@ -511,17 +477,11 @@ pub enum KnownMessage {
     GetOffer,
     Offer,
     OfferTombstone,
-    MarketIntentInventory,
-    GetMarketIntent,
-    MarketIntent,
-    CancelMarketIntent,
-    PriceObservationInventory,
-    GetPriceObservation,
-    PriceObservation,
-    PriceRound,
-    MatchRequest,
-    FillGrant,
-    MatchReject,
+    DirectOfferInventory,
+    GetDirectOffer,
+    DirectOffer,
+    CancelDirectOffer,
+    TakeDirectOffer,
     SwapSessionHello,
     SwapFundingStatus,
     SwapRedeemStatus,
@@ -536,10 +496,8 @@ impl KnownMessage {
             Self::RegistryReject
                 | Self::MarketHello
                 | Self::OfferTombstone
-                | Self::MarketIntentInventory
-                | Self::CancelMarketIntent
-                | Self::PriceObservationInventory
-                | Self::PriceRound
+                | Self::DirectOfferInventory
+                | Self::CancelDirectOffer
                 | Self::SwapFundingStatus
                 | Self::SwapRedeemStatus
                 | Self::SwapRefundStatus
@@ -819,34 +777,23 @@ mod tests {
     fn cross_chain_messages_are_known_only_in_registry_v2() {
         let messages = [
             (
-                MARKET_INTENT_INV_MESSAGE_TYPE,
-                KnownMessage::MarketIntentInventory,
+                DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
+                KnownMessage::DirectOfferInventory,
+            ),
+            (GET_DIRECT_OFFER_MESSAGE_TYPE, KnownMessage::GetDirectOffer),
+            (DIRECT_OFFER_MESSAGE_TYPE, KnownMessage::DirectOffer),
+            (
+                CANCEL_DIRECT_OFFER_MESSAGE_TYPE,
+                KnownMessage::CancelDirectOffer,
             ),
             (
-                GET_MARKET_INTENT_MESSAGE_TYPE,
-                KnownMessage::GetMarketIntent,
-            ),
-            (MARKET_INTENT_MESSAGE_TYPE, KnownMessage::MarketIntent),
-            (
-                CANCEL_MARKET_INTENT_MESSAGE_TYPE,
-                KnownMessage::CancelMarketIntent,
+                TAKE_DIRECT_OFFER_MESSAGE_TYPE,
+                KnownMessage::TakeDirectOffer,
             ),
             (
-                PRICE_OBSERVATION_INV_MESSAGE_TYPE,
-                KnownMessage::PriceObservationInventory,
+                SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
+                KnownMessage::SwapSessionProposal,
             ),
-            (
-                GET_PRICE_OBSERVATION_MESSAGE_TYPE,
-                KnownMessage::GetPriceObservation,
-            ),
-            (
-                PRICE_OBSERVATION_MESSAGE_TYPE,
-                KnownMessage::PriceObservation,
-            ),
-            (PRICE_ROUND_MESSAGE_TYPE, KnownMessage::PriceRound),
-            (MATCH_REQUEST_MESSAGE_TYPE, KnownMessage::MatchRequest),
-            (FILL_GRANT_MESSAGE_TYPE, KnownMessage::FillGrant),
-            (MATCH_REJECT_MESSAGE_TYPE, KnownMessage::MatchReject),
             (
                 SWAP_SESSION_HELLO_MESSAGE_TYPE,
                 KnownMessage::SwapSessionHello,
@@ -863,16 +810,12 @@ mod tests {
                 SWAP_REFUND_STATUS_MESSAGE_TYPE,
                 KnownMessage::SwapRefundStatus,
             ),
-            (
-                SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
-                KnownMessage::SwapSessionProposal,
-            ),
         ];
         for (message_type, expected) in messages {
             let envelope = DenuoExtensionEnvelope {
                 registry_version: DENUO_V2_REGISTRY_VERSION,
                 protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                protocol_version: 1,
+                protocol_version: CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
                 message_type,
                 flags: 0,
                 request_id: 1,
@@ -887,8 +830,8 @@ mod tests {
         let v1_reserved = DenuoExtensionEnvelope {
             registry_version: DENUO_V1_REGISTRY_VERSION,
             protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-            protocol_version: 1,
-            message_type: MARKET_INTENT_INV_MESSAGE_TYPE,
+            protocol_version: CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
+            message_type: DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
             flags: 0,
             request_id: 0,
             payload: Vec::new(),

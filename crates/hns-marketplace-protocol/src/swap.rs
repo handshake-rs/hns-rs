@@ -7,8 +7,8 @@ use hns_swap::{
 use crate::crypto;
 use crate::types::encode_fixed_versioned;
 use crate::{
-    AssetAmount, AssetId, ChainId, FillGrant, MarketIntent, MarketplaceError, NetworkBinding,
-    PriceRound, PriceRoundVerifier, Result, SignedObjectHeader,
+    AssetAmount, AssetId, ChainId, DirectOffer, DirectOfferTake, MarketplaceError, NetworkBinding,
+    Result, SignedObjectHeader,
 };
 
 pub const MAX_SWAP_MESSAGE_SIZE: usize = 8 * 1024;
@@ -120,18 +120,19 @@ pub fn hns_refund_time_lock(deadline: SettlementDeadline) -> Result<HsdTimeLock>
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SwapSessionHello {
     pub header: SignedObjectHeader,
-    pub fill_grant_hash: [u8; 32],
+    /// Exact maker offer accepted for this session. This is a direct signed
+    /// offer identifier; it never commits to a price feed or third party.
+    pub direct_offer_id: [u8; 32],
     pub swap_session_id: [u8; 32],
     /// Independent per-session settlement authority delegated by the maker's
-    /// signed fill grant.
+    /// signed direct offer.
     pub maker_settlement_public_key: [u8; 33],
-    /// Ephemeral settlement authority supplied by the match requester (taker).
+    /// Ephemeral settlement authority supplied by the offer taker.
     pub taker_settlement_public_key: [u8; 33],
     pub offered_asset: AssetId,
     pub offered_amount: AssetAmount,
     pub received_asset: AssetId,
     pub received_amount: AssetAmount,
-    pub price_round_hash: [u8; 32],
     pub hashlock: [u8; 32],
     pub first_funding_chain: ChainId,
     pub offered_lock_commitment: [u8; 32],
@@ -237,50 +238,44 @@ impl SwapSessionHello {
         self.verify_signatures()
     }
 
-    pub fn verify_for_grant(
+    pub fn verify_for_direct_offer(
         &self,
-        intent: &MarketIntent,
-        grant: &FillGrant,
-        round: &PriceRound,
-        verifier: PriceRoundVerifier<'_>,
-        previous_round: Option<&PriceRound>,
+        offer: &DirectOffer,
+        take: &DirectOfferTake,
+        expected_network: NetworkBinding,
         now: u64,
     ) -> Result<()> {
         let expected_network =
-            self.verify_terms_for_grant(intent, grant, round, verifier, previous_round, now)?;
+            self.verify_terms_for_direct_offer(offer, take, expected_network, now)?;
         self.verify_at(expected_network, now)
     }
 
-    fn verify_terms_for_grant(
+    fn verify_terms_for_direct_offer(
         &self,
-        intent: &MarketIntent,
-        grant: &FillGrant,
-        round: &PriceRound,
-        verifier: PriceRoundVerifier<'_>,
-        previous_round: Option<&PriceRound>,
+        offer: &DirectOffer,
+        take: &DirectOfferTake,
+        expected_network: NetworkBinding,
         now: u64,
     ) -> Result<NetworkBinding> {
-        let expected_network = verifier.expected_network();
-        grant.verify_for_price_round(intent, round, verifier, previous_round, now)?;
-        let received_asset = intent.header.pair.other(intent.offered_asset)?;
-        if self.fill_grant_hash != grant.grant_hash
-            || self.swap_session_id != grant.swap_session_id
-            || self.price_round_hash != grant.price_round_hash
-            || self.header.network != grant.header.network
-            || self.header.pair != grant.header.pair
-            || self.header.signer_public_key != grant.header.signer_public_key
-            || self.maker_settlement_public_key != grant.maker_settlement_key
-            || self.taker_settlement_public_key != grant.counterparty_settlement_key
-            || self.offered_asset != intent.offered_asset
-            || self.received_asset != received_asset
-            || self.offered_amount != grant.offered_amount
-            || self.received_amount != grant.received_amount
-            || self.header.sequence <= grant.header.sequence
-            || self.header.created_at < grant.header.created_at
-            || self.header.expires_at > grant.header.expires_at
+        offer.verify_at(expected_network, now)?;
+        take.verify_for_offer(offer, expected_network, now)?;
+        if self.direct_offer_id != offer.offer_id
+            || self.swap_session_id != take.swap_session_id
+            || self.header.network != offer.header.network
+            || self.header.pair != offer.header.pair
+            || self.header.signer_public_key != offer.header.signer_public_key
+            || self.maker_settlement_public_key != offer.maker_settlement_public_key
+            || self.taker_settlement_public_key != take.taker_settlement_public_key
+            || self.offered_asset != offer.offered_asset
+            || self.received_asset != offer.received_asset
+            || self.offered_amount != offer.offered_amount
+            || self.received_amount != offer.received_amount
+            || self.header.sequence <= offer.header.sequence
+            || self.header.created_at < take.header.created_at
+            || self.header.expires_at > take.header.expires_at
         {
             return Err(MarketplaceError::Invalid(
-                "swap session hello does not bind its fill grant",
+                "swap session hello does not bind its direct offer take",
             ));
         }
         Ok(expected_network)
@@ -398,7 +393,7 @@ impl SwapSessionHello {
     fn decode_unsigned_from(decoder: &mut Decoder<'_>) -> Result<Self> {
         let message = Self {
             header: SignedObjectHeader::decode_from(decoder)?,
-            fill_grant_hash: decoder.read_array()?,
+            direct_offer_id: decoder.read_array()?,
             swap_session_id: decoder.read_array()?,
             maker_settlement_public_key: decoder.read_array()?,
             taker_settlement_public_key: decoder.read_array()?,
@@ -406,7 +401,6 @@ impl SwapSessionHello {
             offered_amount: AssetAmount::decode_from(decoder)?,
             received_asset: AssetId::decode_from(decoder)?,
             received_amount: AssetAmount::decode_from(decoder)?,
-            price_round_hash: decoder.read_array()?,
             hashlock: decoder.read_array()?,
             first_funding_chain: ChainId::decode_from(decoder)?,
             offered_lock_commitment: decoder.read_array()?,
@@ -431,9 +425,8 @@ impl SwapSessionHello {
         if self.header.signer_public_key == self.maker_settlement_public_key
             || self.header.signer_public_key == self.taker_settlement_public_key
             || self.maker_settlement_public_key == self.taker_settlement_public_key
-            || self.fill_grant_hash == [0; 32]
+            || self.direct_offer_id == [0; 32]
             || self.swap_session_id == [0; 32]
-            || self.price_round_hash == [0; 32]
             || self.hashlock == [0; 32]
             || self.offered_lock_commitment == [0; 32]
             || self.received_lock_commitment == [0; 32]
@@ -493,7 +486,7 @@ impl SwapSessionHello {
         self.validate_fields()?;
         encode_fixed_versioned(MAX_SWAP_MESSAGE_SIZE - 128, |encoder| {
             self.header.encode_to(encoder);
-            encoder.put_bytes(&self.fill_grant_hash);
+            encoder.put_bytes(&self.direct_offer_id);
             encoder.put_bytes(&self.swap_session_id);
             encoder.put_bytes(&self.maker_settlement_public_key);
             encoder.put_bytes(&self.taker_settlement_public_key);
@@ -501,7 +494,6 @@ impl SwapSessionHello {
             self.offered_amount.encode_to(encoder);
             self.received_asset.encode_to(encoder);
             self.received_amount.encode_to(encoder);
-            encoder.put_bytes(&self.price_round_hash);
             encoder.put_bytes(&self.hashlock);
             self.first_funding_chain.encode_to(encoder);
             encoder.put_bytes(&self.offered_lock_commitment);
@@ -539,7 +531,7 @@ impl SwapSessionHello {
     }
 }
 
-/// Canonical maker-signed session terms sent to the grant-designated taker
+/// Canonical maker-signed session terms sent to the direct-offer taker
 /// before a fully accepted [`SwapSessionHello`] exists.
 ///
 /// This distinct wire type closes the two-party signing round trip without
@@ -571,23 +563,16 @@ impl SwapSessionProposal {
         self.hello.verify_maker_proposal_at(expected_network, now)
     }
 
-    pub fn verify_for_grant(
+    pub fn verify_for_direct_offer(
         &self,
-        intent: &MarketIntent,
-        grant: &FillGrant,
-        round: &PriceRound,
-        verifier: PriceRoundVerifier<'_>,
-        previous_round: Option<&PriceRound>,
+        offer: &DirectOffer,
+        take: &DirectOfferTake,
+        expected_network: NetworkBinding,
         now: u64,
     ) -> Result<()> {
-        let expected_network = self.hello.verify_terms_for_grant(
-            intent,
-            grant,
-            round,
-            verifier,
-            previous_round,
-            now,
-        )?;
+        let expected_network =
+            self.hello
+                .verify_terms_for_direct_offer(offer, take, expected_network, now)?;
         self.verify_at(expected_network, now)
     }
 
@@ -1168,7 +1153,7 @@ mod tests {
         hello_header.signer_public_key = crypto::public_key(&[7; 32]).unwrap();
         let mut hello = SwapSessionHello {
             header: hello_header,
-            fill_grant_hash: [3; 32],
+            direct_offer_id: [3; 32],
             swap_session_id: [4; 32],
             maker_settlement_public_key: [0; 33],
             taker_settlement_public_key: crypto::public_key(&[8; 32]).unwrap(),
@@ -1176,7 +1161,6 @@ mod tests {
             offered_amount: AssetAmount::new(1_000_000),
             received_asset: AssetId::BTC,
             received_amount: AssetAmount::new(10_000),
-            price_round_hash: [5; 32],
             hashlock: HnsHtlc::hash_preimage(&[6; 32]),
             first_funding_chain: ChainId::HANDSHAKE,
             offered_lock_commitment: [10; 32],

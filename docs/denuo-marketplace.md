@@ -1,82 +1,48 @@
 # Denuo marketplace protocols
 
-Denuo registry V2 is an additive registry. It retains every V1 assignment and
-introduces cross-chain marketplace protocol ID `0x0002`; V1 remains byte-for-byte
-reproducible with fingerprint
-`95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d`.
-These remain private experimental assignments, not official Handshake wire
-numbers. Their implementation and compatibility boundary are production
-supported; "experimental" describes assignment governance only.
+Denuo registry V2 retains every V1 assignment and adds cross-chain marketplace
+protocol ID `0x0002`. The registry remains a private experimental assignment;
+that describes governance of the packet numbers, not a fallback wire format.
 
 ## Name market (`0x0001`, protocol version 1)
 
-`NameMarketMessage` provides typed, bounded payloads for all existing atomic
-name-market messages:
+The name market retains its bounded hello, inventory, listing request/response,
+and signed cancellation messages. Listing verification remains local; inventory
+is discovery metadata and `OfferInventory` alone may represent an empty board.
 
-| Type | Payload |
-| ---: | --- |
-| 1 | network-bound market hello |
-| 2 | empty inventory request |
-| 3 | sorted unique listing-content-hash inventory; zero entries means the board is empty |
-| 4 | sorted unique batch request |
-| 5 | sorted unique batch of signed fixed-price listings |
-| 6 | one listing-content-hash request |
-| 7 | one signed fixed-price listing |
-| 8 | one signed listing cancellation/tombstone |
+## Direct HNS/BTC market (`0x0002`, protocol version 2)
 
-The typed decoder accepts the name protocol under V1 or V2. Listing content is
-still verified locally; inventory is only discovery metadata. A hello must
-carry nonzero Handshake magic and genesis values as well as a bounded nonzero
-receive limit. The typed name-market layer enforces the same 512 KiB payload
-ceiling as the cross-chain market even though the outer registry assignment
-permits a larger atomic-market transport payload. `OfferInventory` alone may
-carry a canonical zero count. `GetOffers` and `Offers` require at least one
-identifier or signed listing respectively.
-
-## Cross-chain market (`0x0002`, protocol version 1)
-
-The V2-only protocol assigns:
+The V2-only cross-chain protocol uses this registry:
 
 | Type | Message |
 | ---: | --- |
-| 1–4 | `MARKET_INTENT_INV`, `GET_MARKET_INTENT`, `MARKET_INTENT`, `CANCEL_MARKET_INTENT` |
-| 5–8 | `PRICE_OBSERVATION_INV`, `GET_PRICE_OBSERVATION`, `PRICE_OBSERVATION`, `PRICE_ROUND` |
-| 9–11 | `MATCH_REQUEST`, `FILL_GRANT`, `MATCH_REJECT` |
-| 12–15 | `SWAP_SESSION_HELLO`, `SWAP_FUNDING_STATUS`, `SWAP_REDEEM_STATUS`, `SWAP_REFUND_STATUS` |
-| 16 | `SWAP_SESSION_PROPOSAL` |
+| 1 | `DIRECT_OFFER_INVENTORY` |
+| 2 | `GET_DIRECT_OFFER` |
+| 3 | `DIRECT_OFFER` |
+| 4 | `CANCEL_DIRECT_OFFER` |
+| 5 | `TAKE_DIRECT_OFFER` |
+| 6 | `SWAP_SESSION_PROPOSAL` |
+| 7 | `SWAP_SESSION_HELLO` |
+| 8–10 | funding, redeem, and refund status |
 
-Inventories contain at most 4096 nonzero, sorted, unique content hashes. The
-typed Denuo payload maximum is 512 KiB and remains below the outer extension
-packet bound. Full objects have their own tighter bounds. Protocol version,
-registry availability, zero flags, message type, canonical nested payload, and
-complete input are checked on every decode.
+A direct offer is the maker's signed, exact HNS/BTC terms. It names a distinct
+maker settlement key; a take chooses that exact offer and binds the taker's
+settlement key and a nonzero session. A cancellation is signed by the maker's
+long-term identity. There is no price observation, price round, reporter,
+source, quorum, oracle, feed, matching engine, or partial-fill reservation in
+the protocol.
 
-Known protocol IDs are classified as known only at their exact version with
-zero flags. A future version is surfaced as `UnknownProtocol` for forwarding
-compatibility; nonzero flags on a recognized version are rejected as
-unsupported instead of being silently interpreted.
+Inventories contain at most 4096 sorted unique nonzero offer IDs. The empty
+inventory is a valid response meaning no live offers are available. A request
+for a particular offer remains nonempty. Typed payloads are capped at 512 KiB;
+objects have tighter internal bounds and every decoder validates version,
+registry availability, zero flags, canonical nested encoding, and complete
+input.
 
-Denuo status messages are authenticated coordination hints. Wallets must derive
-funding, confirmation, redemption, preimage, refund, and reorganization state
-from locally verified chain evidence rather than trusting a peer status.
-Funding statuses repeat the frozen chain-specific lock commitment and exact
-native amount so a hint cannot be confused with another session's funding.
-Session proposals and hellos contain maker and taker settlement authorities.
-The maker's long-term identity signs the fill grant to delegate an independent
-maker settlement key; that key signs the type-16 proposal, and the
-grant-designated taker verifies it before returning a type-12 hello with a
-second domain-separated signature over the identical terms. Funding is
-rejected until the accepted hello and both signatures verify. Funding and
-refund status on a chain is authorized by that chain's funder (maker for the
-offered chain, taker for the received chain);
-redeem status is authorized by the opposite party. Statuses signed by any third
-party are rejected, but remain hints even when authorized.
-The chain module still verifies the actual transaction, inclusion, finality,
-script or contract state, and reorganization status.
-Version 1 swap-session hashlocks are SHA-256 commitments to exact 32-byte
-preimages on every supported settlement chain.
-
-New funding is gated by the live hello window. Signed status and reorganization
-messages remain verifiable afterward against the immutable two-party agreement
-so recovery does not become impossible when a funding deadline passes; the
-status message's own signed validity window still applies.
+The maker proposal and accepted hello bind the original offer, the take, both
+settlement authorities, exact amounts, SHA-256 hashlock, lock commitments,
+confirmation requirements, and refund deadlines. Denuo status messages are
+authenticated coordination hints only. Funding, confirmation, redemption,
+preimage, refund, and reorganization state must come from independently
+verified local chain evidence. New funding requires the fully accepted hello;
+later signed status may still be verified for recovery.
