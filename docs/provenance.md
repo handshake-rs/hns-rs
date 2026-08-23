@@ -11,7 +11,7 @@ tests.
 | NameState values and version-zero resources | pinned HSD `namestate.js`/`resource.js` and BNS DNS-name encoding hashes recorded in `fixtures/hsd/name-state-resource-v1.txt` | exact HSD codec behavior with stricter complete-input consumer parsing |
 | HIP-0001 swap construction | HIP-0001 plus `kurumiimari/shakedex@ab5687b04cb61d2548937b8cee3c056c1c75bbdc` | published HIP and ecosystem implementation |
 | Native HNS HTLC | pinned HSD script, transaction, address, locktime, and sighash behavior plus `fixtures/protocol-v1/hns-swap-v1.txt` | canonical workspace V1 settlement construction |
-| Bilateral marketplace protocol | `docs/marketplace-protocol.md`, Denuo Registry V2, and `fixtures/protocol-v1/hns-marketplace-v1.txt` | canonical workspace V1 wire protocol |
+| Bilateral marketplace protocol | `docs/marketplace-protocol.md` and Denuo Registry V2 | canonical direct-offer wire protocol; the removed oracle-price vectors are not a compatibility authority |
 | DNS relay | HIP PR 76 at `25f6d99cdd2b766f9eb6bb3b72d9dc804efd6131`; HSD PR 958 at `ea31be1554f3235bfa96bdd394e6d33e7dda8080` | draft; Denuo Experimental V1 |
 | ODoH relay | HIP PR 77 at `d3ae6be483663ed6cf0ead4f4b4f17a80b1d1162`; HSD PR 959 at `909311d97c794eb59ed2eb0b095a122607ae078e` | draft; Denuo Experimental V1 |
 | HNSR | HIP PR 78 at `53b962e901ffa796f4ccf66a5d53956d7421c58c`; HSD PR 960 at `2fc40f1c61ff16a2f39d9514cd950d1560430ced` | draft; Denuo Experimental V1 |
@@ -49,16 +49,13 @@ and exact transaction, policy, and consensus source hashes. The complete
 fixture has a SHA-256 sidecar that the Rust conformance test authenticates
 before parsing any vector.
 
-Marketplace and settlement wire vectors are regenerated with
-`python3 generators/generate-marketplace-v1-fixtures.py --write`. The generator
-uses only the Python standard library, implements canonical encodings and
-RFC6979 secp256k1 independently, checks the pre-existing fixed-price listing
-and cancellation signatures, and emits SHA-256 sidecars for both versioned
-documents. The hns-rs listing envelopes are workspace-defined, so this is an
-independent implementation of their documented bytes rather than an external
-protocol oracle. The recovery FINALIZE transaction uses independently encoded
-HSD transaction, covenant, script, and hash rules. Use `--check` for a read-only
-deterministic source/sidecar comparison.
+The retained settlement fixture preserves the legacy fixed-price listing,
+cancellation, and recovery FINALIZE compatibility boundary. The direct-offer
+protocol replaces the old oracle-priced marketplace objects and intentionally
+does not retain their superseded vector document. Its fixed-term offer, take,
+cancellation, bilateral-session, Denuo, and relay-acceptance encodings are
+covered by bounded Rust protocol tests; no presentation-layer price oracle is
+settlement authority.
 
 HRM Core vectors are regenerated with
 `python3 generators/generate-hrm-v1-fixtures.py --write`. The standard-library

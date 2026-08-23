@@ -3,11 +3,21 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
-## Unreleased
+## 0.3.1 - 2026-08-23
 
 - Add a distinct canonical maker-signed swap-session proposal and Denuo
   message so two independent wallets can complete the maker-to-taker
   countersigning round trip before either wallet is allowed to fund.
+
+- Complete the bounded bilateral session handshake, persist and verify relay
+  acceptance receipts, and replace the prior oracle pricing projection with
+  direct maker-to-taker offers. This is a protocol-library release; it does
+  not itself qualify a wallet, relay, marketplace deployment, or value path.
+
+- Remove the obsolete oracle-priced marketplace vector artifact and its stale
+  release-gate assertion. The current direct-offer protocol has no compatible
+  price-oracle message family; its bounded canonical encodings are covered by
+  the direct offer, bilateral-session, Denuo, and relay-acceptance test suites.
 
 ## 0.3.0 - 2026-08-15
 

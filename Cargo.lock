@@ -466,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "hns-chat-protocol"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex",
  "hns-covenants",
@@ -481,7 +481,7 @@ dependencies = [
 
 [[package]]
 name = "hns-conformance"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex",
  "hns-chat-protocol",
@@ -505,7 +505,7 @@ dependencies = [
 
 [[package]]
 name = "hns-covenants"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -517,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "hns-dns-relay-protocol"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex",
  "hns-encoding",
@@ -526,14 +526,14 @@ dependencies = [
 
 [[package]]
 name = "hns-encoding"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "hns-header-consensus"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hns-encoding",
@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "hns-hnsr-protocol"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64",
  "blake2",
@@ -565,7 +565,7 @@ dependencies = [
 
 [[package]]
 name = "hns-hrm"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64",
  "blake2",
@@ -578,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "hns-marketplace-protocol"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -594,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "hns-mining"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "hns-odoh-protocol"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "aes-gcm 0.10.3",
  "blake2",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-experimental"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex",
  "hns-dns-relay-protocol",
@@ -638,7 +638,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-wire"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -653,7 +653,7 @@ dependencies = [
 
 [[package]]
 name = "hns-primitives"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hex",
  "thiserror",
@@ -661,14 +661,14 @@ dependencies = [
 
 [[package]]
 name = "hns-registry-gen"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "hns-p2p-experimental",
 ]
 
 [[package]]
 name = "hns-rollback-journal"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "hns-script"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -696,7 +696,7 @@ dependencies = [
 
 [[package]]
 name = "hns-service-authority"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -710,7 +710,7 @@ dependencies = [
 
 [[package]]
 name = "hns-swap"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -727,7 +727,7 @@ dependencies = [
 
 [[package]]
 name = "hns-transaction"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",
@@ -739,7 +739,7 @@ dependencies = [
 
 [[package]]
 name = "hns-urkel-proof"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "blake2",
  "hex",

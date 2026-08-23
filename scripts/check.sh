@@ -45,10 +45,6 @@ assert_same_file fixtures/protocol-v1/hns-swap-v1.txt \
   crates/hns-swap/fixtures/protocol-v1/hns-swap-v1.txt
 assert_same_file fixtures/protocol-v1/hns-swap-v1.txt.sha256 \
   crates/hns-swap/fixtures/protocol-v1/hns-swap-v1.txt.sha256
-assert_same_file fixtures/protocol-v1/hns-marketplace-v1.txt \
-  crates/hns-marketplace-protocol/fixtures/protocol-v1/hns-marketplace-v1.txt
-assert_same_file fixtures/protocol-v1/hns-marketplace-v1.txt.sha256 \
-  crates/hns-marketplace-protocol/fixtures/protocol-v1/hns-marketplace-v1.txt.sha256
 assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt \
   crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt
 assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \
@@ -92,8 +88,6 @@ assert_same_file registry/hnsr-service-profiles-v1.bin \
 assert_same_file registry/hnsr-service-profiles-v1.sha256 \
   crates/hns-p2p-experimental/registry/hnsr-service-profiles-v1.sha256
 
-PYTHONDONTWRITEBYTECODE=1 \
-  python3 generators/generate-marketplace-v1-fixtures.py --check
 PYTHONDONTWRITEBYTECODE=1 \
   python3 generators/generate-hrm-v1-fixtures.py --check
 PYTHONDONTWRITEBYTECODE=1 \
