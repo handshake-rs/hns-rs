@@ -58,8 +58,10 @@ The implemented protocol layer contains:
   name `chat`, and bounded opaque NIP-59 gift-wrap and
   encrypted-acknowledgement values for the `hns.chat` HIP-78 profile.
 
-Source-independent exact V1 settlement and marketplace vectors live in
-`fixtures/protocol-v1/` with SHA-256 sidecars and a standard-library generator.
+Retained source-independent exact V1 settlement vectors live in
+`fixtures/protocol-v1/` with SHA-256 sidecars. The replacement direct-offer
+marketplace protocol is covered by its bounded canonical wire tests rather
+than the removed oracle-price vector family.
 Pinned-HSD NameState and compressed resource vectors live in
 `fixtures/hsd/name-state-resource-v1.txt` with their own deterministic oracle
 generator and SHA-256 sidecar. Pinned sigop-size and minimum-policy-fee vectors
