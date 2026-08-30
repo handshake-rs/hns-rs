@@ -49,7 +49,7 @@ hns-header-consensus = { version = "0.3.1", path = "crates/hns-header-consensus"
 hns-hrm = { version = "0.3.1", path = "crates/hns-hrm" }
 hns-hnsr-protocol = { version = "0.3.1", path = "crates/hns-hnsr-protocol" }
 hns-mining = { version = "0.3.1", path = "crates/hns-mining" }
-hns-marketplace-protocol = { version = "0.3.1", path = "crates/hns-marketplace-protocol" }
+hns-marketplace-protocol = { version = "0.4.0", path = "crates/hns-marketplace-protocol" }
 hns-odoh-protocol = { version = "0.3.1", path = "crates/hns-odoh-protocol" }
 hns-p2p-experimental = { version = "0.3.1", path = "crates/hns-p2p-experimental" }
 hns-p2p-wire = { version = "0.3.1", path = "crates/hns-p2p-wire" }

@@ -30,6 +30,10 @@ const OFFER_TAKE_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-TAKE-V1\0";
 pub struct DirectOffer {
     pub header: SignedObjectHeader,
     pub offer_id: [u8; 32],
+    /// Maker-selected, per-offer session identity. A taker must repeat this
+    /// exact value; it is signed alongside the settlement public key so the
+    /// advertised key and every later HTLC message share one immutable scope.
+    pub swap_session_id: [u8; 32],
     pub maker_settlement_public_key: [u8; 33],
     pub offered_asset: AssetId,
     pub offered_amount: AssetAmount,
@@ -91,6 +95,7 @@ impl DirectOffer {
         let mut decoder = Decoder::new(input);
         let offer = Self {
             header: SignedObjectHeader::decode_from(&mut decoder)?,
+            swap_session_id: decoder.read_array()?,
             maker_settlement_public_key: decoder.read_array()?,
             offered_asset: AssetId::decode_from(&mut decoder)?,
             offered_amount: AssetAmount::decode_from(&mut decoder)?,
@@ -115,6 +120,7 @@ impl DirectOffer {
         self.header.validate()?;
         crypto::validate_public_key(&self.maker_settlement_public_key)?;
         if self.header.pair != MarketPair::HNS_BTC
+            || self.swap_session_id == [0; 32]
             || !matches!(self.offered_asset, AssetId::HNS | AssetId::BTC)
             || !matches!(self.received_asset, AssetId::HNS | AssetId::BTC)
             || self.offered_asset == self.received_asset
@@ -148,6 +154,7 @@ impl DirectOffer {
         self.validate_fields()?;
         encode_fixed_versioned(MAX_DIRECT_OFFER_SIZE - 96, |encoder| {
             self.header.encode_to(encoder);
+            encoder.put_bytes(&self.swap_session_id);
             encoder.put_bytes(&self.maker_settlement_public_key);
             self.offered_asset.encode_to(encoder);
             self.offered_amount.encode_to(encoder);
@@ -288,6 +295,7 @@ impl DirectOfferTake {
         self.header.validate_at(expected_network, now)?;
         self.verify_signature()?;
         if self.offer_id != offer.offer_id
+            || self.swap_session_id != offer.swap_session_id
             || self.header.network != offer.header.network
             || self.header.pair != offer.header.pair
             || self.header.signer_public_key == offer.header.signer_public_key
@@ -407,7 +415,7 @@ mod tests {
 
     fn header(sequence: u64) -> SignedObjectHeader {
         SignedObjectHeader {
-            version: 1,
+            version: crate::MARKETPLACE_PROTOCOL_VERSION,
             network: network(),
             pair: MarketPair::HNS_BTC,
             signer_public_key: [0; 33],
@@ -421,6 +429,7 @@ mod tests {
         let mut offer = DirectOffer {
             header: header(1),
             offer_id: [0; 32],
+            swap_session_id: [3; 32],
             maker_settlement_public_key: crypto::public_key(&[9; 32]).unwrap(),
             offered_asset: AssetId::HNS,
             offered_amount: AssetAmount::new(10_000_000),
@@ -444,7 +453,7 @@ mod tests {
         let mut take = DirectOfferTake {
             header: header(2),
             offer_id: offer.offer_id,
-            swap_session_id: [3; 32],
+            swap_session_id: offer.swap_session_id,
             taker_settlement_public_key: crypto::public_key(&[11; 32]).unwrap(),
             signature: [0; 64],
         };
@@ -453,6 +462,14 @@ mod tests {
         assert_eq!(
             DirectOfferTake::decode(&take.encode().unwrap()).unwrap(),
             take
+        );
+        let mut wrong_session = take.clone();
+        wrong_session.swap_session_id = [4; 32];
+        wrong_session.sign(&[10; 32]).unwrap();
+        assert!(
+            wrong_session
+                .verify_for_offer(&offer, network(), 150)
+                .is_err()
         );
 
         let mut cancellation = DirectOfferCancellation {

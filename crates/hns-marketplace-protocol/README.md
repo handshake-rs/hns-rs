@@ -10,8 +10,9 @@ and exchange terms use the exact integer amounts signed by a maker; floating-
 point arithmetic is never used.
 
 Each direct offer delegates an independent per-offer maker settlement key from
-the long-term marketplace identity. A signed offer take chooses that exact
-offer and binds a taker settlement key. Session hellos bind both settlement
+the long-term marketplace identity and signs the maker-selected swap session
+identifier alongside it. A signed offer take chooses that exact offer, repeats
+that immutable session identifier, and binds a taker settlement key. Session hellos bind both settlement
 authorities, the exact offer amounts, SHA-256 hashlock, descriptor commitments,
 and timeouts. A distinct maker-signed session proposal carries those exact
 terms to the designated taker, which verifies the proposal before adding its

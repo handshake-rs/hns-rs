@@ -15,7 +15,11 @@ pub use types::*;
 
 use thiserror::Error;
 
-pub const MARKETPLACE_PROTOCOL_VERSION: u16 = 1;
+// Version 2 makes the maker-selected swap session identifier part of every
+// signed direct offer. Version 1 let a taker supply an unrelated identifier,
+// which could not be reconciled with the maker settlement key advertised by
+// the offer.
+pub const MARKETPLACE_PROTOCOL_VERSION: u16 = 2;
 
 #[derive(Debug, Error)]
 pub enum MarketplaceError {

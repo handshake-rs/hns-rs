@@ -260,6 +260,7 @@ impl SwapSessionHello {
         offer.verify_at(expected_network, now)?;
         take.verify_for_offer(offer, expected_network, now)?;
         if self.direct_offer_id != offer.offer_id
+            || self.swap_session_id != offer.swap_session_id
             || self.swap_session_id != take.swap_session_id
             || self.header.network != offer.header.network
             || self.header.pair != offer.header.pair
