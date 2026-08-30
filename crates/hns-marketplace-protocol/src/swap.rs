@@ -19,6 +19,7 @@ const SESSION_HELLO_TAKER_SIGNATURE_DOMAIN: &[u8] = b"HNS-MARKET-SWAP-SESSION-HE
 const FUNDING_STATUS_SIGNATURE_DOMAIN: &[u8] = b"HNS-MARKET-SWAP-FUNDING-STATUS-V1\0";
 const REDEEM_STATUS_SIGNATURE_DOMAIN: &[u8] = b"HNS-MARKET-SWAP-REDEEM-STATUS-V1\0";
 const REFUND_STATUS_SIGNATURE_DOMAIN: &[u8] = b"HNS-MARKET-SWAP-REFUND-STATUS-V1\0";
+const WATCH_READY_SIGNATURE_DOMAIN: &[u8] = b"HNS-MARKET-SWAP-WATCH-READY-V1\0";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -611,6 +612,130 @@ impl SwapSessionProposal {
         hello.maker_signature = decoder.read_array()?;
         decoder.finish()?;
         Self::from_maker_signed(hello)
+    }
+}
+
+/// A receiver-signed, session-bound acknowledgement that an exact HTLC watch
+/// is installed before its counterparty funds that chain. It deliberately
+/// contains no peer endpoint, wallet height, address, or transaction claim.
+/// A sender cannot use it as funding evidence; it only closes the bilateral
+/// pre-funding coordination gate.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SwapWatchReady {
+    pub header: SignedObjectHeader,
+    pub swap_session_id: [u8; 32],
+    pub chain: ChainId,
+    pub lock_commitment: [u8; 32],
+    pub minimum_confirmations: u32,
+    pub signature: [u8; 64],
+}
+
+impl SwapWatchReady {
+    pub fn sign(&mut self, private_key: &[u8; 32]) -> Result<()> {
+        bind_signer(&mut self.header, private_key)?;
+        self.signature = crypto::sign(
+            WATCH_READY_SIGNATURE_DOMAIN,
+            &self.encode_unsigned()?,
+            &self.header.signer_public_key,
+            private_key,
+        )?;
+        Ok(())
+    }
+
+    pub fn verify_for_session(
+        &self,
+        hello: &SwapSessionHello,
+        expected_network: NetworkBinding,
+        now: u64,
+    ) -> Result<()> {
+        verify_status_session(
+            &self.header,
+            self.swap_session_id,
+            hello,
+            expected_network,
+            hello.redeem_authority(self.chain)?,
+        )?;
+        let (expected_commitment, expected_confirmations) =
+            if self.chain == hello.offered_asset.chain() {
+                (
+                    hello.offered_lock_commitment,
+                    hello.offered_minimum_confirmations,
+                )
+            } else if self.chain == hello.received_asset.chain() {
+                (
+                    hello.received_lock_commitment,
+                    hello.received_minimum_confirmations,
+                )
+            } else {
+                return Err(MarketplaceError::Invalid(
+                    "watch-ready chain is outside the swap session",
+                ));
+            };
+        if self.lock_commitment != expected_commitment
+            || self.minimum_confirmations != expected_confirmations
+        {
+            return Err(MarketplaceError::Invalid(
+                "watch-ready policy differs from the swap session",
+            ));
+        }
+        self.header.validate_at(expected_network, now)?;
+        self.verify_signature()
+    }
+
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        encode_signed(&self.encode_unsigned()?, &self.signature, || {
+            self.verify_signature()
+        })
+    }
+
+    pub fn decode(input: &[u8]) -> Result<Self> {
+        check_input(input)?;
+        let mut decoder = Decoder::new(input);
+        let ready = Self {
+            header: SignedObjectHeader::decode_from(&mut decoder)?,
+            swap_session_id: decoder.read_array()?,
+            chain: ChainId::decode_from(&mut decoder)?,
+            lock_commitment: decoder.read_array()?,
+            minimum_confirmations: decoder.read_u32_le()?,
+            signature: decoder.read_array()?,
+        };
+        decoder.finish()?;
+        ready.validate_fields()?;
+        ready.verify_signature()?;
+        Ok(ready)
+    }
+
+    fn validate_fields(&self) -> Result<()> {
+        self.header.validate()?;
+        if self.swap_session_id == [0; 32]
+            || self.lock_commitment == [0; 32]
+            || self.minimum_confirmations == 0
+            || !pair_contains_chain(&self.header, self.chain)
+        {
+            return Err(MarketplaceError::Invalid("invalid swap watch readiness"));
+        }
+        Ok(())
+    }
+
+    fn verify_signature(&self) -> Result<()> {
+        verify_status(
+            &self.header,
+            WATCH_READY_SIGNATURE_DOMAIN,
+            &self.encode_unsigned()?,
+            &self.signature,
+        )
+    }
+
+    fn encode_unsigned(&self) -> Result<Vec<u8>> {
+        self.validate_fields()?;
+        encode_fixed_versioned(MAX_SWAP_MESSAGE_SIZE - 64, |encoder| {
+            self.header.encode_to(encoder);
+            encoder.put_bytes(&self.swap_session_id);
+            self.chain.encode_to(encoder);
+            encoder.put_bytes(&self.lock_commitment);
+            encoder.put_u32_le(self.minimum_confirmations);
+            Ok(())
+        })
     }
 }
 
@@ -1255,6 +1380,37 @@ mod tests {
     #[test]
     fn status_replay_fields_and_signatures_are_enforced() {
         let hello = accepted_hello();
+
+        let mut ready = SwapWatchReady {
+            header: header(2),
+            swap_session_id: hello.swap_session_id,
+            chain: ChainId::HANDSHAKE,
+            lock_commitment: hello.offered_lock_commitment,
+            minimum_confirmations: hello.offered_minimum_confirmations,
+            signature: [0; 64],
+        };
+        ready.sign(&[8; 32]).unwrap();
+        ready.verify_for_session(&hello, network(), 150).unwrap();
+        assert_eq!(
+            SwapWatchReady::decode(&ready.encode().unwrap()).unwrap(),
+            ready
+        );
+        let ready_envelope = CrossChainMessage::SwapWatchReady(ready.clone())
+            .encode_envelope(0)
+            .unwrap();
+        assert_eq!(
+            CrossChainMessage::decode_envelope(&ready_envelope).unwrap(),
+            (0, CrossChainMessage::SwapWatchReady(ready.clone()))
+        );
+        let mut wrong_ready = ready;
+        wrong_ready.header.signer_public_key = [0; 33];
+        wrong_ready.signature = [0; 64];
+        wrong_ready.sign(&[9; 32]).unwrap();
+        assert!(
+            wrong_ready
+                .verify_for_session(&hello, network(), 150)
+                .is_err()
+        );
 
         let mut funding = SwapFundingStatus {
             header: header(2),

@@ -7,7 +7,8 @@ use hns_p2p_experimental::{
     DIRECT_OFFER_MESSAGE_TYPE, DenuoExtensionEnvelope, GET_DIRECT_OFFER_MESSAGE_TYPE,
     SWAP_FUNDING_STATUS_MESSAGE_TYPE, SWAP_REDEEM_STATUS_MESSAGE_TYPE,
     SWAP_REFUND_STATUS_MESSAGE_TYPE, SWAP_SESSION_HELLO_MESSAGE_TYPE,
-    SWAP_SESSION_PROPOSAL_MESSAGE_TYPE, TAKE_DIRECT_OFFER_MESSAGE_TYPE,
+    SWAP_SESSION_PROPOSAL_MESSAGE_TYPE, SWAP_WATCH_READY_MESSAGE_TYPE,
+    TAKE_DIRECT_OFFER_MESSAGE_TYPE,
 };
 use hns_primitives::BlockHash;
 use hns_swap::{FixedPriceListing, ListingCancellation};
@@ -15,7 +16,7 @@ use hns_swap::{FixedPriceListing, ListingCancellation};
 use crate::{
     DirectOffer, DirectOfferCancellation, DirectOfferTake, MarketplaceError, Result,
     SwapFundingStatus, SwapRedeemStatus, SwapRefundStatus, SwapSessionHello, SwapSessionProposal,
-    ensure_size,
+    SwapWatchReady, ensure_size,
 };
 
 pub const NAME_MARKET_PROTOCOL_VERSION: u16 = ATOMIC_MARKET_PROTOCOL_VERSION;
@@ -191,6 +192,10 @@ pub enum CrossChainMessage {
     SwapRedeemStatus(SwapRedeemStatus),
     SwapRefundStatus(SwapRefundStatus),
     SwapSessionProposal(SwapSessionProposal),
+    /// Receiver-signed acknowledgement that the exact first-chain HTLC watch
+    /// has been durably installed. This is coordination authority only; it is
+    /// never chain funding evidence.
+    SwapWatchReady(SwapWatchReady),
 }
 
 impl CrossChainMessage {
@@ -245,6 +250,7 @@ impl CrossChainMessage {
             Self::SwapSessionProposal(proposal) => {
                 (SWAP_SESSION_PROPOSAL_MESSAGE_TYPE, proposal.encode()?)
             }
+            Self::SwapWatchReady(ready) => (SWAP_WATCH_READY_MESSAGE_TYPE, ready.encode()?),
         };
         Ok((encoded.0, ensure_size(encoded.1, MAX_DENUO_MARKET_PAYLOAD)?))
     }
@@ -285,6 +291,9 @@ impl CrossChainMessage {
             SWAP_SESSION_PROPOSAL_MESSAGE_TYPE => Ok(Self::SwapSessionProposal(
                 SwapSessionProposal::decode(payload)?,
             )),
+            SWAP_WATCH_READY_MESSAGE_TYPE => {
+                Ok(Self::SwapWatchReady(SwapWatchReady::decode(payload)?))
+            }
             _ => Err(MarketplaceError::UnknownMessage {
                 protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 message_type,
@@ -447,13 +456,13 @@ mod tests {
     }
 
     #[test]
-    fn inventories_are_sorted_unique_bounded_and_v2_only_for_cross_chain() {
+    fn inventories_are_sorted_unique_bounded_and_v3_only_for_cross_chain() {
         let message = CrossChainMessage::DirectOfferInventory(vec![[1; 32], [2; 32]]);
         let encoded = message.encode_envelope(7).unwrap();
         assert_eq!(
             hex::encode(&encoded),
             concat!(
-                "444e55310200020002000100000007000000000000004100000002",
+                "444e55310200020003000100000007000000000000004100000002",
                 "0101010101010101010101010101010101010101010101010101010101010101",
                 "0202020202020202020202020202020202020202020202020202020202020202"
             )

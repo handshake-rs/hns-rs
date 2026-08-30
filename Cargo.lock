@@ -492,7 +492,7 @@ dependencies = [
  "hns-marketplace-protocol",
  "hns-mining",
  "hns-odoh-protocol",
- "hns-p2p-experimental 0.3.1",
+ "hns-p2p-experimental",
  "hns-p2p-wire",
  "hns-rollback-journal",
  "hns-script 0.3.1",
@@ -605,7 +605,7 @@ dependencies = [
  "blake2",
  "hex",
  "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-p2p-experimental 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-p2p-experimental",
  "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hns-swap 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "k256",
@@ -659,21 +659,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hns-p2p-experimental"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18e41ae74ab0179b1840ef35f7184db2695ae95e21ae5756f4203917eab0191e"
-dependencies = [
- "hex",
- "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
- "sha2 0.10.9",
- "thiserror",
- "toml",
-]
-
-[[package]]
 name = "hns-p2p-wire"
 version = "0.3.1"
 dependencies = [
@@ -710,7 +695,7 @@ dependencies = [
 name = "hns-registry-gen"
 version = "0.3.1"
 dependencies = [
- "hns-p2p-experimental 0.3.1",
+ "hns-p2p-experimental",
 ]
 
 [[package]]

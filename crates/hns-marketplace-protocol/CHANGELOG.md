@@ -2,6 +2,8 @@
 
 ## 0.4.0 - Unreleased
 
+- Advance the Denuo cross-chain envelope to version 3 and add exact,
+  receiver-signed HTLC watch readiness as a pre-funding coordination gate.
 - Break the direct-offer wire format deliberately: every signed offer now
   contains the maker-selected swap session identifier, and a take or session
   proposal must repeat that exact identifier. This prevents a taker-selected

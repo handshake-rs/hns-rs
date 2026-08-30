@@ -8,6 +8,11 @@ The workspace crates use a shared version and follow Semantic Versioning.
 - Add a distinct canonical maker-signed swap-session proposal and Denuo
   message so two independent wallets can complete the maker-to-taker
   countersigning round trip before either wallet is allowed to fund.
+- Advance the cross-chain marketplace envelope to version 3 and add a
+  receiver-signed, session-bound watch-readiness message. First-chain funding
+  can now require the counterparty to acknowledge the exact HTLC commitment
+  and confirmation policy without treating that acknowledgement as chain
+  evidence.
 
 - Complete the bounded bilateral session handshake, persist and verify relay
   acceptance receipts, and replace the prior oracle pricing projection with

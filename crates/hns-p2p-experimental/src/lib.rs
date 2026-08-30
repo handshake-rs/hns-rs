@@ -26,7 +26,7 @@ pub use envelope::{
     REGISTRY_NEGOTIATION_PROTOCOL_VERSION, RegistryEnvelopeError, SWAP_FUNDING_STATUS_MESSAGE_TYPE,
     SWAP_REDEEM_STATUS_MESSAGE_TYPE, SWAP_REFUND_STATUS_MESSAGE_TYPE,
     SWAP_SESSION_HELLO_MESSAGE_TYPE, SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
-    TAKE_DIRECT_OFFER_MESSAGE_TYPE,
+    SWAP_WATCH_READY_MESSAGE_TYPE, TAKE_DIRECT_OFFER_MESSAGE_TYPE,
 };
 pub use negotiation::{NegotiatedRegistry, NegotiationError, ProtocolRange, RegistryHello};
 pub use peer::{ExperimentalAdmission, ExperimentalPeerState, PeerProtocol, PeerProtocolError};

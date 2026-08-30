@@ -21,9 +21,10 @@ pub const ATOMIC_MARKET_PROTOCOL_ID: u16 = 0x0001;
 pub const ATOMIC_MARKET_PROTOCOL_VERSION: u16 = 1;
 pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const CROSS_CHAIN_MARKET_PROTOCOL_ID: u16 = 0x0002;
-/// Version 2 removes reporter/source price rounds. It carries direct signed
-/// HNS/BTC offers and their settlement lifecycle only.
-pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 2;
+/// Version 3 adds receiver-signed durable watch readiness before first-chain
+/// funding. Version 2 peers fail negotiation cleanly instead of interpreting
+/// the new coordination gate as an unknown lifecycle message.
+pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 3;
 pub const CROSS_CHAIN_MARKET_MAX_PAYLOAD: usize = 512 * 1024;
 
 pub const DIRECT_OFFER_INVENTORY_MESSAGE_TYPE: u16 = 1;
@@ -36,6 +37,7 @@ pub const SWAP_SESSION_HELLO_MESSAGE_TYPE: u16 = 7;
 pub const SWAP_FUNDING_STATUS_MESSAGE_TYPE: u16 = 8;
 pub const SWAP_REDEEM_STATUS_MESSAGE_TYPE: u16 = 9;
 pub const SWAP_REFUND_STATUS_MESSAGE_TYPE: u16 = 10;
+pub const SWAP_WATCH_READY_MESSAGE_TYPE: u16 = 11;
 
 const REGISTRY_HELLO_MESSAGE_TYPE: u16 = 1;
 const REGISTRY_HELLO_ACK_MESSAGE_TYPE: u16 = 2;
@@ -318,6 +320,11 @@ impl DenuoExtensionEnvelope {
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapSessionProposal),
+            (
+                DENUO_V2_REGISTRY_VERSION,
+                CROSS_CHAIN_MARKET_PROTOCOL_ID,
+                SWAP_WATCH_READY_MESSAGE_TYPE,
+            ) => Some(KnownMessage::SwapWatchReady),
             (_, REGISTRY_NEGOTIATION_PROTOCOL_ID, _) | (_, ATOMIC_MARKET_PROTOCOL_ID, _) => {
                 return Err(EnvelopeError::UnknownMessage {
                     protocol_id: self.protocol_id,
@@ -487,6 +494,7 @@ pub enum KnownMessage {
     SwapRedeemStatus,
     SwapRefundStatus,
     SwapSessionProposal,
+    SwapWatchReady,
 }
 
 impl KnownMessage {
@@ -501,6 +509,7 @@ impl KnownMessage {
                 | Self::SwapFundingStatus
                 | Self::SwapRedeemStatus
                 | Self::SwapRefundStatus
+                | Self::SwapWatchReady
         )
     }
 }
@@ -810,6 +819,7 @@ mod tests {
                 SWAP_REFUND_STATUS_MESSAGE_TYPE,
                 KnownMessage::SwapRefundStatus,
             ),
+            (SWAP_WATCH_READY_MESSAGE_TYPE, KnownMessage::SwapWatchReady),
         ];
         for (message_type, expected) in messages {
             let envelope = DenuoExtensionEnvelope {
