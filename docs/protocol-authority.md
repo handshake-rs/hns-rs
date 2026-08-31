@@ -6,8 +6,8 @@ and reproducible fixtures before prose or architectural inference.
 Published and workspace-defined protocol behavior follows, in order, the exact
 proposal and implementation commits recorded by the integration audit, their
 deterministic fixtures, the independent Rust implementation, and the applicable
-Denuo Experimental Registry V1 or V2 authority. "Experimental" identifies the
-private Denuo assignment namespace, not the implementation quality or support
+Shakescape Experimental Registry V1 authority. "Experimental" identifies the
+private Shakescape assignment namespace, not the implementation quality or support
 level. Disagreements require a minimal positive fixture, mutation-derived
 negative fixtures, and recorded results from both implementations.
 

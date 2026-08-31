@@ -2,13 +2,12 @@ use hns_encoding::{Decoder, Encoder};
 use hns_p2p_experimental::{
     ATOMIC_MARKET_PROTOCOL_ID, ATOMIC_MARKET_PROTOCOL_VERSION, CANCEL_DIRECT_OFFER_MESSAGE_TYPE,
     CROSS_CHAIN_MARKET_MAX_PAYLOAD, CROSS_CHAIN_MARKET_PROTOCOL_ID,
-    CROSS_CHAIN_MARKET_PROTOCOL_VERSION as DENUO_CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
-    DENUO_V1_REGISTRY_VERSION, DENUO_V2_REGISTRY_VERSION, DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
-    DIRECT_OFFER_MESSAGE_TYPE, DenuoExtensionEnvelope, GET_DIRECT_OFFER_MESSAGE_TYPE,
-    SWAP_FUNDING_STATUS_MESSAGE_TYPE, SWAP_REDEEM_STATUS_MESSAGE_TYPE,
-    SWAP_REFUND_STATUS_MESSAGE_TYPE, SWAP_SESSION_HELLO_MESSAGE_TYPE,
-    SWAP_SESSION_PROPOSAL_MESSAGE_TYPE, SWAP_WATCH_READY_MESSAGE_TYPE,
-    TAKE_DIRECT_OFFER_MESSAGE_TYPE,
+    CROSS_CHAIN_MARKET_PROTOCOL_VERSION as SHAKESCAPE_CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
+    DIRECT_OFFER_INVENTORY_MESSAGE_TYPE, DIRECT_OFFER_MESSAGE_TYPE, GET_DIRECT_OFFER_MESSAGE_TYPE,
+    SHAKESCAPE_V1_REGISTRY_VERSION, SWAP_FUNDING_STATUS_MESSAGE_TYPE,
+    SWAP_REDEEM_STATUS_MESSAGE_TYPE, SWAP_REFUND_STATUS_MESSAGE_TYPE,
+    SWAP_SESSION_HELLO_MESSAGE_TYPE, SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
+    SWAP_WATCH_READY_MESSAGE_TYPE, ShakescapeExtensionEnvelope, TAKE_DIRECT_OFFER_MESSAGE_TYPE,
 };
 use hns_primitives::BlockHash;
 use hns_swap::{FixedPriceListing, ListingCancellation};
@@ -20,27 +19,25 @@ use crate::{
 };
 
 pub const NAME_MARKET_PROTOCOL_VERSION: u16 = ATOMIC_MARKET_PROTOCOL_VERSION;
-pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = DENUO_CROSS_CHAIN_MARKET_PROTOCOL_VERSION;
-pub const MAX_DENUO_MARKET_PAYLOAD: usize = CROSS_CHAIN_MARKET_MAX_PAYLOAD;
+pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = SHAKESCAPE_CROSS_CHAIN_MARKET_PROTOCOL_VERSION;
+pub const MAX_SHAKESCAPE_MARKET_PAYLOAD: usize = CROSS_CHAIN_MARKET_MAX_PAYLOAD;
 pub const MAX_INVENTORY_ENTRIES: usize = 4096;
 pub const MAX_NAME_OFFERS_PER_MESSAGE: usize = 64;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
-pub enum DenuoRegistryVersion {
-    V1 = DENUO_V1_REGISTRY_VERSION,
-    V2 = DENUO_V2_REGISTRY_VERSION,
+pub enum ShakescapeRegistryVersion {
+    V1 = SHAKESCAPE_V1_REGISTRY_VERSION,
 }
 
-impl TryFrom<u16> for DenuoRegistryVersion {
+impl TryFrom<u16> for ShakescapeRegistryVersion {
     type Error = MarketplaceError;
 
     fn try_from(value: u16) -> Result<Self> {
         match value {
-            DENUO_V1_REGISTRY_VERSION => Ok(Self::V1),
-            DENUO_V2_REGISTRY_VERSION => Ok(Self::V2),
+            SHAKESCAPE_V1_REGISTRY_VERSION => Ok(Self::V1),
             _ => Err(MarketplaceError::Invalid(
-                "unsupported Denuo registry version",
+                "unsupported Shakescape registry version",
             )),
         }
     }
@@ -60,7 +57,7 @@ impl NameMarketHello {
             || self.hns_genesis.as_bytes() == &[0; 32]
             || self.maximum_payload == 0
             || usize::try_from(self.maximum_payload).unwrap_or(usize::MAX)
-                > MAX_DENUO_MARKET_PAYLOAD
+                > MAX_SHAKESCAPE_MARKET_PAYLOAD
         {
             return Err(MarketplaceError::Invalid(
                 "invalid name-market network binding or receive limit",
@@ -108,11 +105,11 @@ pub enum NameMarketMessage {
 impl NameMarketMessage {
     pub fn encode_envelope(
         &self,
-        registry: DenuoRegistryVersion,
+        registry: ShakescapeRegistryVersion,
         request_id: u64,
     ) -> Result<Vec<u8>> {
         let (message_type, payload) = self.encode_payload()?;
-        let envelope = DenuoExtensionEnvelope {
+        let envelope = ShakescapeExtensionEnvelope {
             registry_version: registry as u16,
             protocol_id: ATOMIC_MARKET_PROTOCOL_ID,
             protocol_version: NAME_MARKET_PROTOCOL_VERSION,
@@ -121,16 +118,16 @@ impl NameMarketMessage {
             request_id,
             payload,
         };
-        Ok(envelope.encode(MAX_DENUO_MARKET_PAYLOAD)?)
+        Ok(envelope.encode(MAX_SHAKESCAPE_MARKET_PAYLOAD)?)
     }
 
-    pub fn decode_envelope(input: &[u8]) -> Result<(DenuoRegistryVersion, u64, Self)> {
-        let envelope = DenuoExtensionEnvelope::decode(input, MAX_DENUO_MARKET_PAYLOAD)?;
-        let registry = DenuoRegistryVersion::try_from(envelope.registry_version)?;
+    pub fn decode_envelope(input: &[u8]) -> Result<(ShakescapeRegistryVersion, u64, Self)> {
+        let envelope = ShakescapeExtensionEnvelope::decode(input, MAX_SHAKESCAPE_MARKET_PAYLOAD)?;
+        let registry = ShakescapeRegistryVersion::try_from(envelope.registry_version)?;
         if envelope.protocol_id != ATOMIC_MARKET_PROTOCOL_ID
             || envelope.protocol_version != NAME_MARKET_PROTOCOL_VERSION
             || envelope.flags != 0
-            || envelope.payload.len() > MAX_DENUO_MARKET_PAYLOAD
+            || envelope.payload.len() > MAX_SHAKESCAPE_MARKET_PAYLOAD
         {
             return Err(MarketplaceError::Invalid("invalid name-market envelope"));
         }
@@ -149,14 +146,17 @@ impl NameMarketMessage {
             Self::Offer(listing) => (7, listing.encode()?),
             Self::Cancel(cancellation) => (8, cancellation.encode()?),
         };
-        Ok((encoded.0, ensure_size(encoded.1, MAX_DENUO_MARKET_PAYLOAD)?))
+        Ok((
+            encoded.0,
+            ensure_size(encoded.1, MAX_SHAKESCAPE_MARKET_PAYLOAD)?,
+        ))
     }
 
     fn decode_payload(message_type: u16, payload: &[u8]) -> Result<Self> {
-        if payload.len() > MAX_DENUO_MARKET_PAYLOAD {
+        if payload.len() > MAX_SHAKESCAPE_MARKET_PAYLOAD {
             return Err(MarketplaceError::TooLarge {
                 actual: payload.len(),
-                maximum: MAX_DENUO_MARKET_PAYLOAD,
+                maximum: MAX_SHAKESCAPE_MARKET_PAYLOAD,
             });
         }
         match message_type {
@@ -201,8 +201,8 @@ pub enum CrossChainMessage {
 impl CrossChainMessage {
     pub fn encode_envelope(&self, request_id: u64) -> Result<Vec<u8>> {
         let (message_type, payload) = self.encode_payload()?;
-        let envelope = DenuoExtensionEnvelope {
-            registry_version: DENUO_V2_REGISTRY_VERSION,
+        let envelope = ShakescapeExtensionEnvelope {
+            registry_version: SHAKESCAPE_V1_REGISTRY_VERSION,
             protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
             protocol_version: CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
             message_type,
@@ -210,16 +210,16 @@ impl CrossChainMessage {
             request_id,
             payload,
         };
-        Ok(envelope.encode(MAX_DENUO_MARKET_PAYLOAD)?)
+        Ok(envelope.encode(MAX_SHAKESCAPE_MARKET_PAYLOAD)?)
     }
 
     pub fn decode_envelope(input: &[u8]) -> Result<(u64, Self)> {
-        let envelope = DenuoExtensionEnvelope::decode(input, MAX_DENUO_MARKET_PAYLOAD)?;
-        if envelope.registry_version != DENUO_V2_REGISTRY_VERSION
+        let envelope = ShakescapeExtensionEnvelope::decode(input, MAX_SHAKESCAPE_MARKET_PAYLOAD)?;
+        if envelope.registry_version != SHAKESCAPE_V1_REGISTRY_VERSION
             || envelope.protocol_id != CROSS_CHAIN_MARKET_PROTOCOL_ID
             || envelope.protocol_version != CROSS_CHAIN_MARKET_PROTOCOL_VERSION
             || envelope.flags != 0
-            || envelope.payload.len() > MAX_DENUO_MARKET_PAYLOAD
+            || envelope.payload.len() > MAX_SHAKESCAPE_MARKET_PAYLOAD
         {
             return Err(MarketplaceError::Invalid(
                 "invalid cross-chain marketplace envelope",
@@ -252,14 +252,17 @@ impl CrossChainMessage {
             }
             Self::SwapWatchReady(ready) => (SWAP_WATCH_READY_MESSAGE_TYPE, ready.encode()?),
         };
-        Ok((encoded.0, ensure_size(encoded.1, MAX_DENUO_MARKET_PAYLOAD)?))
+        Ok((
+            encoded.0,
+            ensure_size(encoded.1, MAX_SHAKESCAPE_MARKET_PAYLOAD)?,
+        ))
     }
 
     fn decode_payload(message_type: u16, payload: &[u8]) -> Result<Self> {
-        if payload.len() > MAX_DENUO_MARKET_PAYLOAD {
+        if payload.len() > MAX_SHAKESCAPE_MARKET_PAYLOAD {
             return Err(MarketplaceError::TooLarge {
                 actual: payload.len(),
-                maximum: MAX_DENUO_MARKET_PAYLOAD,
+                maximum: MAX_SHAKESCAPE_MARKET_PAYLOAD,
             });
         }
         match message_type {
@@ -316,7 +319,7 @@ fn encode_hashes(hashes: &[[u8; 32]], permit_empty: bool) -> Result<Vec<u8>> {
     for hash in hashes {
         encoder.put_bytes(hash);
     }
-    ensure_size(encoder.into_bytes(), MAX_DENUO_MARKET_PAYLOAD)
+    ensure_size(encoder.into_bytes(), MAX_SHAKESCAPE_MARKET_PAYLOAD)
 }
 
 fn decode_hashes(input: &[u8], permit_empty: bool) -> Result<Vec<[u8; 32]>> {
@@ -352,7 +355,7 @@ fn encode_listings(listings: &[FixedPriceListing]) -> Result<Vec<u8>> {
     for (_, listing) in keyed {
         encoder.put_varbytes(&listing);
     }
-    ensure_size(encoder.into_bytes(), MAX_DENUO_MARKET_PAYLOAD)
+    ensure_size(encoder.into_bytes(), MAX_SHAKESCAPE_MARKET_PAYLOAD)
 }
 
 fn decode_listings(input: &[u8]) -> Result<Vec<FixedPriceListing>> {
@@ -399,7 +402,9 @@ fn require_empty(input: &[u8]) -> Result<()> {
     if input.is_empty() {
         Ok(())
     } else {
-        Err(MarketplaceError::Invalid("expected empty Denuo payload"))
+        Err(MarketplaceError::Invalid(
+            "expected empty Shakescape payload",
+        ))
     }
 }
 
@@ -412,18 +417,18 @@ mod tests {
         let hello = NameMarketHello {
             hns_magic: 0x5b6e_c393,
             hns_genesis: BlockHash::new([1; 32]),
-            maximum_payload: MAX_DENUO_MARKET_PAYLOAD as u32,
+            maximum_payload: MAX_SHAKESCAPE_MARKET_PAYLOAD as u32,
             feature_flags: 0,
         };
         NameMarketMessage::Hello(hello)
-            .encode_envelope(DenuoRegistryVersion::V2, 1)
+            .encode_envelope(ShakescapeRegistryVersion::V1, 1)
             .unwrap();
 
         let mut zero_magic = hello;
         zero_magic.hns_magic = 0;
         assert!(
             NameMarketMessage::Hello(zero_magic)
-                .encode_envelope(DenuoRegistryVersion::V2, 1)
+                .encode_envelope(ShakescapeRegistryVersion::V1, 1)
                 .is_err()
         );
 
@@ -431,7 +436,7 @@ mod tests {
         zero_genesis.hns_genesis = BlockHash::new([0; 32]);
         assert!(
             NameMarketMessage::Hello(zero_genesis)
-                .encode_envelope(DenuoRegistryVersion::V2, 1)
+                .encode_envelope(ShakescapeRegistryVersion::V1, 1)
                 .is_err()
         );
     }
@@ -439,16 +444,16 @@ mod tests {
     #[test]
     fn name_market_empty_request_has_stable_v1_vector() {
         let encoded = NameMarketMessage::GetOfferInventory
-            .encode_envelope(DenuoRegistryVersion::V1, 7)
+            .encode_envelope(ShakescapeRegistryVersion::V1, 7)
             .unwrap();
         assert_eq!(
             hex::encode(&encoded),
-            "444e553101000100010002000000070000000000000000000000"
+            "534b583101000100010002000000070000000000000000000000"
         );
         assert_eq!(
             NameMarketMessage::decode_envelope(&encoded).unwrap(),
             (
-                DenuoRegistryVersion::V1,
+                ShakescapeRegistryVersion::V1,
                 7,
                 NameMarketMessage::GetOfferInventory
             )
@@ -462,7 +467,7 @@ mod tests {
         assert_eq!(
             hex::encode(&encoded),
             concat!(
-                "444e55310200020003000100000007000000000000004100000002",
+                "534b58310100020003000100000007000000000000004100000002",
                 "0101010101010101010101010101010101010101010101010101010101010101",
                 "0202020202020202020202020202020202020202020202020202020202020202"
             )
@@ -475,29 +480,32 @@ mod tests {
         let duplicate = CrossChainMessage::DirectOfferInventory(vec![[1; 32], [1; 32]]);
         assert!(duplicate.encode_envelope(7).is_err());
 
-        let mut wrong_registry = DenuoExtensionEnvelope::decode_canonical(&encoded).unwrap();
-        wrong_registry.registry_version = DENUO_V1_REGISTRY_VERSION;
-        assert!(wrong_registry.encode_canonical().is_err());
+        let mut wrong_registry = ShakescapeExtensionEnvelope::decode_canonical(&encoded).unwrap();
+        wrong_registry.registry_version = 2;
+        let wrong_registry = wrong_registry
+            .encode_canonical()
+            .expect("unknown outer profile");
+        assert!(CrossChainMessage::decode_envelope(&wrong_registry).is_err());
     }
 
     #[test]
     fn empty_offer_inventory_is_canonical_but_empty_requests_and_batches_are_not() {
         let inventory = NameMarketMessage::OfferInventory(Vec::new());
         let encoded = inventory
-            .encode_envelope(DenuoRegistryVersion::V2, 8)
+            .encode_envelope(ShakescapeRegistryVersion::V1, 8)
             .expect("empty inventory response");
         assert_eq!(
             NameMarketMessage::decode_envelope(&encoded).expect("empty inventory decoding"),
-            (DenuoRegistryVersion::V2, 8, inventory)
+            (ShakescapeRegistryVersion::V1, 8, inventory)
         );
         assert!(
             NameMarketMessage::GetOffers(Vec::new())
-                .encode_envelope(DenuoRegistryVersion::V2, 9)
+                .encode_envelope(ShakescapeRegistryVersion::V1, 9)
                 .is_err()
         );
         assert!(
             NameMarketMessage::Offers(Vec::new())
-                .encode_envelope(DenuoRegistryVersion::V2, 10)
+                .encode_envelope(ShakescapeRegistryVersion::V1, 10)
                 .is_err()
         );
     }
@@ -505,9 +513,9 @@ mod tests {
     #[test]
     fn typed_decoders_reject_trailing_and_wrong_protocol_payloads() {
         let encoded = NameMarketMessage::GetOffer([3; 32])
-            .encode_envelope(DenuoRegistryVersion::V2, 9)
+            .encode_envelope(ShakescapeRegistryVersion::V1, 9)
             .unwrap();
-        let mut envelope = DenuoExtensionEnvelope::decode_canonical(&encoded).unwrap();
+        let mut envelope = ShakescapeExtensionEnvelope::decode_canonical(&encoded).unwrap();
         envelope.payload.push(0);
         let malformed = envelope.encode_canonical().unwrap();
         assert!(NameMarketMessage::decode_envelope(&malformed).is_err());

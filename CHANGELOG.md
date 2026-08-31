@@ -5,7 +5,12 @@ The workspace crates use a shared version and follow Semantic Versioning.
 
 ## 0.3.1 - 2026-08-23
 
-- Add a distinct canonical maker-signed swap-session proposal and Denuo
+- Replace the never-deployed private registry identities with one clean-break
+  Shakescape Experimental Registry V1. The `SKR1`, `SKRN`, and `SKX1` wire
+  domains, generated fingerprint, public Rust API, and both marketplace
+  protocol assignments intentionally provide no compatibility alias for the
+  discarded names or temporary two-registry model.
+- Add a distinct canonical maker-signed swap-session proposal and Shakescape
   message so two independent wallets can complete the maker-to-taker
   countersigning round trip before either wallet is allowed to fund.
 - Advance the cross-chain marketplace envelope to version 3 and add a
@@ -105,8 +110,8 @@ Release source for the modular wallet and marketplace boundary:
 - lossless version-zero HSD resource bytes plus a separate typed parser for all
   seven assigned record types, including bounded DNS compression handling;
 - deterministic pinned-HSD NameState/resource vectors and SHA-256 sidecar;
-- additive Denuo Experimental Registry V2, preserving the exact V1 identity
-  while assigning the separately negotiated cross-chain marketplace protocol;
+- the cross-chain marketplace protocol assignment, now incorporated into the
+  clean-break Shakescape Experimental Registry V1 identity;
 - canonical bounded market intents, observations, deterministic price rounds,
   fill grants with independent maker settlement delegation, and bilateral
   swap-session/status messages;
@@ -125,7 +130,7 @@ Release source for the modular wallet and marketplace boundary:
 - an exact native-HNS HTLC/session join with deadline-safe upward conversion
   to HSD's 512-second time-lock granularity;
 - recovery-safe status validation after the new-funding window closes;
-- exact recognized Denuo versions with zero flags and a 512 KiB typed
+- exact recognized Shakescape versions with zero flags and a 512 KiB typed
   marketplace cap;
 - source-independent, versioned, SHA-256-sidecarred protocol vectors covering
   signed objects, full envelopes, descriptors, transactions, signature hashes,
@@ -141,7 +146,7 @@ Release source for the modular wallet and marketplace boundary:
   identity before an existing package version is skipped; and
 - default-on HIP-76/HIP-77 requester policy, opaque ODoH proxying, and HNSR
   requester/opaque-relay participation with independent opt-outs, direct-relay
-  fallback where policy permits it, automatic bounded Denuo profile selection,
+  fallback where policy permits it, automatic bounded Shakescape profile selection,
   and all plaintext output, target, endpoint, and rendezvous roles still
   default-off.
 
@@ -170,7 +175,7 @@ protocol crates:
 - bounded wire encoding and semantic protocol values;
 - name covenants, transactions, script validation, headers, proof of work,
   Urkel proofs, swaps, mining commitments, and standard P2P codecs;
-- the explicitly experimental Denuo registry and draft HIP #76, #77, and #78
+- the explicitly experimental Shakescape registry and draft HIP #76, #77, and #78
   protocol values.
 
 The conformance harness, fuzz package, and deterministic registry generator are

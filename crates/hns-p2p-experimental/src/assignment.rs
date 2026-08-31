@@ -5,7 +5,7 @@ use thiserror::Error;
 
 pub const HNSR_RENDEZVOUS_SERVICE: ServiceBit = ServiceBit::new(0x0400_0000);
 pub const HNSR_RELAY_SERVICE: ServiceBit = ServiceBit::new(0x0800_0000);
-pub const DENUO_EXTENSION_SERVICE: ServiceBit = ServiceBit::new(0x1000_0000);
+pub const SHAKESCAPE_EXTENSION_SERVICE: ServiceBit = ServiceBit::new(0x1000_0000);
 pub const ODOH_SERVICE: ServiceBit = ServiceBit::new(0x2000_0000);
 pub const DNS_RELAY_SERVICE: ServiceBit = ServiceBit::new(0x4000_0000);
 pub const RESERVED_EXPERIMENTAL_SERVICE: ServiceBit = ServiceBit::new(0x8000_0000);
@@ -14,7 +14,7 @@ pub const DNS_RELAY_REQUEST_PACKET: PacketType = PacketType::new(0xf0);
 pub const DNS_RELAY_RESPONSE_PACKET: PacketType = PacketType::new(0xf1);
 pub const ODOH_PACKET: PacketType = PacketType::new(0xf2);
 pub const HNSR_PACKET: PacketType = PacketType::new(0xf3);
-pub const DENUO_EXTENSION_PACKET: PacketType = PacketType::new(0xf4);
+pub const SHAKESCAPE_EXTENSION_PACKET: PacketType = PacketType::new(0xf4);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ServiceBit(u64);
@@ -109,8 +109,7 @@ impl TryFrom<u8> for Network {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ExperimentalWireProfile {
-    DenuoV1,
-    DenuoV2,
+    ShakescapeV1,
     LegacyDraftRegtest,
     Official(u16),
     Auto,
@@ -127,14 +126,13 @@ impl ExperimentalWireProfile {
                 Err(AssignmentError::LegacyProfileProhibited(network))
             }
             Self::Official(version) => Err(AssignmentError::UnknownOfficialProfile(version)),
-            Self::DenuoV1 | Self::DenuoV2 | Self::LegacyDraftRegtest | Self::Auto => Ok(()),
+            Self::ShakescapeV1 | Self::LegacyDraftRegtest | Self::Auto => Ok(()),
         }
     }
 
     pub const fn status_name(self) -> &'static str {
         match self {
-            Self::DenuoV1 => "Denuo Experimental V1",
-            Self::DenuoV2 => "Denuo Experimental V2",
+            Self::ShakescapeV1 => "Shakescape Experimental V1",
             Self::LegacyDraftRegtest => "Legacy Draft Compatibility",
             Self::Official(_) => "Official Assignment Profile",
             Self::Auto => "Automatic Semantic Assignment Selection",
@@ -152,12 +150,12 @@ pub struct WireAssignments {
     pub hnsr_rendezvous_service: ServiceBit,
     pub hnsr_relay_service: ServiceBit,
     pub hnsr_packet: PacketType,
-    pub denuo_extension_service: ServiceBit,
-    pub denuo_extension_packet: PacketType,
+    pub shakescape_extension_service: ServiceBit,
+    pub shakescape_extension_packet: PacketType,
 }
 
 impl WireAssignments {
-    pub const DENUO_V1: Self = Self {
+    pub const SHAKESCAPE_V1: Self = Self {
         dns_relay_service: DNS_RELAY_SERVICE,
         dns_relay_request: DNS_RELAY_REQUEST_PACKET,
         dns_relay_response: DNS_RELAY_RESPONSE_PACKET,
@@ -166,12 +164,9 @@ impl WireAssignments {
         hnsr_rendezvous_service: HNSR_RENDEZVOUS_SERVICE,
         hnsr_relay_service: HNSR_RELAY_SERVICE,
         hnsr_packet: HNSR_PACKET,
-        denuo_extension_service: DENUO_EXTENSION_SERVICE,
-        denuo_extension_packet: DENUO_EXTENSION_PACKET,
+        shakescape_extension_service: SHAKESCAPE_EXTENSION_SERVICE,
+        shakescape_extension_packet: SHAKESCAPE_EXTENSION_PACKET,
     };
-
-    /// Denuo V2 retains every V1 packet and service assignment.
-    pub const DENUO_V2: Self = Self::DENUO_V1;
 
     pub fn for_profile(
         profile: ExperimentalWireProfile,
@@ -180,10 +175,9 @@ impl WireAssignments {
     ) -> Result<Self, AssignmentError> {
         profile.validate_for_network(network, controlled_network)?;
         match profile {
-            ExperimentalWireProfile::DenuoV1
+            ExperimentalWireProfile::ShakescapeV1
             | ExperimentalWireProfile::LegacyDraftRegtest
-            | ExperimentalWireProfile::Auto => Ok(Self::DENUO_V1),
-            ExperimentalWireProfile::DenuoV2 => Ok(Self::DENUO_V2),
+            | ExperimentalWireProfile::Auto => Ok(Self::SHAKESCAPE_V1),
             ExperimentalWireProfile::Official(version) => {
                 Err(AssignmentError::UnknownOfficialProfile(version))
             }
@@ -206,10 +200,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn assignments_match_denuo_registry_v1_exactly() {
+    fn assignments_match_shakescape_registry_v1_exactly() {
         assert_eq!(HNSR_RENDEZVOUS_SERVICE.value(), 0x0400_0000);
         assert_eq!(HNSR_RELAY_SERVICE.value(), 0x0800_0000);
-        assert_eq!(DENUO_EXTENSION_SERVICE.value(), 0x1000_0000);
+        assert_eq!(SHAKESCAPE_EXTENSION_SERVICE.value(), 0x1000_0000);
         assert_eq!(ODOH_SERVICE.value(), 0x2000_0000);
         assert_eq!(DNS_RELAY_SERVICE.value(), 0x4000_0000);
         assert_eq!(RESERVED_EXPERIMENTAL_SERVICE.value(), 0x8000_0000);
@@ -217,15 +211,18 @@ mod tests {
         assert_eq!(DNS_RELAY_RESPONSE_PACKET.value(), 0xf1);
         assert_eq!(ODOH_PACKET.value(), 0xf2);
         assert_eq!(HNSR_PACKET.value(), 0xf3);
-        assert_eq!(DENUO_EXTENSION_PACKET.value(), 0xf4);
-        assert_eq!(WireAssignments::DENUO_V2, WireAssignments::DENUO_V1);
+        assert_eq!(SHAKESCAPE_EXTENSION_PACKET.value(), 0xf4);
         assert_eq!(
-            WireAssignments::for_profile(ExperimentalWireProfile::DenuoV2, Network::Mainnet, false),
-            Ok(WireAssignments::DENUO_V2)
+            WireAssignments::for_profile(
+                ExperimentalWireProfile::ShakescapeV1,
+                Network::Mainnet,
+                false
+            ),
+            Ok(WireAssignments::SHAKESCAPE_V1)
         );
         assert_eq!(
-            ExperimentalWireProfile::DenuoV2.status_name(),
-            "Denuo Experimental V2"
+            ExperimentalWireProfile::ShakescapeV1.status_name(),
+            "Shakescape Experimental V1"
         );
     }
 

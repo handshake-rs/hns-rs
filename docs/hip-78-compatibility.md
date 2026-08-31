@@ -10,7 +10,7 @@ are:
   `2fc40f1c61ff16a2f39d9514cd950d1560430ced`.
 
 The assignments are experimental: rendezvous service `0x04000000`, relay
-service `0x08000000`, and packet type `0xf3`. Public use requires the Denuo
+service `0x08000000`, and packet type `0xf3`. Public use requires the Shakescape
 registry handshake and collision isolation from `hns-p2p-experimental`.
 
 ## Shared protocol surface

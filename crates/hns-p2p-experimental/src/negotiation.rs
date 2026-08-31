@@ -6,17 +6,17 @@ use thiserror::Error;
 
 use crate::assignment::Network;
 use crate::registry::{
-    DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_PROTOCOL_VERSION, DENUO_V1_REGISTRY_VERSION,
-    DENUO_V2_REGISTRY_FINGERPRINT, DENUO_V2_REGISTRY_VERSION,
+    SHAKESCAPE_V1_REGISTRY_FINGERPRINT, SHAKESCAPE_V1_REGISTRY_PROTOCOL_VERSION,
+    SHAKESCAPE_V1_REGISTRY_VERSION,
 };
 
-const HELLO_MAGIC: [u8; 4] = *b"DNRN";
+const HELLO_MAGIC: [u8; 4] = *b"SKRN";
 const HELLO_FORMAT_VERSION: u16 = 1;
 const MAX_REGISTRY_VERSIONS: usize = 16;
 const MAX_PROTOCOL_RANGES: usize = 64;
 
 pub const REGISTRY_NEGOTIATION_PROTOCOL_ID: u16 = 0x0000;
-pub const REGISTRY_NEGOTIATION_PROTOCOL_VERSION: u16 = DENUO_V1_REGISTRY_PROTOCOL_VERSION;
+pub const REGISTRY_NEGOTIATION_PROTOCOL_VERSION: u16 = SHAKESCAPE_V1_REGISTRY_PROTOCOL_VERSION;
 pub const REGISTRY_NEGOTIATION_MAX_PAYLOAD: usize = 16_384;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -48,7 +48,7 @@ pub struct RegistryHello {
 }
 
 impl RegistryHello {
-    pub fn denuo_v1(
+    pub fn shakescape_v1(
         network: Network,
         genesis_hash: [u8; 32],
         protocols: Vec<ProtocolRange>,
@@ -56,29 +56,9 @@ impl RegistryHello {
         maximum_live_requests: u16,
         feature_flags: u64,
     ) -> Result<Self, NegotiationError> {
-        Self::denuo(
-            DENUO_V1_REGISTRY_FINGERPRINT,
-            DENUO_V1_REGISTRY_VERSION,
-            network,
-            genesis_hash,
-            protocols,
-            maximum_receive_size,
-            maximum_live_requests,
-            feature_flags,
-        )
-    }
-
-    pub fn denuo_v2(
-        network: Network,
-        genesis_hash: [u8; 32],
-        protocols: Vec<ProtocolRange>,
-        maximum_receive_size: u32,
-        maximum_live_requests: u16,
-        feature_flags: u64,
-    ) -> Result<Self, NegotiationError> {
-        Self::denuo(
-            DENUO_V2_REGISTRY_FINGERPRINT,
-            DENUO_V2_REGISTRY_VERSION,
+        Self::shakescape(
+            SHAKESCAPE_V1_REGISTRY_FINGERPRINT,
+            SHAKESCAPE_V1_REGISTRY_VERSION,
             network,
             genesis_hash,
             protocols,
@@ -89,7 +69,7 @@ impl RegistryHello {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn denuo(
+    fn shakescape(
         fingerprint: RegistryFingerprint,
         registry_version: u16,
         network: Network,
@@ -447,17 +427,32 @@ mod tests {
             minimum_version: 1,
             maximum_version: 1,
         };
-        let hello = RegistryHello::denuo_v1(Network::Regtest, [8; 32], vec![market], 4096, 4, 3)
-            .expect("canonical hello");
-        assert_eq!(hello.fingerprint, DENUO_V1_REGISTRY_FINGERPRINT);
-        assert_eq!(hello.registry_versions, vec![DENUO_V1_REGISTRY_VERSION]);
+        let cross_chain = ProtocolRange {
+            protocol_id: 2,
+            minimum_version: 1,
+            maximum_version: 1,
+        };
+        let hello = RegistryHello::shakescape_v1(
+            Network::Regtest,
+            [8; 32],
+            vec![market, cross_chain],
+            4096,
+            4,
+            3,
+        )
+        .expect("canonical hello");
+        assert_eq!(hello.fingerprint, SHAKESCAPE_V1_REGISTRY_FINGERPRINT);
+        assert_eq!(
+            hello.registry_versions,
+            vec![SHAKESCAPE_V1_REGISTRY_VERSION]
+        );
         assert!(hello.protocols.contains(&ProtocolRange {
             protocol_id: REGISTRY_NEGOTIATION_PROTOCOL_ID,
             minimum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
             maximum_version: REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
         }));
         assert_eq!(
-            RegistryHello::denuo_v1(
+            RegistryHello::shakescape_v1(
                 Network::Regtest,
                 [8; 32],
                 vec![ProtocolRange {
@@ -472,33 +467,10 @@ mod tests {
             Err(NegotiationError::ManagedRegistryProtocol)
         );
 
-        let cross_chain = ProtocolRange {
-            protocol_id: 2,
-            minimum_version: 1,
-            maximum_version: 1,
-        };
-        let v2 = RegistryHello::denuo_v2(
-            Network::Regtest,
-            [8; 32],
-            vec![market, cross_chain],
-            4096,
-            4,
-            3,
-        )
-        .expect("canonical V2 hello");
-        assert_eq!(v2.fingerprint, DENUO_V2_REGISTRY_FINGERPRINT);
-        assert_eq!(v2.registry_versions, vec![DENUO_V2_REGISTRY_VERSION]);
-        let negotiated = NegotiatedRegistry::negotiate(&v2, &v2).expect("V2 is compatible");
-        assert_eq!(negotiated.registry_version, DENUO_V2_REGISTRY_VERSION);
+        let negotiated = NegotiatedRegistry::negotiate(&hello, &hello).expect("V1 is compatible");
+        assert_eq!(negotiated.registry_version, SHAKESCAPE_V1_REGISTRY_VERSION);
         assert!(negotiated.supports(1, 1));
         assert!(negotiated.supports(2, 1));
-
-        let v1 = RegistryHello::denuo_v1(Network::Regtest, [8; 32], vec![market], 4096, 4, 3)
-            .expect("canonical V1 hello");
-        assert!(matches!(
-            NegotiatedRegistry::negotiate(&v1, &v2),
-            Err(NegotiationError::WrongFingerprint { .. })
-        ));
     }
 
     #[test]

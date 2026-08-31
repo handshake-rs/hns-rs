@@ -1,7 +1,7 @@
-# Denuo marketplace protocols
+# Shakescape marketplace protocols
 
-Denuo registry V2 retains every V1 assignment and adds cross-chain marketplace
-protocol ID `0x0002`. The registry remains a private experimental assignment;
+Shakescape Registry V1 assigns the name market and cross-chain marketplace
+protocol IDs `0x0001` and `0x0002`. The registry remains a private experimental assignment;
 that describes governance of the packet numbers, not a fallback wire format.
 
 ## Name market (`0x0001`, protocol version 1)
@@ -10,9 +10,9 @@ The name market retains its bounded hello, inventory, listing request/response,
 and signed cancellation messages. Listing verification remains local; inventory
 is discovery metadata and `OfferInventory` alone may represent an empty board.
 
-## Direct HNS/BTC market (`0x0002`, protocol version 2)
+## Direct HNS/BTC market (`0x0002`, protocol version 3)
 
-The V2-only cross-chain protocol uses this registry:
+The cross-chain protocol uses this registry:
 
 | Type | Message |
 | ---: | --- |
@@ -41,7 +41,7 @@ input.
 
 The maker proposal and accepted hello bind the original offer, the take, both
 settlement authorities, exact amounts, SHA-256 hashlock, lock commitments,
-confirmation requirements, and refund deadlines. Denuo status messages are
+confirmation requirements, and refund deadlines. Shakescape status messages are
 authenticated coordination hints only. Funding, confirmation, redemption,
 preimage, refund, and reorganization state must come from independently
 verified local chain evidence. New funding requires the fully accepted hello;

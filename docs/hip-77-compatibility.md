@@ -10,7 +10,7 @@ Handshake P2P Oblivious DNS Relay protocol. Its compatibility targets are:
 - RFC 9230 message/configuration encoding and RFC 9180 base-mode HPKE using
   DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, and AES-128-GCM.
 
-These are draft, experimental assignments. The Denuo v1 profile uses service
+These are draft, experimental assignments. The Shakescape v1 profile uses service
 bit `0x20000000` and packet type `0xf2`; negotiation and collision isolation
 are provided by `hns-p2p-experimental`.
 

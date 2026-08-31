@@ -10,7 +10,7 @@ If official Handshake assignments become available:
 2. negotiate the selected profile and write only that profile on a connection;
 3. accept old and new profiles during a documented transition window;
 4. add cross-profile vectors and retain rollback support;
-5. deprecate, but never repurpose, Denuo v1 values;
+5. deprecate, but never repurpose, Shakescape v1 values;
 6. migrate persisted semantic objects without rewriting their meaning.
 
 `Auto` may select an official profile only when the implementation knows its

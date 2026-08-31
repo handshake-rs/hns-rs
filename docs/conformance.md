@@ -15,7 +15,7 @@ Current canonical protocol coverage:
 | standard P2P frames and packets | `hns-p2p-wire` | exact HSD `wire-v1` and compact-block vectors, bounded-stream and reconstruction negatives |
 | block commitments and mining jobs | `hns-mining` | HSD subsidy/coinbase vectors, domain-separated roots, stale/mask/time/PoW tests |
 | cross-protocol parser hardening | `hns-conformance`, `fuzz/` | exact protocol seeds plus bounded truncation/extension/length/bit mutations against production parsers |
-| private Denuo registry and negotiation | `hns-p2p-experimental` | canonical V1/V2 registry fingerprints, exact-version/zero-flag classification, and collision tests |
+| private Shakescape registry and negotiation | `hns-p2p-experimental` | canonical V1 registry fingerprint, exact-version/zero-flag classification, and collision tests |
 | HIP #76 | `hns-dns-relay-protocol` | exact draft envelope and policy tests |
 | HIP #77 | `hns-odoh-protocol` | exact draft/RFC cryptographic vectors |
 | HIP #78 | `hns-hnsr-protocol` | exact draft records, signatures, bounded stores and envelopes, live reservation/renewal/confirmation/withdrawal and route publication/lookup state machines, plus runtime-neutral requester/opaque-relay open, peer-binding, credit, queue, byte-ceiling, revocation, and fail-closed snapshot tests |
@@ -26,7 +26,7 @@ Current canonical protocol coverage:
 | HIP-0001/Shakedex v2 | `hns-swap` | exact proof, seller digest, presigned transaction, buyer fulfillment, recovery transfer, later FINALIZE transaction/witness, IDs, script, price, and locktime vectors |
 | signed name listings and native HNS HTLC | `hns-swap` | complete fixed listing/cancellation envelopes plus exact descriptor, script, address, funding, redeem, refund, sighash, TXID, and preimage vectors |
 | direct HNS/BTC offers, takes, cancellations, and swap sessions | `hns-marketplace-protocol` | exact signed terms, identity, timeout, status, replay, and malformed-envelope negatives; no oracle or rate policy |
-| typed Denuo name/cross-chain markets | `hns-marketplace-protocol`, `hns-conformance`, `fuzz/` | exact full envelopes plus bounded full-consumption production parsers |
+| typed Shakescape name/cross-chain markets | `hns-marketplace-protocol`, `hns-conformance`, `fuzz/` | exact full envelopes plus bounded full-consumption production parsers |
 
 This is a living qualification index, not a claim that the wider ecosystem is
 already complete. Cross-project differential generators, downstream parser

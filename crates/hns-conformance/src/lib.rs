@@ -9,7 +9,7 @@ use hns_hnsr_protocol::{HnsrPacket, NamedRouteRecordV2, NamedRouteRecordV3};
 use hns_marketplace_protocol::{CrossChainMessage, NameMarketMessage};
 use hns_mining::Block;
 use hns_odoh_protocol::OdnsPacket;
-use hns_p2p_experimental::DenuoExtensionEnvelope;
+use hns_p2p_experimental::ShakescapeExtensionEnvelope;
 use hns_p2p_wire::{Frame, NetworkMagic};
 use hns_rollback_journal::JournalRecord;
 use hns_script::parse_script;
@@ -42,15 +42,15 @@ impl AcceptanceMask {
     pub const SCRIPT: u32 = 1 << 3;
     pub const COVENANT: u32 = 1 << 4;
     pub const STANDARD_FRAME: u32 = 1 << 5;
-    pub const DENUO_ENVELOPE: u32 = 1 << 6;
+    pub const SHAKESCAPE_ENVELOPE: u32 = 1 << 6;
     pub const HIP76_REQUEST: u32 = 1 << 7;
     pub const HIP76_RESPONSE: u32 = 1 << 8;
     pub const HIP77_ENVELOPE: u32 = 1 << 9;
     pub const HIP78_ENVELOPE: u32 = 1 << 10;
     pub const URKEL_PROOF: u32 = 1 << 11;
     pub const SWAP_PROOF: u32 = 1 << 12;
-    pub const DENUO_NAME_MARKET: u32 = 1 << 13;
-    pub const DENUO_CROSS_CHAIN_MARKET: u32 = 1 << 14;
+    pub const SHAKESCAPE_NAME_MARKET: u32 = 1 << 13;
+    pub const SHAKESCAPE_CROSS_CHAIN_MARKET: u32 = 1 << 14;
     pub const NAME_STATE: u32 = 1 << 15;
     pub const NAME_RESOURCE: u32 = 1 << 16;
     pub const HIP79_SERVICE_AUTHORIZATION: u32 = 1 << 17;
@@ -125,8 +125,8 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
         Frame::decode_exact(NetworkMagic::Regtest, input).is_ok(),
     );
     accepted.record(
-        AcceptanceMask::DENUO_ENVELOPE,
-        DenuoExtensionEnvelope::decode_canonical(input).is_ok(),
+        AcceptanceMask::SHAKESCAPE_ENVELOPE,
+        ShakescapeExtensionEnvelope::decode_canonical(input).is_ok(),
     );
     accepted.record(
         AcceptanceMask::HIP76_REQUEST,
@@ -188,11 +188,11 @@ pub fn exercise_production_parsers(input: &[u8]) -> Result<AcceptanceMask, Confo
     );
     accepted.record(AcceptanceMask::SWAP_PROOF, SwapProof::decode(input).is_ok());
     accepted.record(
-        AcceptanceMask::DENUO_NAME_MARKET,
+        AcceptanceMask::SHAKESCAPE_NAME_MARKET,
         NameMarketMessage::decode_envelope(input).is_ok(),
     );
     accepted.record(
-        AcceptanceMask::DENUO_CROSS_CHAIN_MARKET,
+        AcceptanceMask::SHAKESCAPE_CROSS_CHAIN_MARKET,
         CrossChainMessage::decode_envelope(input).is_ok(),
     );
     Ok(accepted)
@@ -326,10 +326,10 @@ mod tests {
 
     const TRANSACTION: &str = "0100000001080808080808080808080808080808080808080808080808080808080808080802000000feffffff012a0000000000000000140909090909090909090909090909090909090909020103616263630000000203010203020405";
     const REGTEST_PING: &str = "cf9538ae02080000004343434343434343";
-    const DENUO: &str = "444e553101000100010006000000070000000000000002000000aabb";
-    const DENUO_NAME_MARKET: &str = "444e553101000100010002000000070000000000000000000000";
-    const DENUO_CROSS_CHAIN_MARKET: &str = concat!(
-        "444e55310200020002000100000007000000000000002100000001",
+    const SHAKESCAPE: &str = "534b583101000100010006000000070000000000000002000000aabb";
+    const SHAKESCAPE_NAME_MARKET: &str = "534b583101000100010002000000070000000000000000000000";
+    const SHAKESCAPE_CROSS_CHAIN_MARKET: &str = concat!(
+        "534b58310100020003000100000007000000000000002100000001",
         "0101010101010101010101010101010101010101010101010101010101010101"
     );
     const HIP76: &str = "08070605040302012a00123401100001000000000001037777770972656c617974657374000001000100002904d0000080000000";
@@ -341,11 +341,14 @@ mod tests {
         let vectors = [
             (TRANSACTION, AcceptanceMask::TRANSACTION),
             (REGTEST_PING, AcceptanceMask::STANDARD_FRAME),
-            (DENUO, AcceptanceMask::DENUO_ENVELOPE),
-            (DENUO_NAME_MARKET, AcceptanceMask::DENUO_NAME_MARKET),
+            (SHAKESCAPE, AcceptanceMask::SHAKESCAPE_ENVELOPE),
             (
-                DENUO_CROSS_CHAIN_MARKET,
-                AcceptanceMask::DENUO_CROSS_CHAIN_MARKET,
+                SHAKESCAPE_NAME_MARKET,
+                AcceptanceMask::SHAKESCAPE_NAME_MARKET,
+            ),
+            (
+                SHAKESCAPE_CROSS_CHAIN_MARKET,
+                AcceptanceMask::SHAKESCAPE_CROSS_CHAIN_MARKET,
             ),
             (HIP76, AcceptanceMask::HIP76_REQUEST),
             (HIP77, AcceptanceMask::HIP77_ENVELOPE),
@@ -412,9 +415,9 @@ mod tests {
         let seeds = [
             hex::decode(TRANSACTION).expect("static hex"),
             hex::decode(REGTEST_PING).expect("static hex"),
-            hex::decode(DENUO).expect("static hex"),
-            hex::decode(DENUO_NAME_MARKET).expect("static hex"),
-            hex::decode(DENUO_CROSS_CHAIN_MARKET).expect("static hex"),
+            hex::decode(SHAKESCAPE).expect("static hex"),
+            hex::decode(SHAKESCAPE_NAME_MARKET).expect("static hex"),
+            hex::decode(SHAKESCAPE_CROSS_CHAIN_MARKET).expect("static hex"),
             hex::decode(HIP76).expect("static hex"),
             hex::decode(HIP77).expect("static hex"),
             hex::decode(HIP78).expect("static hex"),

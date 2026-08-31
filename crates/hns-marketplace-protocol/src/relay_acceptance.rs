@@ -7,27 +7,27 @@ use zeroize::Zeroizing;
 
 use crate::{MarketplaceError, Result};
 
-/// Draft HRM/HNSA profile carried by Denuo relay-acceptance receipts.
+/// Draft HRM/HNSA profile carried by Shakescape relay-acceptance receipts.
 ///
 /// No official HNSA application profile number is assigned here. A product
 /// must select and validate its own nonzero application profile identifier.
 pub const HNSA_NAMED_SERVICE_RESOURCE_PROFILE: &str = "hns.named-service/v1";
 /// Maximum canonical size of one endpoint-signed publication receipt.
-pub const MAX_DENUO_PUBLICATION_ACCEPTANCE_BYTES: usize = 768;
+pub const MAX_SHAKESCAPE_PUBLICATION_ACCEPTANCE_BYTES: usize = 768;
 /// Maximum lifetime admitted by the receipt codec, independent of a stricter
 /// caller-selected policy.
-pub const MAX_DENUO_PUBLICATION_ACCEPTANCE_LIFETIME_SECONDS: u32 = 7 * 24 * 60 * 60;
+pub const MAX_SHAKESCAPE_PUBLICATION_ACCEPTANCE_LIFETIME_SECONDS: u32 = 7 * 24 * 60 * 60;
 
 const ACCEPTANCE_MAGIC: &[u8; 4] = b"HDRA";
 const ACCEPTANCE_VERSION: u16 = 1;
 const RELAY_ACCEPTED_OUTCOME: u8 = 1;
-const ACCEPTANCE_SIGNATURE_DOMAIN: &[u8] = b"hns-wallet-denuo-name-market-acceptance-v1\0";
-const ACCEPTANCE_ID_DOMAIN: &[u8] = b"hns-wallet-denuo-name-market-acceptance-id-v1\0";
-const POLICY_FINGERPRINT_DOMAIN: &[u8] = b"hns-wallet-denuo-publication-policy-v1\0";
+const ACCEPTANCE_SIGNATURE_DOMAIN: &[u8] = b"hns-wallet-shakescape-name-market-acceptance-v1\0";
+const ACCEPTANCE_ID_DOMAIN: &[u8] = b"hns-wallet-shakescape-name-market-acceptance-id-v1\0";
+const POLICY_FINGERPRINT_DOMAIN: &[u8] = b"hns-wallet-shakescape-publication-policy-v1\0";
 
 /// Exact HRM root material that authorized the configured named relay.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DenuoHrmRootBinding {
+pub struct ShakescapeHrmRootBinding {
     pub subject: [u8; 32],
     pub sequence: u64,
     pub envelope_hash: [u8; 32],
@@ -38,7 +38,7 @@ pub struct DenuoHrmRootBinding {
 
 /// Exact HNSA service and endpoint delegation material used for relay handoff.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DenuoHnsaEndpointBinding {
+pub struct ShakescapeHnsaEndpointBinding {
     pub canonical_service_name: Vec<u8>,
     pub application_profile_id: u16,
     pub service_resource_id: [u8; 32],
@@ -57,20 +57,20 @@ pub struct DenuoHnsaEndpointBinding {
 /// exact handoff. It does not prove peer propagation, board inclusion, offer
 /// currentness, chain authority, price authority, or permission to move value.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DenuoPublicationAcceptancePolicy {
+pub struct ShakescapePublicationAcceptancePolicy {
     network_magic: u32,
     network_genesis: [u8; 32],
-    hrm: DenuoHrmRootBinding,
-    hnsa: DenuoHnsaEndpointBinding,
+    hrm: ShakescapeHrmRootBinding,
+    hnsa: ShakescapeHnsaEndpointBinding,
     maximum_receipt_lifetime_seconds: u32,
     fingerprint: [u8; 32],
 }
 
-impl DenuoPublicationAcceptancePolicy {
+impl ShakescapePublicationAcceptancePolicy {
     pub fn new(
         network: NetworkBinding,
-        hrm: DenuoHrmRootBinding,
-        hnsa: DenuoHnsaEndpointBinding,
+        hrm: ShakescapeHrmRootBinding,
+        hnsa: ShakescapeHnsaEndpointBinding,
         maximum_receipt_lifetime_seconds: u32,
     ) -> Result<Self> {
         let mut policy = Self {
@@ -93,11 +93,11 @@ impl DenuoPublicationAcceptancePolicy {
         }
     }
 
-    pub const fn hrm(&self) -> &DenuoHrmRootBinding {
+    pub const fn hrm(&self) -> &ShakescapeHrmRootBinding {
         &self.hrm
     }
 
-    pub const fn hnsa(&self) -> &DenuoHnsaEndpointBinding {
+    pub const fn hnsa(&self) -> &ShakescapeHnsaEndpointBinding {
         &self.hnsa
     }
 
@@ -123,11 +123,11 @@ impl DenuoPublicationAcceptancePolicy {
             || self.hnsa.endpoint_sequence == 0
             || VerifyingKey::from_sec1_bytes(&self.hnsa.endpoint_public_key).is_err()
             || self.hnsa.effective_not_before_unix >= self.hnsa.effective_expires_at_unix
-            || !(1..=MAX_DENUO_PUBLICATION_ACCEPTANCE_LIFETIME_SECONDS)
+            || !(1..=MAX_SHAKESCAPE_PUBLICATION_ACCEPTANCE_LIFETIME_SECONDS)
                 .contains(&self.maximum_receipt_lifetime_seconds)
         {
             return Err(MarketplaceError::Invalid(
-                "invalid Denuo publication acceptance policy",
+                "invalid Shakescape publication acceptance policy",
             ));
         }
         Ok(())
@@ -167,14 +167,14 @@ impl DenuoPublicationAcceptancePolicy {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum DenuoPublicationMessageKind {
+pub enum ShakescapePublicationMessageKind {
     Offer,
     Cancellation,
 }
 
 /// Exact durable wallet handoff fields covered by an endpoint receipt.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DenuoPublicationAcceptanceExpectation {
+pub struct ShakescapePublicationAcceptanceExpectation {
     pub network_magic: u32,
     pub network_genesis: [u8; 32],
     pub attempt_id: [u8; 32],
@@ -183,26 +183,26 @@ pub struct DenuoPublicationAcceptanceExpectation {
     pub envelope_id: [u8; 32],
     pub envelope_digest: [u8; 32],
     pub content_id: [u8; 32],
-    pub message_kind: DenuoPublicationMessageKind,
+    pub message_kind: ShakescapePublicationMessageKind,
     pub request_id: u64,
 }
 
 /// Canonically decoded and endpoint-signature-verified relay receipt.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VerifiedDenuoPublicationAcceptance {
-    policy: DenuoPublicationAcceptancePolicy,
-    expectation: DenuoPublicationAcceptanceExpectation,
+pub struct VerifiedShakescapePublicationAcceptance {
+    policy: ShakescapePublicationAcceptancePolicy,
+    expectation: ShakescapePublicationAcceptanceExpectation,
     issued_at_unix: u64,
     expires_at_unix: u64,
     receipt_id: [u8; 32],
 }
 
-impl VerifiedDenuoPublicationAcceptance {
-    pub const fn policy(&self) -> &DenuoPublicationAcceptancePolicy {
+impl VerifiedShakescapePublicationAcceptance {
+    pub const fn policy(&self) -> &ShakescapePublicationAcceptancePolicy {
         &self.policy
     }
 
-    pub const fn expectation(&self) -> DenuoPublicationAcceptanceExpectation {
+    pub const fn expectation(&self) -> ShakescapePublicationAcceptanceExpectation {
         self.expectation
     }
 
@@ -221,17 +221,17 @@ impl VerifiedDenuoPublicationAcceptance {
 
 #[derive(Clone)]
 struct ParsedAcceptance {
-    policy: DenuoPublicationAcceptancePolicy,
-    expectation: DenuoPublicationAcceptanceExpectation,
+    policy: ShakescapePublicationAcceptancePolicy,
+    expectation: ShakescapePublicationAcceptanceExpectation,
     issued_at_unix: u64,
     expires_at_unix: u64,
     signature: Vec<u8>,
 }
 
 /// Create a canonical, low-S DER endpoint receipt for one exact handoff.
-pub fn sign_denuo_publication_acceptance(
-    policy: &DenuoPublicationAcceptancePolicy,
-    expectation: DenuoPublicationAcceptanceExpectation,
+pub fn sign_shakescape_publication_acceptance(
+    policy: &ShakescapePublicationAcceptancePolicy,
+    expectation: ShakescapePublicationAcceptanceExpectation,
     issued_at_unix: u64,
     expires_at_unix: u64,
     endpoint_private_key: &[u8; 32],
@@ -267,24 +267,24 @@ pub fn sign_denuo_publication_acceptance(
             .map_err(|_| MarketplaceError::InvalidSignature)?,
     );
     receipt.extend_from_slice(&parsed.signature);
-    if receipt.len() > MAX_DENUO_PUBLICATION_ACCEPTANCE_BYTES {
+    if receipt.len() > MAX_SHAKESCAPE_PUBLICATION_ACCEPTANCE_BYTES {
         return Err(MarketplaceError::TooLarge {
             actual: receipt.len(),
-            maximum: MAX_DENUO_PUBLICATION_ACCEPTANCE_BYTES,
+            maximum: MAX_SHAKESCAPE_PUBLICATION_ACCEPTANCE_BYTES,
         });
     }
     Ok(receipt)
 }
 
 /// Decode, canonicalize, and verify one endpoint receipt.
-pub fn verify_denuo_publication_acceptance(
+pub fn verify_shakescape_publication_acceptance(
     receipt_bytes: &[u8],
-) -> Result<VerifiedDenuoPublicationAcceptance> {
+) -> Result<VerifiedShakescapePublicationAcceptance> {
     let parsed = parse_and_verify(receipt_bytes)?;
     let mut hasher = Sha256::new();
     hasher.update(ACCEPTANCE_ID_DOMAIN);
     hasher.update(receipt_bytes);
-    Ok(VerifiedDenuoPublicationAcceptance {
+    Ok(VerifiedShakescapePublicationAcceptance {
         policy: parsed.policy,
         expectation: parsed.expectation,
         issued_at_unix: parsed.issued_at_unix,
@@ -295,29 +295,30 @@ pub fn verify_denuo_publication_acceptance(
 
 /// Verify and bind a receipt to the caller's exact configured policy, durable
 /// handoff, and trusted acceptance time.
-pub fn verify_expected_denuo_publication_acceptance(
-    policy: &DenuoPublicationAcceptancePolicy,
-    expectation: DenuoPublicationAcceptanceExpectation,
+pub fn verify_expected_shakescape_publication_acceptance(
+    policy: &ShakescapePublicationAcceptancePolicy,
+    expectation: ShakescapePublicationAcceptanceExpectation,
     receipt_bytes: &[u8],
     accepted_at_unix: u64,
-) -> Result<VerifiedDenuoPublicationAcceptance> {
-    let verified = verify_denuo_publication_acceptance(receipt_bytes)?;
+) -> Result<VerifiedShakescapePublicationAcceptance> {
+    let verified = verify_shakescape_publication_acceptance(receipt_bytes)?;
     if verified.policy != *policy
         || verified.expectation != expectation
         || verified.issued_at_unix != accepted_at_unix
         || accepted_at_unix < expectation.prepared_at_unix
     {
         return Err(MarketplaceError::Invalid(
-            "Denuo publication acceptance does not match its handoff",
+            "Shakescape publication acceptance does not match its handoff",
         ));
     }
     Ok(verified)
 }
 
 fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
-    if receipt_bytes.is_empty() || receipt_bytes.len() > MAX_DENUO_PUBLICATION_ACCEPTANCE_BYTES {
+    if receipt_bytes.is_empty() || receipt_bytes.len() > MAX_SHAKESCAPE_PUBLICATION_ACCEPTANCE_BYTES
+    {
         return Err(MarketplaceError::Invalid(
-            "invalid Denuo publication acceptance size",
+            "invalid Shakescape publication acceptance size",
         ));
     }
     let mut decoder = Decoder::new(receipt_bytes);
@@ -329,7 +330,7 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
     }
     let network_magic = decoder.u32()?;
     let network_genesis = decoder.hash()?;
-    let hrm = DenuoHrmRootBinding {
+    let hrm = ShakescapeHrmRootBinding {
         subject: decoder.hash()?,
         sequence: decoder.u64()?,
         envelope_hash: decoder.hash()?,
@@ -339,7 +340,7 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
     };
     let name_length = usize::from(decoder.u8()?);
     let canonical_service_name = decoder.take(name_length)?.to_vec();
-    let hnsa = DenuoHnsaEndpointBinding {
+    let hnsa = ShakescapeHnsaEndpointBinding {
         canonical_service_name,
         application_profile_id: decoder.u16()?,
         service_resource_id: decoder.hash()?,
@@ -352,7 +353,7 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
         effective_expires_at_unix: decoder.u64()?,
     };
     let maximum_receipt_lifetime_seconds = decoder.u32()?;
-    let policy = DenuoPublicationAcceptancePolicy::new(
+    let policy = ShakescapePublicationAcceptancePolicy::new(
         NetworkBinding {
             magic: network_magic,
             genesis: BlockHash::new(network_genesis),
@@ -362,7 +363,7 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
         maximum_receipt_lifetime_seconds,
     )?;
     let policy_fingerprint = decoder.hash()?;
-    let expectation = DenuoPublicationAcceptanceExpectation {
+    let expectation = ShakescapePublicationAcceptanceExpectation {
         network_magic,
         network_genesis,
         attempt_id: decoder.hash()?,
@@ -372,8 +373,8 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
         envelope_digest: decoder.hash()?,
         content_id: decoder.hash()?,
         message_kind: match decoder.u8()? {
-            1 => DenuoPublicationMessageKind::Offer,
-            2 => DenuoPublicationMessageKind::Cancellation,
+            1 => ShakescapePublicationMessageKind::Offer,
+            2 => ShakescapePublicationMessageKind::Cancellation,
             _ => return Err(invalid_receipt()),
         },
         request_id: decoder.u64()?,
@@ -422,8 +423,8 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
 }
 
 fn require_policy_expectation(
-    policy: &DenuoPublicationAcceptancePolicy,
-    expectation: DenuoPublicationAcceptanceExpectation,
+    policy: &ShakescapePublicationAcceptancePolicy,
+    expectation: ShakescapePublicationAcceptanceExpectation,
     issued_at_unix: u64,
 ) -> Result<()> {
     if expectation.network_magic != policy.network_magic
@@ -442,7 +443,7 @@ fn require_policy_expectation(
 }
 
 fn validate_window(
-    policy: &DenuoPublicationAcceptancePolicy,
+    policy: &ShakescapePublicationAcceptancePolicy,
     issued_at_unix: u64,
     expires_at_unix: u64,
 ) -> Result<()> {
@@ -473,8 +474,8 @@ fn encode_unsigned(parsed: &ParsedAcceptance) -> Vec<u8> {
     put_hash(&mut encoded, parsed.expectation.envelope_digest);
     put_hash(&mut encoded, parsed.expectation.content_id);
     encoded.push(match parsed.expectation.message_kind {
-        DenuoPublicationMessageKind::Offer => 1,
-        DenuoPublicationMessageKind::Cancellation => 2,
+        ShakescapePublicationMessageKind::Offer => 1,
+        ShakescapePublicationMessageKind::Cancellation => 2,
     });
     put_u64(&mut encoded, parsed.expectation.request_id);
     put_u64(&mut encoded, parsed.issued_at_unix);
@@ -504,7 +505,7 @@ fn is_zero(hash: &[u8; 32]) -> bool {
 }
 
 fn invalid_receipt() -> MarketplaceError {
-    MarketplaceError::Invalid("invalid Denuo publication acceptance")
+    MarketplaceError::Invalid("invalid Shakescape publication acceptance")
 }
 
 fn put_u16(output: &mut Vec<u8>, value: u16) {
@@ -582,8 +583,8 @@ mod tests {
     use super::*;
 
     fn fixture() -> (
-        DenuoPublicationAcceptancePolicy,
-        DenuoPublicationAcceptanceExpectation,
+        ShakescapePublicationAcceptancePolicy,
+        ShakescapePublicationAcceptanceExpectation,
         [u8; 32],
     ) {
         let private_key = [0x42; 32];
@@ -598,9 +599,9 @@ mod tests {
             magic: 0xae38_95cf,
             genesis: BlockHash::new([0x11; 32]),
         };
-        let policy = DenuoPublicationAcceptancePolicy::new(
+        let policy = ShakescapePublicationAcceptancePolicy::new(
             network,
-            DenuoHrmRootBinding {
+            ShakescapeHrmRootBinding {
                 subject: [0x12; 32],
                 sequence: 7,
                 envelope_hash: [0x13; 32],
@@ -608,8 +609,8 @@ mod tests {
                 chain_work_be: [0x14; 32],
                 chain_anchor: [0x15; 32],
             },
-            DenuoHnsaEndpointBinding {
-                canonical_service_name: b"denuo-relay".to_vec(),
+            ShakescapeHnsaEndpointBinding {
+                canonical_service_name: b"shakescape-relay".to_vec(),
                 application_profile_id: 7,
                 service_resource_id: [0x16; 32],
                 service_delegation_id: [0x17; 32],
@@ -623,7 +624,7 @@ mod tests {
             300,
         )
         .expect("policy");
-        let expectation = DenuoPublicationAcceptanceExpectation {
+        let expectation = ShakescapePublicationAcceptanceExpectation {
             network_magic: network.magic,
             network_genesis: *network.genesis.as_bytes(),
             attempt_id: [0x21; 32],
@@ -632,7 +633,7 @@ mod tests {
             envelope_id: [0x22; 32],
             envelope_digest: [0x23; 32],
             content_id: [0x24; 32],
-            message_kind: DenuoPublicationMessageKind::Offer,
+            message_kind: ShakescapePublicationMessageKind::Offer,
             request_id: 9,
         };
         (policy, expectation, private_key)
@@ -641,7 +642,7 @@ mod tests {
     #[test]
     fn endpoint_receipt_is_canonical_exact_and_handoff_bound() {
         let (policy, expectation, private_key) = fixture();
-        let receipt = sign_denuo_publication_acceptance(
+        let receipt = sign_shakescape_publication_acceptance(
             &policy,
             expectation,
             1_700_000_011,
@@ -649,7 +650,7 @@ mod tests {
             &private_key,
         )
         .expect("receipt");
-        let verified = verify_expected_denuo_publication_acceptance(
+        let verified = verify_expected_shakescape_publication_acceptance(
             &policy,
             expectation,
             &receipt,
@@ -665,19 +666,24 @@ mod tests {
         let mut wrong = expectation;
         wrong.content_id[0] ^= 1;
         assert!(
-            verify_expected_denuo_publication_acceptance(&policy, wrong, &receipt, 1_700_000_011,)
-                .is_err()
+            verify_expected_shakescape_publication_acceptance(
+                &policy,
+                wrong,
+                &receipt,
+                1_700_000_011,
+            )
+            .is_err()
         );
         let mut noncanonical = receipt;
         noncanonical.push(0);
-        assert!(verify_denuo_publication_acceptance(&noncanonical).is_err());
+        assert!(verify_shakescape_publication_acceptance(&noncanonical).is_err());
     }
 
     #[test]
     fn endpoint_key_and_receipt_window_fail_closed() {
         let (policy, expectation, _) = fixture();
         assert!(
-            sign_denuo_publication_acceptance(
+            sign_shakescape_publication_acceptance(
                 &policy,
                 expectation,
                 1_700_000_011,
@@ -687,7 +693,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            sign_denuo_publication_acceptance(
+            sign_shakescape_publication_acceptance(
                 &policy,
                 expectation,
                 1_700_000_011,

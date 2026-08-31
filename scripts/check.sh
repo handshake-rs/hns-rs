@@ -69,18 +69,12 @@ assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt \
 assert_same_file fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256 \
   crates/hns-hnsr-protocol/fixtures/hnsa-hnsr-v3/hnsa-hnsr-v3.txt.sha256
 (cd fixtures/hnsa-hnsr-v3 && sha256sum --check hnsa-hnsr-v3.txt.sha256)
-assert_same_file registry/denuo-experimental-v1.toml \
-  crates/hns-p2p-experimental/registry/denuo-experimental-v1.toml
-assert_same_file registry/denuo-experimental-v1.bin \
-  crates/hns-p2p-experimental/registry/denuo-experimental-v1.bin
-assert_same_file registry/denuo-experimental-v1.sha256 \
-  crates/hns-p2p-experimental/registry/denuo-experimental-v1.sha256
-assert_same_file registry/denuo-experimental-v2.toml \
-  crates/hns-p2p-experimental/registry/denuo-experimental-v2.toml
-assert_same_file registry/denuo-experimental-v2.bin \
-  crates/hns-p2p-experimental/registry/denuo-experimental-v2.bin
-assert_same_file registry/denuo-experimental-v2.sha256 \
-  crates/hns-p2p-experimental/registry/denuo-experimental-v2.sha256
+assert_same_file registry/shakescape-experimental-v1.toml \
+  crates/hns-p2p-experimental/registry/shakescape-experimental-v1.toml
+assert_same_file registry/shakescape-experimental-v1.bin \
+  crates/hns-p2p-experimental/registry/shakescape-experimental-v1.bin
+assert_same_file registry/shakescape-experimental-v1.sha256 \
+  crates/hns-p2p-experimental/registry/shakescape-experimental-v1.sha256
 assert_same_file registry/hnsr-service-profiles-v1.toml \
   crates/hns-p2p-experimental/registry/hnsr-service-profiles-v1.toml
 assert_same_file registry/hnsr-service-profiles-v1.bin \

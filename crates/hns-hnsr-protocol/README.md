@@ -204,7 +204,7 @@ from a current `hnschat` resource and canonical single-key owner output while
 using `chat` as its HNSA service name. The dotted profile label is a separate
 layer and does not weaken or change generic `hsa1` verification.
 
-**The associated Denuo wire assignments are experimental and are not official
+**The associated Shakescape wire assignments are experimental and are not official
 Handshake protocol assignments.**
 
 The service types and snapshots are not by themselves a deployed relay.

@@ -1,15 +1,15 @@
 #![doc = "Canonical Handshake marketplace and bilateral cross-chain wire protocols."]
 
 mod crypto;
-mod denuo;
 mod direct;
 mod relay_acceptance;
+mod shakescape;
 mod swap;
 mod types;
 
-pub use denuo::*;
 pub use direct::*;
 pub use relay_acceptance::*;
+pub use shakescape::*;
 pub use swap::*;
 pub use types::*;
 
@@ -49,7 +49,7 @@ pub enum MarketplaceError {
     Expired { expires_at: u64, now: u64 },
     #[error("marketplace object hash differs from its canonical fields")]
     HashMismatch,
-    #[error("Denuo message type {message_type} is unknown for protocol {protocol_id}")]
+    #[error("Shakescape message type {message_type} is unknown for protocol {protocol_id}")]
     UnknownMessage { protocol_id: u16, message_type: u16 },
 }
 

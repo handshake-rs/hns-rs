@@ -64,7 +64,7 @@ source, not the tag target. The remote tag-object identity was confirmed with
 
 ## 0.2.0 publication record
 
-The marketplace/Denuo V2 source advances the shared workspace and every
+The marketplace protocol source advances the shared workspace and every
 internal dependency requirement to `0.2.0`. This is necessary because the new
 marketplace crate consumes `hns-swap` and `hns-p2p-experimental` APIs that do
 not exist in their permanent crates.io `0.1.0` packages. Local publication

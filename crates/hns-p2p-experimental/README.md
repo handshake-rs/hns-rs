@@ -1,12 +1,12 @@
 # hns-p2p-experimental
 
-Production implementation of Denuo Experimental V1 and V2 assignments,
+Production implementation of Shakescape Experimental V1 assignments,
 negotiation, and bounded envelopes.
 
-This crate contains the versioned Denuo extension registry, semantic wire
+This crate contains the versioned Shakescape extension registry, semantic wire
 profiles, peer negotiation, and extension framing.
 
-**Denuo Experimental V1 and V2 are not official Handshake protocol assignments.**
+**Shakescape Experimental V1 is not an official Handshake protocol assignment.**
 The name describes the private assignment namespace, not prototype status.
 
 ```bash

@@ -1,6 +1,6 @@
 # Draft HIP #76 compatibility
 
-Status: **Denuo Experimental V1 — Not an official Handshake protocol
+Status: **Shakescape Experimental V1 — Not an official Handshake protocol
 assignment**.
 
 `hns-dns-relay-protocol` implements the bounded request and response payloads

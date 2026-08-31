@@ -5,7 +5,7 @@
   platform ABIs, browser code, and MeshMine.
 - Bound every wire allocation before allocating and require complete input
   consumption.
-- Refer to packet and service assignments semantically. Never describe Denuo
+- Refer to packet and service assignments semantically. Never describe Shakescape
   Experimental V1 values as official Handshake assignments.
 - Do not push from this repository.
 

@@ -4,10 +4,10 @@ use hns_primitives::RegistryFingerprint;
 use thiserror::Error;
 
 use crate::assignment::{
-    DENUO_EXTENSION_PACKET, DENUO_EXTENSION_SERVICE, DNS_RELAY_REQUEST_PACKET,
-    DNS_RELAY_RESPONSE_PACKET, DNS_RELAY_SERVICE, ExperimentalWireProfile, HNSR_PACKET,
-    HNSR_RELAY_SERVICE, HNSR_RENDEZVOUS_SERVICE, Network, ODOH_PACKET, ODOH_SERVICE, PacketType,
-    ServiceBit, ServiceMask,
+    DNS_RELAY_REQUEST_PACKET, DNS_RELAY_RESPONSE_PACKET, DNS_RELAY_SERVICE,
+    ExperimentalWireProfile, HNSR_PACKET, HNSR_RELAY_SERVICE, HNSR_RENDEZVOUS_SERVICE, Network,
+    ODOH_PACKET, ODOH_SERVICE, PacketType, SHAKESCAPE_EXTENSION_PACKET,
+    SHAKESCAPE_EXTENSION_SERVICE, ServiceBit, ServiceMask,
 };
 use crate::negotiation::NegotiatedRegistry;
 use crate::policy::{DnsRelayOutputPolicy, DnsRelayRequesterPolicy};
@@ -17,7 +17,7 @@ pub enum PeerProtocol {
     DnsRelay,
     ObliviousDns,
     Hnsr,
-    DenuoExtension,
+    ShakescapeExtension,
 }
 
 impl PeerProtocol {
@@ -26,7 +26,7 @@ impl PeerProtocol {
             Self::DnsRelay => DNS_RELAY_SERVICE,
             Self::ObliviousDns => ODOH_SERVICE,
             Self::Hnsr => HNSR_RENDEZVOUS_SERVICE,
-            Self::DenuoExtension => DENUO_EXTENSION_SERVICE,
+            Self::ShakescapeExtension => SHAKESCAPE_EXTENSION_SERVICE,
         }
     }
 }
@@ -141,7 +141,7 @@ impl ExperimentalPeerState {
             self.disabled.insert(protocol);
             return Err(PeerProtocolError::LocalDnsRelayBackendNotReady);
         }
-        if self.requires_registry() && !local_services.contains(DENUO_EXTENSION_SERVICE) {
+        if self.requires_registry() && !local_services.contains(SHAKESCAPE_EXTENSION_SERVICE) {
             self.disabled.insert(protocol);
             return Err(PeerProtocolError::LocalDnsRelayRegistryNotAdvertised);
         }
@@ -196,9 +196,7 @@ impl ExperimentalPeerState {
     pub fn validate_advertisements(&self) -> Result<(), PeerProtocolError> {
         if !matches!(
             self.profile,
-            ExperimentalWireProfile::DenuoV1
-                | ExperimentalWireProfile::DenuoV2
-                | ExperimentalWireProfile::Auto
+            ExperimentalWireProfile::ShakescapeV1 | ExperimentalWireProfile::Auto
         ) {
             return Ok(());
         }
@@ -206,7 +204,7 @@ impl ExperimentalPeerState {
             || self.services.contains(ODOH_SERVICE)
             || self.services.contains(HNSR_RENDEZVOUS_SERVICE)
             || self.services.contains(HNSR_RELAY_SERVICE);
-        if advertises_private_role && !self.services.contains(DENUO_EXTENSION_SERVICE) {
+        if advertises_private_role && !self.services.contains(SHAKESCAPE_EXTENSION_SERVICE) {
             return Err(PeerProtocolError::AdvertisedServiceWithoutRegistry);
         }
         Ok(())
@@ -254,12 +252,14 @@ impl ExperimentalPeerState {
         &mut self,
         protocol: PeerProtocol,
     ) -> Result<(), PeerProtocolError> {
-        if !self.requires_registry() || protocol == PeerProtocol::DenuoExtension {
+        if !self.requires_registry() || protocol == PeerProtocol::ShakescapeExtension {
             return Ok(());
         }
-        if !self.services.contains(DENUO_EXTENSION_SERVICE) {
+        if !self.services.contains(SHAKESCAPE_EXTENSION_SERVICE) {
             self.disabled.insert(protocol);
-            return Err(PeerProtocolError::MissingDenuoExtensionService(protocol));
+            return Err(PeerProtocolError::MissingShakescapeExtensionService(
+                protocol,
+            ));
         }
         let Some(negotiated) = &self.negotiated else {
             self.disabled.insert(protocol);
@@ -275,9 +275,7 @@ impl ExperimentalPeerState {
     const fn requires_registry(&self) -> bool {
         matches!(
             self.profile,
-            ExperimentalWireProfile::DenuoV1
-                | ExperimentalWireProfile::DenuoV2
-                | ExperimentalWireProfile::Auto
+            ExperimentalWireProfile::ShakescapeV1 | ExperimentalWireProfile::Auto
         )
     }
 }
@@ -287,7 +285,7 @@ fn protocol_for_packet(packet: PacketType) -> Option<PeerProtocol> {
         DNS_RELAY_REQUEST_PACKET | DNS_RELAY_RESPONSE_PACKET => Some(PeerProtocol::DnsRelay),
         ODOH_PACKET => Some(PeerProtocol::ObliviousDns),
         HNSR_PACKET => Some(PeerProtocol::Hnsr),
-        DENUO_EXTENSION_PACKET => Some(PeerProtocol::DenuoExtension),
+        SHAKESCAPE_EXTENSION_PACKET => Some(PeerProtocol::ShakescapeExtension),
         _ => None,
     }
 }
@@ -305,8 +303,8 @@ pub enum PeerProtocolError {
     },
     #[error("HNSR packet arrived without a rendezvous or relay service")]
     HnsrPacketWithoutService,
-    #[error("peer advertises {0:?} without the Denuo extension service")]
-    MissingDenuoExtensionService(PeerProtocol),
+    #[error("peer advertises {0:?} without the Shakescape extension service")]
+    MissingShakescapeExtensionService(PeerProtocol),
     #[error("peer advertises a private service without registry negotiation support")]
     AdvertisedServiceWithoutRegistry,
     #[error("registry negotiation has not completed for {0:?}")]
@@ -319,7 +317,7 @@ pub enum PeerProtocolError {
     LocalDnsRelayServiceNotAdvertised,
     #[error("local HIP-76 output backend is not ready")]
     LocalDnsRelayBackendNotReady,
-    #[error("local HIP-76 output service is advertised without Denuo registry support")]
+    #[error("local HIP-76 output service is advertised without Shakescape registry support")]
     LocalDnsRelayRegistryNotAdvertised,
     #[error("registry fingerprint differs")]
     WrongFingerprint,
@@ -337,7 +335,7 @@ mod tests {
 
     fn state(services: ServiceMask) -> ExperimentalPeerState {
         ExperimentalPeerState::new(
-            ExperimentalWireProfile::DenuoV1,
+            ExperimentalWireProfile::ShakescapeV1,
             Network::Regtest,
             [2; 32],
             RegistryFingerprint::new([1; 32]),
@@ -374,10 +372,10 @@ mod tests {
     }
 
     #[test]
-    fn denuo_packets_require_service_connection_and_registry() {
+    fn shakescape_packets_require_service_connection_and_registry() {
         let services = ServiceMask::default()
             .with(DNS_RELAY_SERVICE)
-            .with(DENUO_EXTENSION_SERVICE);
+            .with(SHAKESCAPE_EXTENSION_SERVICE);
         let mut peer = state(services);
         assert_eq!(
             peer.admit_packet(DNS_RELAY_REQUEST_PACKET),
@@ -406,7 +404,7 @@ mod tests {
     fn outbound_request_requires_requester_eligibility_and_remote_provider() {
         let remote_provider = ServiceMask::default()
             .with(DNS_RELAY_SERVICE)
-            .with(DENUO_EXTENSION_SERVICE);
+            .with(SHAKESCAPE_EXTENSION_SERVICE);
         let mut peer = ready_peer(remote_provider);
         assert_eq!(
             peer.admit_outbound_dns_relay_request(DnsRelayRequesterPolicy::Auto),
@@ -420,7 +418,7 @@ mod tests {
         );
         assert!(!peer.is_disabled(PeerProtocol::DnsRelay));
 
-        let mut peer = ready_peer(ServiceMask::default().with(DENUO_EXTENSION_SERVICE));
+        let mut peer = ready_peer(ServiceMask::default().with(SHAKESCAPE_EXTENSION_SERVICE));
         assert!(matches!(
             peer.admit_outbound_dns_relay_request(DnsRelayRequesterPolicy::Required),
             Err(PeerProtocolError::PacketWithoutService {
@@ -433,10 +431,10 @@ mod tests {
 
     #[test]
     fn inbound_request_uses_local_provider_evidence_not_requester_service() {
-        let requester_services = ServiceMask::default().with(DENUO_EXTENSION_SERVICE);
+        let requester_services = ServiceMask::default().with(SHAKESCAPE_EXTENSION_SERVICE);
         let local_services = ServiceMask::default()
             .with(DNS_RELAY_SERVICE)
-            .with(DENUO_EXTENSION_SERVICE);
+            .with(SHAKESCAPE_EXTENSION_SERVICE);
         let mut peer = ready_peer(requester_services);
         assert_eq!(
             peer.admit_inbound_dns_relay_request(local_services, dns_relay_output(true), true,),
@@ -446,10 +444,10 @@ mod tests {
 
     #[test]
     fn inbound_request_requires_opt_in_advertisement_and_ready_backend() {
-        let requester_services = ServiceMask::default().with(DENUO_EXTENSION_SERVICE);
+        let requester_services = ServiceMask::default().with(SHAKESCAPE_EXTENSION_SERVICE);
         let local_services = ServiceMask::default()
             .with(DNS_RELAY_SERVICE)
-            .with(DENUO_EXTENSION_SERVICE);
+            .with(SHAKESCAPE_EXTENSION_SERVICE);
 
         let mut peer = ready_peer(requester_services);
         assert_eq!(
@@ -460,7 +458,7 @@ mod tests {
         let mut peer = ready_peer(requester_services);
         assert_eq!(
             peer.admit_inbound_dns_relay_request(
-                ServiceMask::default().with(DENUO_EXTENSION_SERVICE),
+                ServiceMask::default().with(SHAKESCAPE_EXTENSION_SERVICE),
                 dns_relay_output(true),
                 true,
             ),
@@ -488,7 +486,7 @@ mod tests {
 
     #[test]
     fn packet_collision_disables_only_affected_experiment() {
-        let services = ServiceMask::default().with(DENUO_EXTENSION_SERVICE);
+        let services = ServiceMask::default().with(SHAKESCAPE_EXTENSION_SERVICE);
         let mut peer = state(services);
         peer.mark_established();
         peer.install_negotiation(negotiated()).expect("matches");
@@ -512,7 +510,7 @@ mod tests {
     fn hnsr_packet_accepts_either_negotiated_wire_role() {
         for service in [HNSR_RENDEZVOUS_SERVICE, HNSR_RELAY_SERVICE] {
             let services = ServiceMask::default()
-                .with(DENUO_EXTENSION_SERVICE)
+                .with(SHAKESCAPE_EXTENSION_SERVICE)
                 .with(service);
             let mut peer = state(services);
             peer.mark_established();
@@ -523,7 +521,7 @@ mod tests {
             );
         }
 
-        let mut peer = state(ServiceMask::default().with(DENUO_EXTENSION_SERVICE));
+        let mut peer = state(ServiceMask::default().with(SHAKESCAPE_EXTENSION_SERVICE));
         peer.mark_established();
         peer.install_negotiation(negotiated()).expect("matches");
         assert_eq!(
@@ -554,6 +552,6 @@ mod tests {
     #[test]
     fn peer_profile_is_available_for_exact_transport_binding() {
         let peer = state(ServiceMask::default());
-        assert_eq!(peer.profile(), ExperimentalWireProfile::DenuoV1);
+        assert_eq!(peer.profile(), ExperimentalWireProfile::ShakescapeV1);
     }
 }

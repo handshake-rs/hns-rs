@@ -4,7 +4,7 @@ Canonical Rust protocol primitives for the Handshake ecosystem.
 
 This production protocol workspace is intentionally independent of async
 runtimes, databases, wallets, browser shells, and mining applications. Private
-peer-to-peer assignments retain the name **Denuo Experimental — not official
+peer-to-peer assignments retain the name **Shakescape Experimental — not official
 Handshake protocol assignments**; that label describes assignment governance,
 not implementation maturity. Registry V2 is additive and preserves the exact
 V1 identity.
@@ -38,14 +38,14 @@ The implemented protocol layer contains:
 - HSD-compatible block commitments, subsidy/coinbase vectors, and immutable
   opened-mask mining jobs;
 - a bounded cross-protocol production-parser mutation and libFuzzer harness;
-- the canonical Denuo Experimental Handshake P2P Registries v1 and v2;
+- the canonical Shakescape Experimental Handshake P2P Registry v1;
 - deterministic-CBOR Handshake Resource Manifest commitments, envelopes,
   controller signatures, resources, delegations, and bounded validation;
 - a canonical external anti-rollback journal contract with exact fenced
   transitions, sealed recovery snapshots, and explicit native/browser/mobile
   protection boundaries;
 - semantic wire-assignment profiles;
-- the versioned Denuo extension envelope and registry negotiation messages;
+- the versioned Shakescape extension envelope and registry negotiation messages;
 - HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
   #79 legacy HNSA compatibility objects, the HRM-backed
   `hns.named-service/v1` profile and endpoint authority, and explicitly

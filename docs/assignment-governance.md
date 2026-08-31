@@ -1,4 +1,4 @@
-# Private Denuo assignment governance
+# Private Shakescape assignment governance
 
 The canonical registry is append-only within each version. V2 retains every V1
 service, packet, and active protocol assignment before narrowing a previously

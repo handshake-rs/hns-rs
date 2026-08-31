@@ -6,20 +6,17 @@ pub use crate::negotiation::{
     REGISTRY_NEGOTIATION_MAX_PAYLOAD, REGISTRY_NEGOTIATION_PROTOCOL_ID,
     REGISTRY_NEGOTIATION_PROTOCOL_VERSION,
 };
-use crate::registry::{
-    DENUO_V1_REGISTRY_FINGERPRINT, DENUO_V1_REGISTRY_VERSION, DENUO_V2_REGISTRY_FINGERPRINT,
-    DENUO_V2_REGISTRY_VERSION,
-};
+use crate::registry::{SHAKESCAPE_V1_REGISTRY_FINGERPRINT, SHAKESCAPE_V1_REGISTRY_VERSION};
 
-pub const DENUO_ENVELOPE_MAGIC: [u8; 4] = *b"DNU1";
-pub const DENUO_ENVELOPE_OVERHEAD: usize = 26;
-pub const DENUO_EXTENSION_MAX_PACKET_PAYLOAD: usize = 1_048_576;
-pub const DENUO_EXTENSION_MAX_NESTED_PAYLOAD: usize =
-    DENUO_EXTENSION_MAX_PACKET_PAYLOAD - DENUO_ENVELOPE_OVERHEAD;
-pub const DEFAULT_MAX_DENUO_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
+pub const SHAKESCAPE_ENVELOPE_MAGIC: [u8; 4] = *b"SKX1";
+pub const SHAKESCAPE_ENVELOPE_OVERHEAD: usize = 26;
+pub const SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD: usize = 1_048_576;
+pub const SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD: usize =
+    SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD - SHAKESCAPE_ENVELOPE_OVERHEAD;
+pub const DEFAULT_MAX_SHAKESCAPE_PAYLOAD: usize = SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const ATOMIC_MARKET_PROTOCOL_ID: u16 = 0x0001;
 pub const ATOMIC_MARKET_PROTOCOL_VERSION: u16 = 1;
-pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = DENUO_EXTENSION_MAX_NESTED_PAYLOAD;
+pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const CROSS_CHAIN_MARKET_PROTOCOL_ID: u16 = 0x0002;
 /// Version 3 adds receiver-signed durable watch readiness before first-chain
 /// funding. Version 2 peers fail negotiation cleanly instead of interpreting
@@ -44,7 +41,7 @@ const REGISTRY_HELLO_ACK_MESSAGE_TYPE: u16 = 2;
 const REGISTRY_REJECT_MESSAGE_TYPE: u16 = 3;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DenuoExtensionEnvelope {
+pub struct ShakescapeExtensionEnvelope {
     pub registry_version: u16,
     pub protocol_id: u16,
     pub protocol_version: u16,
@@ -54,13 +51,13 @@ pub struct DenuoExtensionEnvelope {
     pub payload: Vec<u8>,
 }
 
-impl DenuoExtensionEnvelope {
+impl ShakescapeExtensionEnvelope {
     pub fn registry_hello(
         request_id: u64,
         hello: &RegistryHello,
     ) -> Result<Self, RegistryEnvelopeError> {
         Self::registry_message(
-            DENUO_V1_REGISTRY_VERSION,
+            SHAKESCAPE_V1_REGISTRY_VERSION,
             REGISTRY_HELLO_MESSAGE_TYPE,
             request_id,
             hello,
@@ -72,31 +69,7 @@ impl DenuoExtensionEnvelope {
         hello: &RegistryHello,
     ) -> Result<Self, RegistryEnvelopeError> {
         Self::registry_message(
-            DENUO_V1_REGISTRY_VERSION,
-            REGISTRY_HELLO_ACK_MESSAGE_TYPE,
-            request_id,
-            hello,
-        )
-    }
-
-    pub fn registry_hello_v2(
-        request_id: u64,
-        hello: &RegistryHello,
-    ) -> Result<Self, RegistryEnvelopeError> {
-        Self::registry_message(
-            DENUO_V2_REGISTRY_VERSION,
-            REGISTRY_HELLO_MESSAGE_TYPE,
-            request_id,
-            hello,
-        )
-    }
-
-    pub fn registry_hello_ack_v2(
-        request_id: u64,
-        hello: &RegistryHello,
-    ) -> Result<Self, RegistryEnvelopeError> {
-        Self::registry_message(
-            DENUO_V2_REGISTRY_VERSION,
+            SHAKESCAPE_V1_REGISTRY_VERSION,
             REGISTRY_HELLO_ACK_MESSAGE_TYPE,
             request_id,
             hello,
@@ -108,7 +81,7 @@ impl DenuoExtensionEnvelope {
     ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
         Self::decode_registry_message(
             input,
-            DENUO_V1_REGISTRY_VERSION,
+            SHAKESCAPE_V1_REGISTRY_VERSION,
             KnownMessage::RegistryHello,
         )
     }
@@ -118,43 +91,23 @@ impl DenuoExtensionEnvelope {
     ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
         Self::decode_registry_message(
             input,
-            DENUO_V1_REGISTRY_VERSION,
-            KnownMessage::RegistryHelloAck,
-        )
-    }
-
-    pub fn decode_registry_hello_v2(
-        input: &[u8],
-    ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
-        Self::decode_registry_message(
-            input,
-            DENUO_V2_REGISTRY_VERSION,
-            KnownMessage::RegistryHello,
-        )
-    }
-
-    pub fn decode_registry_hello_ack_v2(
-        input: &[u8],
-    ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
-        Self::decode_registry_message(
-            input,
-            DENUO_V2_REGISTRY_VERSION,
+            SHAKESCAPE_V1_REGISTRY_VERSION,
             KnownMessage::RegistryHelloAck,
         )
     }
 
     pub fn encode_canonical(&self) -> Result<Vec<u8>, EnvelopeError> {
-        self.encode(DENUO_EXTENSION_MAX_NESTED_PAYLOAD)
+        self.encode(SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD)
     }
 
     pub fn decode_canonical(input: &[u8]) -> Result<Self, EnvelopeError> {
-        if input.len() > DENUO_EXTENSION_MAX_PACKET_PAYLOAD {
+        if input.len() > SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD {
             return Err(EnvelopeError::PacketTooLarge {
                 actual: input.len(),
-                maximum: DENUO_EXTENSION_MAX_PACKET_PAYLOAD,
+                maximum: SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD,
             });
         }
-        Self::decode(input, DENUO_EXTENSION_MAX_NESTED_PAYLOAD)
+        Self::decode(input, SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD)
     }
 
     pub fn encode(&self, maximum_payload: usize) -> Result<Vec<u8>, EnvelopeError> {
@@ -165,8 +118,8 @@ impl DenuoExtensionEnvelope {
                 actual: self.payload.len(),
                 maximum: maximum_payload.min(u32::MAX as usize),
             })?;
-        let mut encoder = Encoder::with_capacity(DENUO_ENVELOPE_OVERHEAD + self.payload.len());
-        encoder.put_bytes(&DENUO_ENVELOPE_MAGIC);
+        let mut encoder = Encoder::with_capacity(SHAKESCAPE_ENVELOPE_OVERHEAD + self.payload.len());
+        encoder.put_bytes(&SHAKESCAPE_ENVELOPE_MAGIC);
         encoder.put_u16_le(self.registry_version);
         encoder.put_u16_le(self.protocol_id);
         encoder.put_u16_le(self.protocol_version);
@@ -181,7 +134,7 @@ impl DenuoExtensionEnvelope {
     pub fn decode(input: &[u8], maximum_payload: usize) -> Result<Self, EnvelopeError> {
         let mut decoder = Decoder::new(input);
         let magic = decoder.read_array::<4>()?;
-        if magic != DENUO_ENVELOPE_MAGIC {
+        if magic != SHAKESCAPE_ENVELOPE_MAGIC {
             return Err(EnvelopeError::WrongMagic(magic));
         }
         let registry_version = decoder.read_u16_le()?;
@@ -219,19 +172,11 @@ impl DenuoExtensionEnvelope {
     }
 
     pub fn classify(&self) -> Result<ProtocolDisposition, EnvelopeError> {
-        if self.registry_version == DENUO_V1_REGISTRY_VERSION
-            && self.protocol_id == CROSS_CHAIN_MARKET_PROTOCOL_ID
-        {
-            return Err(EnvelopeError::ProtocolUnavailable {
-                registry_version: self.registry_version,
-                protocol_id: self.protocol_id,
-            });
-        }
         let supported_protocol_version = match self.protocol_id {
             REGISTRY_NEGOTIATION_PROTOCOL_ID => Some(REGISTRY_NEGOTIATION_PROTOCOL_VERSION),
             ATOMIC_MARKET_PROTOCOL_ID => Some(ATOMIC_MARKET_PROTOCOL_VERSION),
             CROSS_CHAIN_MARKET_PROTOCOL_ID
-                if self.registry_version == DENUO_V2_REGISTRY_VERSION =>
+                if self.registry_version == SHAKESCAPE_V1_REGISTRY_VERSION =>
             {
                 Some(CROSS_CHAIN_MARKET_PROTOCOL_VERSION)
             }
@@ -271,57 +216,57 @@ impl DenuoExtensionEnvelope {
             (_, ATOMIC_MARKET_PROTOCOL_ID, 7) => Some(KnownMessage::Offer),
             (_, ATOMIC_MARKET_PROTOCOL_ID, 8) => Some(KnownMessage::OfferTombstone),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
             ) => Some(KnownMessage::DirectOfferInventory),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 GET_DIRECT_OFFER_MESSAGE_TYPE,
             ) => Some(KnownMessage::GetDirectOffer),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 DIRECT_OFFER_MESSAGE_TYPE,
             ) => Some(KnownMessage::DirectOffer),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 CANCEL_DIRECT_OFFER_MESSAGE_TYPE,
             ) => Some(KnownMessage::CancelDirectOffer),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 TAKE_DIRECT_OFFER_MESSAGE_TYPE,
             ) => Some(KnownMessage::TakeDirectOffer),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_SESSION_HELLO_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapSessionHello),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_FUNDING_STATUS_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapFundingStatus),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_REDEEM_STATUS_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapRedeemStatus),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_REFUND_STATUS_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapRefundStatus),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapSessionProposal),
             (
-                DENUO_V2_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 SWAP_WATCH_READY_MESSAGE_TYPE,
             ) => Some(KnownMessage::SwapWatchReady),
@@ -331,7 +276,7 @@ impl DenuoExtensionEnvelope {
                     message_type: self.message_type,
                 });
             }
-            (DENUO_V2_REGISTRY_VERSION, CROSS_CHAIN_MARKET_PROTOCOL_ID, _) => {
+            (SHAKESCAPE_V1_REGISTRY_VERSION, CROSS_CHAIN_MARKET_PROTOCOL_ID, _) => {
                 return Err(EnvelopeError::UnknownMessage {
                     protocol_id: self.protocol_id,
                     message_type: self.message_type,
@@ -399,10 +344,10 @@ impl DenuoExtensionEnvelope {
         expected_registry_version: u16,
         expected: KnownMessage,
     ) -> Result<(u64, RegistryHello), RegistryEnvelopeError> {
-        if input.len() > DENUO_EXTENSION_MAX_PACKET_PAYLOAD {
+        if input.len() > SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD {
             return Err(EnvelopeError::PacketTooLarge {
                 actual: input.len(),
-                maximum: DENUO_EXTENSION_MAX_PACKET_PAYLOAD,
+                maximum: SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD,
             }
             .into());
         }
@@ -443,8 +388,7 @@ fn validate_registry_identity(
     hello: &RegistryHello,
 ) -> Result<(), RegistryEnvelopeError> {
     let expected_fingerprint = match registry_version {
-        DENUO_V1_REGISTRY_VERSION => DENUO_V1_REGISTRY_FINGERPRINT,
-        DENUO_V2_REGISTRY_VERSION => DENUO_V2_REGISTRY_FINGERPRINT,
+        SHAKESCAPE_V1_REGISTRY_VERSION => SHAKESCAPE_V1_REGISTRY_FINGERPRINT,
         _ => {
             return Err(RegistryEnvelopeError::WrongRegistryVersion(
                 registry_version,
@@ -456,7 +400,7 @@ fn validate_registry_identity(
     {
         return Err(RegistryEnvelopeError::RegistryIdentityMismatch { registry_version });
     }
-    if registry_version == DENUO_V1_REGISTRY_VERSION
+    if registry_version == SHAKESCAPE_V1_REGISTRY_VERSION
         && hello
             .protocols
             .iter()
@@ -527,11 +471,11 @@ pub enum ProtocolDisposition {
 pub enum EnvelopeError {
     #[error(transparent)]
     Decode(#[from] DecodeError),
-    #[error("wrong Denuo envelope magic {0:?}")]
+    #[error("wrong Shakescape envelope magic {0:?}")]
     WrongMagic([u8; 4]),
     #[error("payload length {actual} exceeds maximum {maximum}")]
     PayloadTooLarge { actual: usize, maximum: usize },
-    #[error("DENUO_EXT packet payload is {actual} bytes; maximum is {maximum}")]
+    #[error("SHAKESCAPE_EXT packet payload is {actual} bytes; maximum is {maximum}")]
     PacketTooLarge { actual: usize, maximum: usize },
     #[error("declared payload length {declared} does not match {available} available bytes")]
     LengthMismatch { declared: usize, available: usize },
@@ -587,8 +531,8 @@ mod tests {
     use super::*;
     use crate::assignment::Network;
 
-    fn envelope() -> DenuoExtensionEnvelope {
-        DenuoExtensionEnvelope {
+    fn envelope() -> ShakescapeExtensionEnvelope {
+        ShakescapeExtensionEnvelope {
             registry_version: 1,
             protocol_id: ATOMIC_MARKET_PROTOCOL_ID,
             protocol_version: 1,
@@ -604,10 +548,10 @@ mod tests {
         let encoded = envelope().encode(1024).expect("valid");
         assert_eq!(
             hex::encode(&encoded),
-            "444e553101000100010006000000070000000000000002000000aabb"
+            "534b583101000100010006000000070000000000000002000000aabb"
         );
         assert_eq!(
-            DenuoExtensionEnvelope::decode(&encoded, 1024).expect("valid"),
+            ShakescapeExtensionEnvelope::decode(&encoded, 1024).expect("valid"),
             envelope()
         );
     }
@@ -616,19 +560,19 @@ mod tests {
     fn rejects_truncation_trailing_bytes_and_oversized_payloads() {
         let encoded = envelope().encode(1024).expect("valid");
         assert!(matches!(
-            DenuoExtensionEnvelope::decode(&encoded[..encoded.len() - 1], 1024),
+            ShakescapeExtensionEnvelope::decode(&encoded[..encoded.len() - 1], 1024),
             Err(EnvelopeError::LengthMismatch { .. })
         ));
 
         let mut trailing = encoded.clone();
         trailing.push(0);
         assert!(matches!(
-            DenuoExtensionEnvelope::decode(&trailing, 1024),
+            ShakescapeExtensionEnvelope::decode(&trailing, 1024),
             Err(EnvelopeError::LengthMismatch { .. })
         ));
 
         assert!(matches!(
-            DenuoExtensionEnvelope::decode(&encoded, 1),
+            ShakescapeExtensionEnvelope::decode(&encoded, 1),
             Err(EnvelopeError::PayloadTooLarge { .. })
         ));
     }
@@ -689,35 +633,30 @@ mod tests {
     }
 
     fn registry_hello() -> RegistryHello {
-        RegistryHello::denuo_v1(Network::Regtest, [8; 32], Vec::new(), 4096, 4, 3)
+        RegistryHello::shakescape_v1(Network::Regtest, [8; 32], Vec::new(), 4096, 4, 3)
             .expect("canonical registry hello")
-    }
-
-    fn registry_hello_v2() -> RegistryHello {
-        RegistryHello::denuo_v2(Network::Regtest, [8; 32], Vec::new(), 4096, 4, 3)
-            .expect("canonical V2 registry hello")
     }
 
     #[test]
     fn typed_registry_hello_and_ack_round_trip_without_private_numbers() {
         let hello = registry_hello();
         let hello_envelope =
-            DenuoExtensionEnvelope::registry_hello(7, &hello).expect("typed hello");
+            ShakescapeExtensionEnvelope::registry_hello(7, &hello).expect("typed hello");
         let hello_wire = hello_envelope.encode_canonical().expect("bounded envelope");
         assert_eq!(
-            DenuoExtensionEnvelope::decode_registry_hello(&hello_wire),
+            ShakescapeExtensionEnvelope::decode_registry_hello(&hello_wire),
             Ok((7, hello.clone()))
         );
 
         let ack_envelope =
-            DenuoExtensionEnvelope::registry_hello_ack(7, &hello).expect("typed ack");
+            ShakescapeExtensionEnvelope::registry_hello_ack(7, &hello).expect("typed ack");
         let ack_wire = ack_envelope.encode_canonical().expect("bounded envelope");
         assert_eq!(
-            DenuoExtensionEnvelope::decode_registry_hello_ack(&ack_wire),
+            ShakescapeExtensionEnvelope::decode_registry_hello_ack(&ack_wire),
             Ok((7, hello))
         );
         assert!(matches!(
-            DenuoExtensionEnvelope::decode_registry_hello(&ack_wire),
+            ShakescapeExtensionEnvelope::decode_registry_hello(&ack_wire),
             Err(RegistryEnvelopeError::UnexpectedMessage {
                 expected: KnownMessage::RegistryHello,
                 actual: KnownMessage::RegistryHelloAck,
@@ -726,64 +665,7 @@ mod tests {
     }
 
     #[test]
-    fn typed_v2_registry_hello_and_ack_round_trip() {
-        let hello = registry_hello_v2();
-        let hello_envelope =
-            DenuoExtensionEnvelope::registry_hello_v2(9, &hello).expect("typed V2 hello");
-        assert_eq!(hello_envelope.registry_version, DENUO_V2_REGISTRY_VERSION);
-        let hello_wire = hello_envelope.encode_canonical().expect("bounded envelope");
-        assert_eq!(
-            DenuoExtensionEnvelope::decode_registry_hello_v2(&hello_wire),
-            Ok((9, hello.clone()))
-        );
-        assert!(matches!(
-            DenuoExtensionEnvelope::decode_registry_hello(&hello_wire),
-            Err(RegistryEnvelopeError::WrongRegistryVersion(
-                DENUO_V2_REGISTRY_VERSION
-            ))
-        ));
-
-        let ack_envelope =
-            DenuoExtensionEnvelope::registry_hello_ack_v2(9, &hello).expect("typed V2 ack");
-        let ack_wire = ack_envelope.encode_canonical().expect("bounded envelope");
-        assert_eq!(
-            DenuoExtensionEnvelope::decode_registry_hello_ack_v2(&ack_wire),
-            Ok((9, hello))
-        );
-
-        assert!(matches!(
-            DenuoExtensionEnvelope::registry_hello_v2(9, &registry_hello()),
-            Err(RegistryEnvelopeError::RegistryIdentityMismatch {
-                registry_version: DENUO_V2_REGISTRY_VERSION
-            })
-        ));
-
-        let v1_with_v2_protocol = RegistryHello::denuo_v1(
-            Network::Regtest,
-            [8; 32],
-            vec![crate::ProtocolRange {
-                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                minimum_version: 1,
-                maximum_version: 1,
-            }],
-            4096,
-            4,
-            3,
-        )
-        .expect("generic hello remains structurally valid");
-        assert!(matches!(
-            DenuoExtensionEnvelope::registry_hello(9, &v1_with_v2_protocol),
-            Err(RegistryEnvelopeError::Envelope(
-                EnvelopeError::ProtocolUnavailable {
-                    registry_version: DENUO_V1_REGISTRY_VERSION,
-                    protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                }
-            ))
-        ));
-    }
-
-    #[test]
-    fn cross_chain_messages_are_known_only_in_registry_v2() {
+    fn cross_chain_messages_are_known_in_registry_v1() {
         let messages = [
             (
                 DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
@@ -822,8 +704,8 @@ mod tests {
             (SWAP_WATCH_READY_MESSAGE_TYPE, KnownMessage::SwapWatchReady),
         ];
         for (message_type, expected) in messages {
-            let envelope = DenuoExtensionEnvelope {
-                registry_version: DENUO_V2_REGISTRY_VERSION,
+            let envelope = ShakescapeExtensionEnvelope {
+                registry_version: SHAKESCAPE_V1_REGISTRY_VERSION,
                 protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 protocol_version: CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
                 message_type,
@@ -837,59 +719,30 @@ mod tests {
             );
         }
 
-        let v1_reserved = DenuoExtensionEnvelope {
-            registry_version: DENUO_V1_REGISTRY_VERSION,
+        let mut unknown = ShakescapeExtensionEnvelope {
+            registry_version: SHAKESCAPE_V1_REGISTRY_VERSION,
             protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
             protocol_version: CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
-            message_type: DIRECT_OFFER_INVENTORY_MESSAGE_TYPE,
+            message_type: 17,
             flags: 0,
-            request_id: 0,
+            request_id: 1,
             payload: Vec::new(),
         };
         assert_eq!(
-            v1_reserved.classify(),
-            Err(EnvelopeError::ProtocolUnavailable {
-                registry_version: DENUO_V1_REGISTRY_VERSION,
-                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-            })
-        );
-        assert!(matches!(
-            v1_reserved.encode_canonical(),
-            Err(EnvelopeError::ProtocolUnavailable { .. })
-        ));
-
-        let v2_inventory = DenuoExtensionEnvelope {
-            registry_version: DENUO_V2_REGISTRY_VERSION,
-            ..v1_reserved.clone()
-        };
-        let mut mislabeled_v1_wire = v2_inventory
-            .encode_canonical()
-            .expect("V2 inventory envelope");
-        mislabeled_v1_wire[4..6].copy_from_slice(&DENUO_V1_REGISTRY_VERSION.to_le_bytes());
-        assert!(matches!(
-            DenuoExtensionEnvelope::decode_canonical(&mislabeled_v1_wire),
-            Err(EnvelopeError::ProtocolUnavailable {
-                registry_version: DENUO_V1_REGISTRY_VERSION,
-                protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
-            })
-        ));
-
-        let mut atomic_v2 = envelope();
-        atomic_v2.registry_version = DENUO_V2_REGISTRY_VERSION;
-        assert_eq!(
-            atomic_v2.classify(),
+            envelope().classify(),
             Ok(ProtocolDisposition::Known(KnownMessage::GetOffer))
         );
-
-        let mut unknown_v2 = v1_reserved;
-        unknown_v2.registry_version = DENUO_V2_REGISTRY_VERSION;
-        unknown_v2.message_type = 17;
         assert!(matches!(
-            unknown_v2.classify(),
+            unknown.classify(),
             Err(EnvelopeError::UnknownMessage {
                 protocol_id: CROSS_CHAIN_MARKET_PROTOCOL_ID,
                 message_type: 17,
             })
+        ));
+        unknown.registry_version = 2;
+        assert!(matches!(
+            unknown.classify(),
+            Ok(ProtocolDisposition::UnknownProtocol { .. })
         ));
     }
 
@@ -897,35 +750,36 @@ mod tests {
     fn typed_registry_envelopes_enforce_identity_correlation_and_bound() {
         let hello = registry_hello();
         assert!(matches!(
-            DenuoExtensionEnvelope::registry_hello(0, &hello),
+            ShakescapeExtensionEnvelope::registry_hello(0, &hello),
             Err(RegistryEnvelopeError::Envelope(
                 EnvelopeError::ZeroRequestId { .. }
             ))
         ));
 
         let mut wrong_version =
-            DenuoExtensionEnvelope::registry_hello(1, &hello).expect("typed hello");
+            ShakescapeExtensionEnvelope::registry_hello(1, &hello).expect("typed hello");
         wrong_version.protocol_version = 2;
         let wrong_version_wire = wrong_version
             .encode_canonical()
             .expect("generic envelope remains structurally valid");
         assert_eq!(
-            DenuoExtensionEnvelope::decode_registry_hello(&wrong_version_wire),
+            ShakescapeExtensionEnvelope::decode_registry_hello(&wrong_version_wire),
             Err(RegistryEnvelopeError::WrongProtocol {
                 protocol_id: REGISTRY_NEGOTIATION_PROTOCOL_ID,
                 protocol_version: 2,
             })
         );
 
-        let mut oversized = DenuoExtensionEnvelope::registry_hello(2, &hello).expect("typed hello");
+        let mut oversized =
+            ShakescapeExtensionEnvelope::registry_hello(2, &hello).expect("typed hello");
         oversized
             .payload
             .resize(REGISTRY_NEGOTIATION_MAX_PAYLOAD + 1, 0);
         let oversized_wire = oversized
             .encode_canonical()
-            .expect("fits outer Denuo bound");
+            .expect("fits outer Shakescape bound");
         assert!(matches!(
-            DenuoExtensionEnvelope::decode_registry_hello(&oversized_wire),
+            ShakescapeExtensionEnvelope::decode_registry_hello(&oversized_wire),
             Err(RegistryEnvelopeError::Envelope(
                 EnvelopeError::PayloadTooLarge {
                     maximum: REGISTRY_NEGOTIATION_MAX_PAYLOAD,
@@ -938,7 +792,7 @@ mod tests {
     #[test]
     fn unknown_registry_message_is_rejected_as_known_protocol() {
         let mut invalid =
-            DenuoExtensionEnvelope::registry_hello(1, &registry_hello()).expect("typed hello");
+            ShakescapeExtensionEnvelope::registry_hello(1, &registry_hello()).expect("typed hello");
         invalid.message_type = 99;
         assert!(matches!(
             invalid.classify(),
@@ -952,22 +806,22 @@ mod tests {
     #[test]
     fn canonical_outer_and_nested_payload_bounds_are_exact() {
         assert_eq!(
-            DENUO_EXTENSION_MAX_NESTED_PAYLOAD + DENUO_ENVELOPE_OVERHEAD,
-            DENUO_EXTENSION_MAX_PACKET_PAYLOAD
+            SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD + SHAKESCAPE_ENVELOPE_OVERHEAD,
+            SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD
         );
-        let mut boundary = DenuoExtensionEnvelope {
-            registry_version: DENUO_V1_REGISTRY_VERSION,
+        let mut boundary = ShakescapeExtensionEnvelope {
+            registry_version: SHAKESCAPE_V1_REGISTRY_VERSION,
             protocol_id: 0x1234,
             protocol_version: 1,
             message_type: 0xffff,
             flags: 0,
             request_id: 0,
-            payload: vec![0; DENUO_EXTENSION_MAX_NESTED_PAYLOAD],
+            payload: vec![0; SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD],
         };
         let encoded = boundary.encode_canonical().expect("exact boundary");
-        assert_eq!(encoded.len(), DENUO_EXTENSION_MAX_PACKET_PAYLOAD);
+        assert_eq!(encoded.len(), SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD);
         assert_eq!(
-            DenuoExtensionEnvelope::decode_canonical(&encoded),
+            ShakescapeExtensionEnvelope::decode_canonical(&encoded),
             Ok(boundary.clone())
         );
 
@@ -975,18 +829,18 @@ mod tests {
         assert_eq!(
             boundary.encode_canonical(),
             Err(EnvelopeError::PayloadTooLarge {
-                actual: DENUO_EXTENSION_MAX_NESTED_PAYLOAD + 1,
-                maximum: DENUO_EXTENSION_MAX_NESTED_PAYLOAD,
+                actual: SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD + 1,
+                maximum: SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD,
             })
         );
         let oversized_packet = boundary
-            .encode(DENUO_EXTENSION_MAX_NESTED_PAYLOAD + 1)
+            .encode(SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD + 1)
             .expect("generic encoder accepts its explicit nested bound");
         assert_eq!(
-            DenuoExtensionEnvelope::decode_canonical(&oversized_packet),
+            ShakescapeExtensionEnvelope::decode_canonical(&oversized_packet),
             Err(EnvelopeError::PacketTooLarge {
-                actual: DENUO_EXTENSION_MAX_PACKET_PAYLOAD + 1,
-                maximum: DENUO_EXTENSION_MAX_PACKET_PAYLOAD,
+                actual: SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD + 1,
+                maximum: SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD,
             })
         );
     }

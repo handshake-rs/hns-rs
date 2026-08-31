@@ -5,7 +5,7 @@ Bounded wire types compatible with the draft Handshake P2P DNS relay.
 This crate implements the allocation-bounded request and response messages
 described by draft HIP #76.
 
-**The associated Denuo wire assignments are experimental and are not official
+**The associated Shakescape wire assignments are experimental and are not official
 Handshake protocol assignments.**
 
 ```bash

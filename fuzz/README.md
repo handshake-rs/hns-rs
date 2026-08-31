@@ -1,7 +1,7 @@
 # Fuzzing
 
 `production_parsers` sends the same bounded input to the production header,
-block, transaction, script, covenant, standard-frame, Denuo envelope, HIP #76,
+block, transaction, script, covenant, standard-frame, Shakescape envelope, HIP #76,
 HIP #77, HIP #78, Urkel-proof, and swap-proof parsers.
 It also exercises the owner-bound HNS Chat binding, opaque gift-wrap envelope,
 and encrypted-acknowledgement parsers.

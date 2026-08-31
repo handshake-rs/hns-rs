@@ -55,11 +55,11 @@ refund time can never precede the signed Unix-time promise.
 ## Bounds and transport
 
 Primitive encodings are at most 256 bytes, signed market/session objects at
-most 8 KiB, and typed Denuo name-market and cross-chain payloads at most
+most 8 KiB, and typed Shakescape name-market and cross-chain payloads at most
 512 KiB. All decoders require complete input and reject noncanonical compact
 lengths, signatures, presence/state values, and invalid public keys.
 
-Cross-chain Denuo protocol version 2 carries direct-offer inventory, offer
+Cross-chain Shakescape protocol version 2 carries direct-offer inventory, offer
 request/response, cancellation, take, accepted session proposal/hello, and
 funding/redeem/refund status messages. An empty direct-offer inventory is a
 valid response meaning that no live offers are currently available. Requests

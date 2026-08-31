@@ -2,7 +2,9 @@
 
 ## 0.4.0 - Unreleased
 
-- Advance the Denuo cross-chain envelope to version 3 and add exact,
+- Replace the never-deployed private marketplace namespace with the
+  clean-break Shakescape Registry V1 API and wire identity.
+- Advance the Shakescape cross-chain envelope to version 3 and add exact,
   receiver-signed HTLC watch readiness as a pre-funding coordination gate.
 - Break the direct-offer wire format deliberately: every signed offer now
   contains the maker-selected swap session identifier, and a take or session
@@ -11,7 +13,7 @@
 - Advance the signed marketplace object version to 2 for the incompatible
   direct-offer encoding.
 
-This crate uses the shared `hns-rs` workspace version. Complete release notes
+This crate has an independently advanced marketplace version. Complete release notes
 for every public crate are maintained in the repository-level
 [`CHANGELOG.md`](https://github.com/handshake-rs/hns-rs/blob/v0.3.1/CHANGELOG.md).
 

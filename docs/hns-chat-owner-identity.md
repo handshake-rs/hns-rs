@@ -67,8 +67,8 @@ The generated HNSR service-profile registry allocates:
 `service_name`, whose version-1 grammar forbids periods; that field is `chat`.
 
 The registry has fingerprint
-`36614e9dd0c47a2c59886406909a9b1e23ed6bd539376d2f553b62e1ca79351b`.
-It is separate from the immutable Denuo V1/V2 packet registries, whose
+`48ce4468f7bd9fa287fdebd526b2b40378552e0289ba5a752822009e7a304909`.
+It is separate from the immutable Shakescape V1 packet registry, whose
 fingerprints and negotiation behavior do not change.
 
 `verify_owner_bound_chat_route` first proves the current owner binding, then

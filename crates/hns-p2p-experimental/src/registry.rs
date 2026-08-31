@@ -9,48 +9,36 @@ use thiserror::Error;
 
 use crate::assignment::Network;
 
-pub const DENUO_V1_REGISTRY_NAME: &str = "Denuo Experimental Handshake P2P Registry";
-pub const DENUO_V1_REGISTRY_VERSION: u16 = 1;
-pub const DENUO_V1_REGISTRY_PROTOCOL_VERSION: u16 = 1;
-/// Semantic version assigned to HIP-76 by the canonical Denuo V1 registry.
+pub const SHAKESCAPE_V1_REGISTRY_NAME: &str = "Shakescape Experimental Handshake P2P Registry";
+pub const SHAKESCAPE_V1_REGISTRY_VERSION: u16 = 1;
+pub const SHAKESCAPE_V1_REGISTRY_PROTOCOL_VERSION: u16 = 1;
+/// Semantic version assigned to HIP-76 by the canonical Shakescape V1 registry.
 pub const HIP_76_PROTOCOL_VERSION: u16 = 1;
-pub const DENUO_V1_WIRE_PROFILE: &str = "denuo-v1";
-const DENUO_V1_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
-    0x95, 0x77, 0x4d, 0xb0, 0x8c, 0x56, 0x9b, 0x36, 0xfa, 0x7b, 0x7e, 0x4a, 0x07, 0x19, 0x30, 0xf5,
-    0x63, 0xb7, 0x25, 0x1f, 0xc3, 0x09, 0x34, 0xba, 0x98, 0x67, 0x32, 0x37, 0x9a, 0x6e, 0x54, 0x2d,
+pub const SHAKESCAPE_V1_WIRE_PROFILE: &str = "shakescape-v1";
+const SHAKESCAPE_V1_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
+    0x04, 0xfc, 0xe3, 0xf1, 0x2b, 0x71, 0x7c, 0x42, 0x54, 0xbb, 0x66, 0xac, 0x07, 0x47, 0x4a, 0x6c,
+    0x9f, 0x61, 0xbd, 0x29, 0x16, 0xef, 0xc1, 0x8e, 0xbf, 0xc7, 0x9d, 0xf8, 0x2a, 0x89, 0xa6, 0x6b,
 ];
-pub const DENUO_V1_REGISTRY_ID: ExperimentalRegistryId =
-    ExperimentalRegistryId::new(DENUO_V1_REGISTRY_FINGERPRINT_BYTES);
-pub const DENUO_V1_REGISTRY_FINGERPRINT: RegistryFingerprint =
-    RegistryFingerprint::new(DENUO_V1_REGISTRY_FINGERPRINT_BYTES);
+pub const SHAKESCAPE_V1_REGISTRY_ID: ExperimentalRegistryId =
+    ExperimentalRegistryId::new(SHAKESCAPE_V1_REGISTRY_FINGERPRINT_BYTES);
+pub const SHAKESCAPE_V1_REGISTRY_FINGERPRINT: RegistryFingerprint =
+    RegistryFingerprint::new(SHAKESCAPE_V1_REGISTRY_FINGERPRINT_BYTES);
 
-pub const DENUO_V2_REGISTRY_NAME: &str = "Denuo Experimental Handshake P2P Registry";
-pub const DENUO_V2_REGISTRY_VERSION: u16 = 2;
-pub const DENUO_V2_REGISTRY_PROTOCOL_VERSION: u16 = 1;
-pub const DENUO_V2_WIRE_PROFILE: &str = "denuo-v2";
-const DENUO_V2_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
-    0x73, 0x42, 0x26, 0xe8, 0x66, 0x43, 0x58, 0x21, 0xe4, 0x0b, 0xe7, 0xbd, 0xe8, 0x5f, 0xb1, 0x9d,
-    0xd6, 0xeb, 0x86, 0x7c, 0x56, 0x20, 0xab, 0xb8, 0x34, 0x7a, 0xc8, 0xcd, 0x23, 0xda, 0x4f, 0x2c,
-];
-pub const DENUO_V2_REGISTRY_ID: ExperimentalRegistryId =
-    ExperimentalRegistryId::new(DENUO_V2_REGISTRY_FINGERPRINT_BYTES);
-pub const DENUO_V2_REGISTRY_FINGERPRINT: RegistryFingerprint =
-    RegistryFingerprint::new(DENUO_V2_REGISTRY_FINGERPRINT_BYTES);
-
-pub const HNSR_PROFILE_REGISTRY_NAME: &str = "Denuo Experimental HNSR Service Profile Registry";
+pub const HNSR_PROFILE_REGISTRY_NAME: &str =
+    "Shakescape Experimental HNSR Service Profile Registry";
 pub const HNSR_PROFILE_REGISTRY_VERSION: u16 = 1;
 pub const HNSR_PROFILE_REGISTRY_PROTOCOL_VERSION: u16 = 1;
 pub const HNSR_PROFILE_WIRE_PROFILE: &str = "hnsr-service-profiles-v1";
 const HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
-    0x36, 0x61, 0x4e, 0x9d, 0xd0, 0xc4, 0x7a, 0x2c, 0x59, 0x88, 0x64, 0x06, 0x90, 0x9a, 0x9b, 0x1e,
-    0x23, 0xed, 0x6b, 0xd5, 0x39, 0x37, 0x6d, 0x2f, 0x55, 0x3b, 0x62, 0xe1, 0xca, 0x79, 0x35, 0x1b,
+    0x48, 0xce, 0x44, 0x68, 0xf7, 0xbd, 0x9f, 0xa2, 0x87, 0xfd, 0xeb, 0xd5, 0x26, 0xb2, 0xb4, 0x03,
+    0x78, 0x55, 0x2e, 0x02, 0x89, 0xba, 0x5a, 0x75, 0x28, 0x22, 0x00, 0x9e, 0x7a, 0x30, 0x49, 0x09,
 ];
 pub const HNSR_PROFILE_REGISTRY_ID: ExperimentalRegistryId =
     ExperimentalRegistryId::new(HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES);
 pub const HNSR_PROFILE_REGISTRY_FINGERPRINT: RegistryFingerprint =
     RegistryFingerprint::new(HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES);
 
-const REGISTRY_MAGIC: [u8; 4] = *b"DNR1";
+const REGISTRY_MAGIC: [u8; 4] = *b"SKR1";
 const CANONICAL_FORMAT_VERSION: u16 = 1;
 const MAX_REGISTRY_TEXT: usize = 256 * 1024;
 const MAX_REGISTRY_BINARY: usize = 512 * 1024;
@@ -243,7 +231,7 @@ impl RegistryDocument {
             0x0800_0000,
         )?;
         self.require_assignment(
-            "denuo-extension-service",
+            "shakescape-extension-service",
             AssignmentKind::ServiceBit,
             0x1000_0000,
         )?;
@@ -257,27 +245,16 @@ impl RegistryDocument {
         self.require_assignment("dnsrelay", AssignmentKind::PacketType, 0xf1)?;
         self.require_assignment("odns", AssignmentKind::PacketType, 0xf2)?;
         self.require_assignment("hnsr", AssignmentKind::PacketType, 0xf3)?;
-        self.require_assignment("denuo-ext", AssignmentKind::PacketType, 0xf4)?;
+        self.require_assignment("shakescape-ext", AssignmentKind::PacketType, 0xf4)?;
         self.require_assignment("registry-negotiation", AssignmentKind::ProtocolId, 0)?;
         self.require_assignment("atomic-name-marketplace", AssignmentKind::ProtocolId, 1)?;
-        match self.registry.version {
-            DENUO_V1_REGISTRY_VERSION => self.require_assignment_range(
-                "reserved-protocols-0x0002-0xffff",
-                AssignmentKind::ProtocolId,
-                2,
-                u16::MAX as u64,
-            )?,
-            DENUO_V2_REGISTRY_VERSION => {
-                self.require_assignment("cross-chain-marketplace", AssignmentKind::ProtocolId, 2)?;
-                self.require_assignment_range(
-                    "reserved-protocols-0x0003-0xffff",
-                    AssignmentKind::ProtocolId,
-                    3,
-                    u16::MAX as u64,
-                )?;
-            }
-            _ => unreachable!("registry metadata validation rejects unsupported versions"),
-        }
+        self.require_assignment("cross-chain-marketplace", AssignmentKind::ProtocolId, 2)?;
+        self.require_assignment_range(
+            "reserved-protocols-0x0003-0xffff",
+            AssignmentKind::ProtocolId,
+            3,
+            u16::MAX as u64,
+        )?;
         Ok(())
     }
 
@@ -422,15 +399,10 @@ impl RegistryMetadata {
         let expected_wire_profile = match (self.name.as_str(), self.version, self.protocol_version)
         {
             (
-                DENUO_V1_REGISTRY_NAME,
-                DENUO_V1_REGISTRY_VERSION,
-                DENUO_V1_REGISTRY_PROTOCOL_VERSION,
-            ) => DENUO_V1_WIRE_PROFILE,
-            (
-                DENUO_V2_REGISTRY_NAME,
-                DENUO_V2_REGISTRY_VERSION,
-                DENUO_V2_REGISTRY_PROTOCOL_VERSION,
-            ) => DENUO_V2_WIRE_PROFILE,
+                SHAKESCAPE_V1_REGISTRY_NAME,
+                SHAKESCAPE_V1_REGISTRY_VERSION,
+                SHAKESCAPE_V1_REGISTRY_PROTOCOL_VERSION,
+            ) => SHAKESCAPE_V1_WIRE_PROFILE,
             (
                 HNSR_PROFILE_REGISTRY_NAME,
                 HNSR_PROFILE_REGISTRY_VERSION,
@@ -751,19 +723,16 @@ fn read_optional_string(decoder: &mut Decoder<'_>) -> Result<Option<String>, Reg
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::DENUO_EXTENSION_MAX_PACKET_PAYLOAD;
+    use crate::envelope::SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD;
     use crate::negotiation::REGISTRY_NEGOTIATION_MAX_PAYLOAD;
     use hns_dns_relay_protocol::{
         MAX_DNS_RELAY_QUERY_BODY_SIZE, MAX_DNS_RELAY_REQUEST_PAYLOAD_SIZE,
         MAX_DNS_RELAY_RESPONSE_BODY_SIZE, MAX_DNS_RELAY_RESPONSE_PAYLOAD_SIZE,
     };
 
-    const REGISTRY_TOML: &str = include_str!("../registry/denuo-experimental-v1.toml");
-    const REGISTRY_BINARY: &[u8] = include_bytes!("../registry/denuo-experimental-v1.bin");
-    const REGISTRY_SHA256: &str = include_str!("../registry/denuo-experimental-v1.sha256");
-    const REGISTRY_V2_TOML: &str = include_str!("../registry/denuo-experimental-v2.toml");
-    const REGISTRY_V2_BINARY: &[u8] = include_bytes!("../registry/denuo-experimental-v2.bin");
-    const REGISTRY_V2_SHA256: &str = include_str!("../registry/denuo-experimental-v2.sha256");
+    const REGISTRY_TOML: &str = include_str!("../registry/shakescape-experimental-v1.toml");
+    const REGISTRY_BINARY: &[u8] = include_bytes!("../registry/shakescape-experimental-v1.bin");
+    const REGISTRY_SHA256: &str = include_str!("../registry/shakescape-experimental-v1.sha256");
     const HNSR_PROFILE_TOML: &str = include_str!("../registry/hnsr-service-profiles-v1.toml");
     const HNSR_PROFILE_BINARY: &[u8] = include_bytes!("../registry/hnsr-service-profiles-v1.bin");
     const HNSR_PROFILE_SHA256: &str = include_str!("../registry/hnsr-service-profiles-v1.sha256");
@@ -782,23 +751,23 @@ mod tests {
         );
         assert_eq!(
             registry.id().expect("hashes").to_string(),
-            "95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d"
+            "04fce3f12b717c4254bb66ac07474a6c9f61bd2916efc18ebfc79df82a89a66b"
         );
-        assert_eq!(registry.id().expect("hashes"), DENUO_V1_REGISTRY_ID);
+        assert_eq!(registry.id().expect("hashes"), SHAKESCAPE_V1_REGISTRY_ID);
         assert_eq!(
             RegistryFingerprint::from(registry.id().expect("hashes")),
-            DENUO_V1_REGISTRY_FINGERPRINT
+            SHAKESCAPE_V1_REGISTRY_FINGERPRINT
         );
-        assert_eq!(registry.registry.name, DENUO_V1_REGISTRY_NAME);
-        assert_eq!(registry.registry.version, DENUO_V1_REGISTRY_VERSION);
+        assert_eq!(registry.registry.name, SHAKESCAPE_V1_REGISTRY_NAME);
+        assert_eq!(registry.registry.version, SHAKESCAPE_V1_REGISTRY_VERSION);
         assert_eq!(
             registry.registry.protocol_version,
-            DENUO_V1_REGISTRY_PROTOCOL_VERSION
+            SHAKESCAPE_V1_REGISTRY_PROTOCOL_VERSION
         );
-        assert_eq!(registry.registry.wire_profile, DENUO_V1_WIRE_PROFILE);
+        assert_eq!(registry.registry.wire_profile, SHAKESCAPE_V1_WIRE_PROFILE);
         assert_eq!(
             REGISTRY_SHA256,
-            format!("{DENUO_V1_REGISTRY_ID}  denuo-experimental-v1.bin\n")
+            format!("{SHAKESCAPE_V1_REGISTRY_ID}  shakescape-experimental-v1.bin\n")
         );
         let maximum_payload = |semantic_name: &str| {
             registry
@@ -809,8 +778,8 @@ mod tests {
                 .expect("canonical assignment")
         };
         assert_eq!(
-            maximum_payload("denuo-ext"),
-            DENUO_EXTENSION_MAX_PACKET_PAYLOAD
+            maximum_payload("shakescape-ext"),
+            SHAKESCAPE_EXTENSION_MAX_PACKET_PAYLOAD
         );
         assert_eq!(
             maximum_payload("registry-negotiation"),
@@ -834,6 +803,28 @@ mod tests {
                 .expect("canonical HIP-76 assignment");
             assert_eq!(assignment.protocol_version, HIP_76_PROTOCOL_VERSION);
         }
+        let cross_chain = registry
+            .assignments
+            .iter()
+            .find(|assignment| assignment.semantic_name == "cross-chain-marketplace")
+            .expect("cross-chain assignment");
+        assert_eq!(cross_chain.kind, AssignmentKind::ProtocolId);
+        assert_eq!(cross_chain.value, 2);
+        assert_eq!(cross_chain.range_end, None);
+        assert_eq!(
+            cross_chain.maximum_payload,
+            crate::envelope::CROSS_CHAIN_MARKET_MAX_PAYLOAD as u32
+        );
+        assert_eq!(cross_chain.first_supported_release, "0.1.0");
+        let reserved = registry
+            .assignments
+            .iter()
+            .find(|assignment| assignment.semantic_name == "reserved-protocols-0x0003-0xffff")
+            .expect("reserved protocol range");
+        assert_eq!(
+            (reserved.value, reserved.range_end),
+            (3, Some(u16::MAX as u64))
+        );
     }
 
     #[test]
@@ -848,101 +839,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_v2_artifacts_extend_v1_without_reassigning_it() {
-        let v1 = RegistryDocument::from_toml(REGISTRY_TOML).expect("valid V1 registry");
-        let v2 = RegistryDocument::from_toml(REGISTRY_V2_TOML).expect("valid V2 registry");
-        assert_eq!(v2.canonical_bytes().expect("encodes"), REGISTRY_V2_BINARY);
-        assert_eq!(
-            RegistryDocument::from_canonical_bytes(REGISTRY_V2_BINARY).expect("decodes"),
-            v2
-        );
-        assert_eq!(
-            v2.id().expect("hashes").to_string(),
-            "734226e866435821e40be7bde85fb19dd6eb867c5620abb8347ac8cd23da4f2c"
-        );
-        assert_eq!(v2.id().expect("hashes"), DENUO_V2_REGISTRY_ID);
-        assert_eq!(
-            RegistryFingerprint::from(v2.id().expect("hashes")),
-            DENUO_V2_REGISTRY_FINGERPRINT
-        );
-        assert_eq!(v2.registry.name, DENUO_V2_REGISTRY_NAME);
-        assert_eq!(v2.registry.version, DENUO_V2_REGISTRY_VERSION);
-        assert_eq!(
-            v2.registry.protocol_version,
-            DENUO_V2_REGISTRY_PROTOCOL_VERSION
-        );
-        assert_eq!(v2.registry.wire_profile, DENUO_V2_WIRE_PROFILE);
-        assert_eq!(
-            REGISTRY_V2_SHA256,
-            format!("{DENUO_V2_REGISTRY_ID}  denuo-experimental-v2.bin\n")
-        );
-
-        for old in v1
-            .assignments
-            .iter()
-            .filter(|assignment| assignment.semantic_name != "reserved-protocols-0x0002-0xffff")
-        {
-            let retained = v2
-                .assignments
-                .iter()
-                .find(|assignment| assignment.semantic_name == old.semantic_name)
-                .expect("V1 assignment retained in V2");
-            assert_eq!(retained.kind, old.kind);
-            assert_eq!(retained.value, old.value);
-            assert_eq!(retained.range_end, old.range_end);
-            assert_eq!(retained.protocol_version, old.protocol_version);
-            assert_eq!(retained.status, old.status);
-            assert_eq!(retained.owner, old.owner);
-            assert_eq!(retained.source_proposal_url, old.source_proposal_url);
-            assert_eq!(
-                retained.source_implementation_url,
-                old.source_implementation_url
-            );
-            assert_eq!(retained.network_applicability, old.network_applicability);
-            assert_eq!(retained.maximum_payload, old.maximum_payload);
-            assert_eq!(
-                retained.security_classification,
-                old.security_classification
-            );
-            assert_eq!(
-                retained.first_supported_release,
-                old.first_supported_release
-            );
-            assert_eq!(retained.deprecation_state, old.deprecation_state);
-            assert_eq!(retained.replacement_assignment, old.replacement_assignment);
-            assert_eq!(retained.registry_version, DENUO_V2_REGISTRY_VERSION);
-        }
-
-        let cross_chain = v2
-            .assignments
-            .iter()
-            .find(|assignment| assignment.semantic_name == "cross-chain-marketplace")
-            .expect("V2 cross-chain assignment");
-        assert_eq!(cross_chain.kind, AssignmentKind::ProtocolId);
-        assert_eq!(cross_chain.value, 2);
-        assert_eq!(cross_chain.range_end, None);
-        assert_eq!(
-            cross_chain.maximum_payload,
-            crate::envelope::CROSS_CHAIN_MARKET_MAX_PAYLOAD as u32
-        );
-        assert_eq!(cross_chain.first_supported_release, "0.2.0");
-        assert_eq!(
-            cross_chain.source_implementation_url,
-            "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-marketplace-protocol"
-        );
-        let reserved = v2
-            .assignments
-            .iter()
-            .find(|assignment| assignment.semantic_name == "reserved-protocols-0x0003-0xffff")
-            .expect("V2 reserved range");
-        assert_eq!(
-            (reserved.value, reserved.range_end),
-            (3, Some(u16::MAX as u64))
-        );
-    }
-
-    #[test]
-    fn canonical_hnsr_profile_registry_assigns_chat_without_changing_denuo_identity() {
+    fn canonical_hnsr_profile_registry_assigns_chat_without_changing_shakescape_identity() {
         let registry =
             RegistryDocument::from_toml(HNSR_PROFILE_TOML).expect("valid profile registry");
         assert_eq!(
@@ -978,12 +875,8 @@ mod tests {
         assert_eq!(chat.value, 3);
         assert_eq!(chat.maximum_payload, 8_192);
         assert_eq!(
-            DENUO_V1_REGISTRY_ID.to_string(),
-            "95774db08c569b36fa7b7e4a071930f563b7251fc30934ba986732379a6e542d"
-        );
-        assert_eq!(
-            DENUO_V2_REGISTRY_ID.to_string(),
-            "734226e866435821e40be7bde85fb19dd6eb867c5620abb8347ac8cd23da4f2c"
+            SHAKESCAPE_V1_REGISTRY_ID.to_string(),
+            "04fce3f12b717c4254bb66ac07474a6c9f61bd2916efc18ebfc79df82a89a66b"
         );
     }
 

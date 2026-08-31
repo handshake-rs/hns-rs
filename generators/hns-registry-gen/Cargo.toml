@@ -1,6 +1,6 @@
 [package]
 name = "hns-registry-gen"
-description = "Deterministic Denuo Experimental Registry artifact generator"
+description = "Deterministic Shakescape Experimental Registry artifact generator"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
