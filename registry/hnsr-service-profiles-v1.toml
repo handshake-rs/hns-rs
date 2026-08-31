@@ -55,9 +55,25 @@ first_supported_release = "0.2.0"
 deprecation_state = "active"
 
 [[assignment]]
-semantic_name = "reserved-hnsr-profiles-0x0004-0xffff"
+semantic_name = "hnsr-profile-shakescape-swap-v1"
 kind = "service_profile"
 value = 0x0004
+registry_version = 1
+protocol_version = 1
+status = "stable-experimental"
+owner = "Shakescape Experimental Registry contributors"
+source_proposal_url = "https://github.com/handshake-org/HIPs/pull/78"
+source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/crates/hns-marketplace-protocol"
+network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
+maximum_payload = 16384
+security_classification = "authenticated-end-to-end-encrypted-atomic-swap-rendezvous"
+first_supported_release = "0.5.0"
+deprecation_state = "active"
+
+[[assignment]]
+semantic_name = "reserved-hnsr-profiles-0x0005-0xffff"
+kind = "service_profile"
+value = 0x0005
 range_end = 0xffff
 registry_version = 1
 protocol_version = 1
@@ -68,5 +84,5 @@ source_implementation_url = "https://github.com/handshake-rs/hns-rs/tree/main/re
 network_applicability = ["mainnet", "testnet", "regtest", "simnet"]
 maximum_payload = 0
 security_classification = "reserved-no-profile-semantics"
-first_supported_release = "0.2.0"
+first_supported_release = "0.5.0"
 deprecation_state = "reserved"

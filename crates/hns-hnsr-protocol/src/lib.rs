@@ -65,6 +65,8 @@ pub const HNSR_VERSION: u8 = 1;
 pub const HNS_NODE_V1: u16 = 1;
 pub const HNS_WEB_V1: u16 = 2;
 pub const HNS_CHAT_V1: u16 = hns_chat_protocol::HNS_CHAT_PROFILE_V1;
+/// Opaque, end-to-end authenticated Shakescape atomic-swap sessions.
+pub const HNS_SHAKESCAPE_SWAP_V1: u16 = 4;
 
 pub const MAX_PACKET_SIZE: usize = 65_535;
 pub const MAX_RECORD_SIZE: usize = 8192;

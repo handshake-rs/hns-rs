@@ -50,11 +50,12 @@ an existing packet assignment.
 | Native HNS node v1 | HNSR service profile | `0x0001` |
 | HNS web v1 | HNSR service profile | `0x0002` |
 | Owner-bound `hns.chat` v1 | HNSR service profile | `0x0003` |
-| Reserved | HNSR service profile range | `0x0004..=0xffff` |
+| Shakescape atomic swap v1 | HNSR service profile | `0x0004` |
+| Reserved | HNSR service profile range | `0x0005..=0xffff` |
 
 The machine-readable authority is
 `registry/hnsr-service-profiles-v1.toml`; its canonical fingerprint is
-`48ce4468f7bd9fa287fdebd526b2b40378552e0289ba5a752822009e7a304909`.
+`59f47afa6e536afe784ba65823eb1a028fa0ace72d7e721888b4be586a687ad2`.
 These are private Shakescape Experimental profile assignments, not official
 Handshake assignments.
 

@@ -30,8 +30,8 @@ pub const HNSR_PROFILE_REGISTRY_VERSION: u16 = 1;
 pub const HNSR_PROFILE_REGISTRY_PROTOCOL_VERSION: u16 = 1;
 pub const HNSR_PROFILE_WIRE_PROFILE: &str = "hnsr-service-profiles-v1";
 const HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES: [u8; 32] = [
-    0x48, 0xce, 0x44, 0x68, 0xf7, 0xbd, 0x9f, 0xa2, 0x87, 0xfd, 0xeb, 0xd5, 0x26, 0xb2, 0xb4, 0x03,
-    0x78, 0x55, 0x2e, 0x02, 0x89, 0xba, 0x5a, 0x75, 0x28, 0x22, 0x00, 0x9e, 0x7a, 0x30, 0x49, 0x09,
+    0x59, 0xf4, 0x7a, 0xfa, 0x6e, 0x53, 0x6a, 0xfe, 0x78, 0x4b, 0xa6, 0x58, 0x23, 0xeb, 0x1a, 0x02,
+    0x8f, 0xa0, 0xac, 0xe7, 0x2d, 0x7e, 0x72, 0x18, 0x88, 0xb4, 0xbe, 0x58, 0x6a, 0x68, 0x7a, 0xd2,
 ];
 pub const HNSR_PROFILE_REGISTRY_ID: ExperimentalRegistryId =
     ExperimentalRegistryId::new(HNSR_PROFILE_REGISTRY_FINGERPRINT_BYTES);
@@ -205,10 +205,15 @@ impl RegistryDocument {
                 AssignmentKind::ServiceProfile,
                 3,
             )?;
-            self.require_assignment_range(
-                "reserved-hnsr-profiles-0x0004-0xffff",
+            self.require_assignment(
+                "hnsr-profile-shakescape-swap-v1",
                 AssignmentKind::ServiceProfile,
                 4,
+            )?;
+            self.require_assignment_range(
+                "reserved-hnsr-profiles-0x0005-0xffff",
+                AssignmentKind::ServiceProfile,
+                5,
                 u16::MAX as u64,
             )?;
             if self
@@ -874,6 +879,14 @@ mod tests {
         assert_eq!(chat.kind, AssignmentKind::ServiceProfile);
         assert_eq!(chat.value, 3);
         assert_eq!(chat.maximum_payload, 8_192);
+        let swap = registry
+            .assignments
+            .iter()
+            .find(|assignment| assignment.semantic_name == "hnsr-profile-shakescape-swap-v1")
+            .expect("Shakescape swap profile");
+        assert_eq!(swap.kind, AssignmentKind::ServiceProfile);
+        assert_eq!(swap.value, 4);
+        assert_eq!(swap.maximum_payload, 16_384);
         assert_eq!(
             SHAKESCAPE_V1_REGISTRY_ID.to_string(),
             "04fce3f12b717c4254bb66ac07474a6c9f61bd2916efc18ebfc79df82a89a66b"

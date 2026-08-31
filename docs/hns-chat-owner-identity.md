@@ -67,7 +67,7 @@ The generated HNSR service-profile registry allocates:
 `service_name`, whose version-1 grammar forbids periods; that field is `chat`.
 
 The registry has fingerprint
-`48ce4468f7bd9fa287fdebd526b2b40378552e0289ba5a752822009e7a304909`.
+`59f47afa6e536afe784ba65823eb1a028fa0ace72d7e721888b4be586a687ad2`.
 It is separate from the immutable Shakescape V1 packet registry, whose
 fingerprints and negotiation behavior do not change.
 
