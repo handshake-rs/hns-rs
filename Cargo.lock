@@ -466,14 +466,14 @@ dependencies = [
 
 [[package]]
 name = "hns-chat-protocol"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "hex",
- "hns-covenants 0.3.1",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
+ "hns-covenants",
+ "hns-encoding",
+ "hns-primitives",
  "hns-service-authority",
- "hns-transaction 0.3.1",
+ "hns-transaction",
  "k256",
  "sha2 0.10.9",
  "thiserror",
@@ -481,11 +481,11 @@ dependencies = [
 
 [[package]]
 name = "hns-conformance"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "hex",
  "hns-chat-protocol",
- "hns-covenants 0.3.1",
+ "hns-covenants",
  "hns-dns-relay-protocol",
  "hns-header-consensus",
  "hns-hnsr-protocol",
@@ -495,90 +495,68 @@ dependencies = [
  "hns-p2p-experimental",
  "hns-p2p-wire",
  "hns-rollback-journal",
- "hns-script 0.3.1",
+ "hns-script",
  "hns-service-authority",
- "hns-swap 0.3.1",
- "hns-transaction 0.3.1",
+ "hns-swap",
+ "hns-transaction",
  "hns-urkel-proof",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-covenants"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
- "sha3",
- "thiserror",
-]
-
-[[package]]
-name = "hns-covenants"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a423d169b430185d42ec32ece6a9f06a2ce5ae68d7656266d30a21e0dd45a8a"
-dependencies = [
- "blake2",
- "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-encoding",
+ "hns-primitives",
  "sha3",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-dns-relay-protocol"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "hex",
- "hns-encoding 0.3.1",
+ "hns-encoding",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-encoding"
-version = "0.3.1"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
-name = "hns-encoding"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e26a7824c63926c951c767e160dada9dbb8ebc8239788a2be912d0e46c80ebe"
+version = "0.4.1"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "hns-header-consensus"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
+ "hns-encoding",
+ "hns-primitives",
  "sha3",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-hnsr-protocol"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "base64",
  "blake2",
  "getrandom 0.4.3",
  "hex",
  "hns-chat-protocol",
- "hns-covenants 0.3.1",
- "hns-encoding 0.3.1",
+ "hns-covenants",
+ "hns-encoding",
  "hns-hrm",
- "hns-primitives 0.3.1",
+ "hns-primitives",
  "hns-service-authority",
- "hns-transaction 0.3.1",
+ "hns-transaction",
  "k256",
  "sha2 0.10.9",
  "thiserror",
@@ -587,7 +565,7 @@ dependencies = [
 
 [[package]]
 name = "hns-hrm"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "base64",
  "blake2",
@@ -600,14 +578,14 @@ dependencies = [
 
 [[package]]
 name = "hns-marketplace-protocol"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-encoding",
  "hns-p2p-experimental",
- "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-swap 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-primitives",
+ "hns-swap",
  "k256",
  "sha2 0.10.9",
  "thiserror",
@@ -616,27 +594,27 @@ dependencies = [
 
 [[package]]
 name = "hns-mining"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-covenants 0.3.1",
- "hns-encoding 0.3.1",
+ "hns-covenants",
+ "hns-encoding",
  "hns-header-consensus",
- "hns-primitives 0.3.1",
- "hns-transaction 0.3.1",
+ "hns-primitives",
+ "hns-transaction",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-odoh-protocol"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "aes-gcm 0.10.3",
  "blake2",
  "hex",
  "hkdf 0.12.4",
- "hns-encoding 0.3.1",
+ "hns-encoding",
  "hpke",
  "k256",
  "sha2 0.10.9",
@@ -646,12 +624,12 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-experimental"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "hex",
  "hns-dns-relay-protocol",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
+ "hns-encoding",
+ "hns-primitives",
  "serde",
  "sha2 0.10.9",
  "thiserror",
@@ -660,32 +638,22 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-wire"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-encoding 0.3.1",
+ "hns-encoding",
  "hns-header-consensus",
  "hns-mining",
- "hns-primitives 0.3.1",
- "hns-transaction 0.3.1",
+ "hns-primitives",
+ "hns-transaction",
  "hns-urkel-proof",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-primitives"
-version = "0.3.1"
-dependencies = [
- "hex",
- "thiserror",
-]
-
-[[package]]
-name = "hns-primitives"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d3e25cbb7384ea527bcdde75f9fdc37e72f84967c06900c8deda156caec7e58"
+version = "0.4.1"
 dependencies = [
  "hex",
  "thiserror",
@@ -693,49 +661,31 @@ dependencies = [
 
 [[package]]
 name = "hns-registry-gen"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "hns-p2p-experimental",
 ]
 
 [[package]]
 name = "hns-rollback-journal"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-encoding 0.3.1",
+ "hns-encoding",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-script"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-covenants 0.3.1",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
- "hns-transaction 0.3.1",
- "k256",
- "ripemd",
- "sha1",
- "sha2 0.10.9",
- "sha3",
- "thiserror",
-]
-
-[[package]]
-name = "hns-script"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b4d09362215c66509f36cfb5fd54797092f2cb939e43fb0040660d544900836"
-dependencies = [
- "blake2",
- "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-transaction 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-covenants",
+ "hns-encoding",
+ "hns-primitives",
+ "hns-transaction",
  "k256",
  "ripemd",
  "sha1",
@@ -746,11 +696,11 @@ dependencies = [
 
 [[package]]
 name = "hns-service-authority"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-encoding 0.3.1",
+ "hns-encoding",
  "hns-hrm",
  "k256",
  "sha2 0.10.9",
@@ -760,33 +710,15 @@ dependencies = [
 
 [[package]]
 name = "hns-swap"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-covenants 0.3.1",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
- "hns-script 0.3.1",
- "hns-transaction 0.3.1",
- "k256",
- "sha2 0.10.9",
- "sha3",
- "thiserror",
-]
-
-[[package]]
-name = "hns-swap"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c030325fc0154fe4ee7696af0334fdae4bdba982f019deef5e8cab0fece6c3"
-dependencies = [
- "blake2",
- "hns-covenants 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-script 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-transaction 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-covenants",
+ "hns-encoding",
+ "hns-primitives",
+ "hns-script",
+ "hns-transaction",
  "k256",
  "sha2 0.10.9",
  "sha3",
@@ -795,36 +727,23 @@ dependencies = [
 
 [[package]]
 name = "hns-transaction"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-covenants 0.3.1",
- "hns-encoding 0.3.1",
- "hns-primitives 0.3.1",
- "thiserror",
-]
-
-[[package]]
-name = "hns-transaction"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adc5fd7e6f7cbcf782f7566411db78b5db2fb2af4840234df8c675dc434098b4"
-dependencies = [
- "blake2",
- "hns-covenants 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-encoding 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "hns-primitives 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hns-covenants",
+ "hns-encoding",
+ "hns-primitives",
  "thiserror",
 ]
 
 [[package]]
 name = "hns-urkel-proof"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "blake2",
  "hex",
- "hns-primitives 0.3.1",
+ "hns-primitives",
  "thiserror",
 ]
 

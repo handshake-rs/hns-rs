@@ -53,7 +53,7 @@ The retained settlement fixture preserves the legacy fixed-price listing,
 cancellation, and recovery FINALIZE compatibility boundary. The direct-offer
 protocol replaces the old oracle-priced marketplace objects and intentionally
 does not retain their superseded vector document. Its fixed-term offer, take,
-cancellation, bilateral-session, Denuo, and relay-acceptance encodings are
+cancellation, bilateral-session, retired-registry, and relay-acceptance encodings are
 covered by bounded Rust protocol tests; no presentation-layer price oracle is
 settlement authority.
 

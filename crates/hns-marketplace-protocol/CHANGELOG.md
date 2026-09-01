@@ -1,23 +1,10 @@
 # Changelog
 
-## 0.4.0 - Unreleased
-
-- Replace the never-deployed private marketplace namespace with the
-  clean-break Shakescape Registry V1 API and wire identity.
-- Advance the Shakescape cross-chain envelope to version 3 and add exact,
-  receiver-signed HTLC watch readiness as a pre-funding coordination gate.
-- Break the direct-offer wire format deliberately: every signed offer now
-  contains the maker-selected swap session identifier, and a take or session
-  proposal must repeat that exact identifier. This prevents a taker-selected
-  session from being incompatible with the per-offer settlement key.
-- Advance the signed marketplace object version to 2 for the incompatible
-  direct-offer encoding.
-
-This crate has an independently advanced marketplace version. Complete release notes
+This crate uses the shared `hns-rs` workspace version. Complete release notes
 for every public crate are maintained in the repository-level
-[`CHANGELOG.md`](https://github.com/handshake-rs/hns-rs/blob/v0.3.1/CHANGELOG.md).
+[`CHANGELOG.md`](https://github.com/handshake-rs/hns-rs/blob/v0.4.1/CHANGELOG.md).
 
-## 0.3.1 - 2026-08-23
+## 0.4.1 - 2026-09-01
 
 See the canonical workspace changelog for the complete shared release notes,
 publication procedure, and qualification scope. A source archive alone is not

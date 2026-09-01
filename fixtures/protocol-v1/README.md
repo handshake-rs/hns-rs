@@ -15,5 +15,5 @@ directly. The adjacent `.sha256` authenticates the complete document bytes.
 The retained fixture freezes the legacy fixed-price listing and cancellation
 compatibility boundary. The `0.3.1` direct-offer protocol deliberately removes
 the oracle-priced marketplace message family and its obsolete vector document;
-the direct offer, take, cancellation, bilateral-session, Denuo, and relay
+the direct offer, take, cancellation, bilateral-session, retired-registry, and relay
 acceptance encodings are exercised by their bounded Rust protocol tests.

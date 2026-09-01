@@ -3,6 +3,19 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
+## 0.4.1 - 2026-09-01
+
+- Unified all nineteen public protocol crates on one `0.4.1` release line so
+  downstream engines, wallets, and mobile applications resolve one coherent
+  Shakescape protocol type graph rather than the temporary mixed
+  `0.3.1`/`0.4.0` source state.
+- Retained only the clean-break Shakescape Experimental Registry V1 service,
+  packet, fingerprint, negotiation, and marketplace assignments. No alias or
+  decoding path for the discarded pre-release registry is included.
+- Included the bounded bilateral maker/taker session handshake, signed watch
+  readiness, direct offers, authenticated relay receipts, and the current
+  HNSA/HNSR profile used by the mobile wallet and relay-capable peers.
+
 ## 0.3.1 - 2026-08-23
 
 - Replace the never-deployed private registry identities with one clean-break
@@ -27,7 +40,8 @@ The workspace crates use a shared version and follow Semantic Versioning.
 - Remove the obsolete oracle-priced marketplace vector artifact and its stale
   release-gate assertion. The current direct-offer protocol has no compatible
   price-oracle message family; its bounded canonical encodings are covered by
-  the direct offer, bilateral-session, Denuo, and relay-acceptance test suites.
+  the direct offer, bilateral-session, retired-registry, and relay-acceptance
+  test suites.
 
 ## 0.3.0 - 2026-08-15
 

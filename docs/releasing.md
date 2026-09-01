@@ -223,7 +223,7 @@ published.
    upload. The confirmation version must equal the workspace version:
 
    ```bash
-   ./scripts/publish.sh --execute --confirm-publish 0.3.1
+   ./scripts/publish.sh --execute --confirm-publish 0.4.1
    ```
 
 The execution mode is restartable, but it never skips solely because an API
@@ -244,7 +244,7 @@ limit:
 
 ```bash
 PUBLISH_INTERVAL_SECONDS=605 \
-  ./scripts/publish.sh --execute --confirm-publish 0.3.1
+  ./scripts/publish.sh --execute --confirm-publish 0.4.1
 ```
 
 After the cooldown, the script downloads the newly uploaded archive and
