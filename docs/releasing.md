@@ -136,6 +136,27 @@ tag. Publication qualifies only these protocol packages; every live relay,
 mailbox, wallet, marketplace, node, browser, or other downstream product needs
 its own integration and release qualification.
 
+## 0.3.1 and 0.4.1 publication record
+
+The clean-break Shakescape Experimental Registry V1 transition was published
+as the nineteen-package `0.3.1` cohort from exact source commit
+`0e99addca59778b7b7c6fc56291333a97c4c8815`. Annotated tag object
+`9f78c0f5a71f36ad70bc836bde0e412d539e82d3` is named `v0.3.1` and peels to
+that source. It introduced the current registry identity, bilateral session
+handshake, and signed watch-readiness boundary without a compatibility alias
+for the discarded experimental identities.
+
+The subsequent direct-offer, relay-receipt, swap-profile, and registry changes
+temporarily left downstream source on a mixed `0.3.1`/`0.4.0` graph. Release
+`0.4.1` reunified all nineteen packages on one version and type graph. The
+published source is
+`73611a0d83778e157b35f28ca2197d068e83fc61`; annotated tag object
+`d4237086aa0284ad77d6dda653994345aa037a60` is named `v0.4.1` and peels
+directly to that commit. Current engine, wallet, and mobile lockfiles resolve
+the registry artifacts from this cohort. As with every earlier record, those
+artifacts qualify protocol packages only, not a downstream product or live
+value path.
+
 ## Private packages
 
 The following development packages must retain `publish = false`:
