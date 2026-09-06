@@ -253,11 +253,7 @@ fn validate_transfer_state(
     transfer: &TransferCovenant,
 ) -> Result<(), NameTransactionError> {
     state.validate_key_binding()?;
-    if state.is_null()
-        || !state.registered
-        || state.expired
-        || state.revoked.get() != 0
-        || state.transfer.get() == 0
+    if state.is_null() || !state.registered || state.revoked.get() != 0 || state.transfer.get() == 0
     {
         return Err(NameTransactionError::InvalidFinalize(
             "name state is not an active registered transfer",
@@ -610,9 +606,27 @@ mod tests {
         let mut unregistered = state.clone();
         unregistered.registered = false;
         assert_state_rejected(unregistered);
-        let mut expired = state.clone();
-        expired.expired = true;
-        assert_state_rejected(expired);
+        // HSD retains this bit when resource data survived an earlier
+        // expiration reset. It is historical metadata, not the current
+        // lifecycle decision: a re-registered name may legitimately carry it
+        // through TRANSFER and FINALIZE.
+        let mut historically_expired = state.clone();
+        historically_expired.expired = true;
+        let historical_finalize = build_finalize_transaction(
+            &transfer_coin,
+            &historically_expired,
+            renewal_block,
+            Vec::new(),
+            Vec::new(),
+        )
+        .expect("historically expired but currently active FINALIZE");
+        verify_finalize_at_index_zero(
+            &historical_finalize,
+            &transfer_coin,
+            &historically_expired,
+            renewal_block,
+        )
+        .expect("historical expiration flag does not invalidate FINALIZE");
         let mut revoked = state.clone();
         revoked.revoked = Height::new(1);
         assert_state_rejected(revoked);
