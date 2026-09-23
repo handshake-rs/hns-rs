@@ -157,6 +157,15 @@ the registry artifacts from this cohort. As with every earlier record, those
 artifacts qualify protocol packages only, not a downstream product or live
 value path.
 
+## 0.4.2 release source
+
+Version `0.4.2` reissues the coherent nineteen-crate type graph with the
+FINALIZE correction for a currently active transfer whose HSD name state
+retains a historical resource-expiration bit. The correction is in
+`hns-transaction`, but the shared cohort advances together so downstream
+wallet, swap, P2P, and marketplace packages cannot resolve duplicate protocol
+types from different patch versions.
+
 ## Private packages
 
 The following development packages must retain `publish = false`:
@@ -244,7 +253,7 @@ published.
    upload. The confirmation version must equal the workspace version:
 
    ```bash
-   ./scripts/publish.sh --execute --confirm-publish 0.4.1
+   ./scripts/publish.sh --execute --confirm-publish 0.4.2
    ```
 
 The execution mode is restartable, but it never skips solely because an API
@@ -256,16 +265,17 @@ requires byte-for-byte SHA-256 identity, and requires both archives'
 the release. This permits a partially completed release to resume without
 accepting an unrelated artifact under the same version.
 
-New uploads use a 605-second propagation/cooldown interval before the next
-allowlisted crate by default, matching the ecosystem engine release procedure.
-The command waits only after a successful new upload and only when another
-crate remains; verified resume skips and the final new upload do not sleep.
-Override the non-negative interval only when crates.io communicates a different
-limit:
+Before uploading, the script checks whether the crate name already exists.
+A new crate name uses a 605-second cooldown; a new version of an existing name
+uses a 65-second cooldown. The command waits only after a successful upload and
+only when another crate remains; verified resume skips and the final upload do
+not sleep. Override either non-negative interval only when crates.io
+communicates a different limit:
 
 ```bash
-PUBLISH_INTERVAL_SECONDS=605 \
-  ./scripts/publish.sh --execute --confirm-publish 0.4.1
+PUBLISH_NEW_INTERVAL_SECONDS=605 \
+PUBLISH_UPDATE_INTERVAL_SECONDS=65 \
+  ./scripts/publish.sh --execute --confirm-publish 0.4.2
 ```
 
 After the cooldown, the script downloads the newly uploaded archive and

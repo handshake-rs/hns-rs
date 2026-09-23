@@ -3,6 +3,17 @@
 All notable changes to the `hns-rs` workspace are documented in this file.
 The workspace crates use a shared version and follow Semantic Versioning.
 
+## 0.4.2 - 2026-09-23
+
+- Correct FINALIZE construction and verification for a currently registered
+  transfer whose HSD `NameState.expired` bit records an earlier lifecycle.
+  That bit is historical resource-expiration metadata; current validity still
+  requires a non-null registered state, no revocation, and a live transfer.
+- Add regression coverage proving that a re-registered name carrying the
+  historical expiration bit can complete its current TRANSFER/FINALIZE cycle.
+- Reissue the coherent nineteen-crate protocol cohort so downstream wallets,
+  nodes, and mobile applications resolve one tested type and source graph.
+
 ## 0.4.1 - 2026-09-01
 
 - Unified all nineteen public protocol crates on one `0.4.1` release line so

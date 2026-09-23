@@ -71,18 +71,28 @@ def verify_release_document(repo: Path, order: list[str], version: str) -> None:
         fail("docs/releasing.md does not use the current version in execute examples")
 
     publish_script = (repo / "scripts/publish.sh").read_text(encoding="utf-8")
-    interval_match = re.search(
-        r"^publish_interval_seconds=\$\{PUBLISH_INTERVAL_SECONDS-(\d+)\}$",
+    new_interval_match = re.search(
+        r"^publish_new_interval_seconds=\$\{PUBLISH_NEW_INTERVAL_SECONDS-(\d+)\}$",
         publish_script,
         re.MULTILINE,
     )
-    if interval_match is None:
-        fail("scripts/publish.sh has no validated publication interval default")
-    default_interval = interval_match.group(1)
-    if f"{default_interval}-second" not in document:
-        fail("docs/releasing.md omits the publication interval default")
-    if f"PUBLISH_INTERVAL_SECONDS={default_interval}" not in document:
-        fail("docs/releasing.md cooldown example differs from the script default")
+    update_interval_match = re.search(
+        r"^publish_update_interval_seconds=\$\{PUBLISH_UPDATE_INTERVAL_SECONDS-(\d+)\}$",
+        publish_script,
+        re.MULTILINE,
+    )
+    if new_interval_match is None or update_interval_match is None:
+        fail("scripts/publish.sh has no validated publication interval defaults")
+    new_interval = new_interval_match.group(1)
+    update_interval = update_interval_match.group(1)
+    for variable, interval in (
+        ("PUBLISH_NEW_INTERVAL_SECONDS", new_interval),
+        ("PUBLISH_UPDATE_INTERVAL_SECONDS", update_interval),
+    ):
+        if f"{interval}-second" not in document:
+            fail(f"docs/releasing.md omits the {interval}-second interval")
+        if f"{variable}={interval}" not in document:
+            fail(f"docs/releasing.md omits the {variable} override")
 
 
 def verify_workspace(repo: Path, metadata: dict, order: list[str]) -> tuple[str, str]:
