@@ -10,7 +10,7 @@ The name market retains its bounded hello, inventory, listing request/response,
 and signed cancellation messages. Listing verification remains local; inventory
 is discovery metadata and `OfferInventory` alone may represent an empty board.
 
-## Direct HNS/BTC market (`0x0002`, protocol version 3)
+## Direct HNS/BTC market (`0x0002`, protocol version 4)
 
 The cross-chain protocol uses this registry:
 
@@ -20,17 +20,19 @@ The cross-chain protocol uses this registry:
 | 2 | `GET_DIRECT_OFFER` |
 | 3 | `DIRECT_OFFER` |
 | 4 | `CANCEL_DIRECT_OFFER` |
-| 5 | `TAKE_DIRECT_OFFER` |
+| 5 | `ACCEPT_DIRECT_OFFER` |
 | 6 | `SWAP_SESSION_PROPOSAL` |
 | 7 | `SWAP_SESSION_HELLO` |
 | 8–10 | funding, redeem, and refund status |
+| 11 | `SWAP_WATCH_READY` |
 
-A direct offer is the maker's signed, exact HNS/BTC terms. It names a distinct
-maker settlement key; a take chooses that exact offer and binds the taker's
-settlement key and a nonzero session. A cancellation is signed by the maker's
-long-term identity. There is no price observation, price round, reporter,
-source, quorum, oracle, feed, matching engine, or partial-fill reservation in
-the protocol.
+A direct offer is the offer setter's signed, exact HNS/BTC intent. It names a
+distinct offer-scoped settlement key and nonzero session; that key belongs to
+the setter's eventual taker role. A response accepts that exact offer and binds
+the responder's maker settlement key. A cancellation is signed by the offer
+setter's long-term identity. There is no price observation, price round,
+reporter, source, quorum, oracle, feed, matching engine, or partial-fill
+reservation in the protocol.
 
 Inventories contain at most 4096 sorted unique nonzero offer IDs. The empty
 inventory is a valid response meaning no live offers are available. A request
@@ -39,10 +41,18 @@ objects have tighter internal bounds and every decoder validates version,
 registry availability, zero flags, canonical nested encoding, and complete
 input.
 
-The maker proposal and accepted hello bind the original offer, the take, both
+The responding maker's proposal reverses the public offer's asset sides: the
+responder offers what the setter requested and funds that first; the original
+offer setter countersigns as taker and funds the originally offered asset
+second. The accepted hello binds the original offer, its acceptance, both
 settlement authorities, exact amounts, SHA-256 hashlock, lock commitments,
-confirmation requirements, and refund deadlines. Shakescape status messages are
-authenticated coordination hints only. Funding, confirmation, redemption,
-preimage, refund, and reorganization state must come from independently
-verified local chain evidence. New funding requires the fully accepted hello;
-later signed status may still be verified for recovery.
+confirmation requirements, and refund deadlines. Shakescape status and watch
+messages are authenticated coordination only. Funding, confirmation,
+redemption, preimage, refund, and reorganization state must come from
+independently verified local chain evidence. New funding requires the fully
+accepted hello; later signed status may still be verified for recovery.
+
+Version 4 is a deliberate negotiation boundary for this role correction.
+Current transport rejects legacy role objects so version 3 peers cannot apply
+the opposite key assignment or funding order. Wallets may decode retained
+legacy objects only to recover sessions that were already countersigned.

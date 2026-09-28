@@ -7,42 +7,48 @@ synchronizer.
 
 ## Direct HNS/BTC offers
 
-A direct offer is a maker-signed, indivisible promise to exchange one exact
-native HNS amount for one exact native BTC amount. It has no price reporter,
-source commitment, oracle, historical-rate, or third-party API dependency.
-The maker chooses the terms; a taker either accepts that particular signed
-offer or does not.
+A direct offer is an offer setter's signed, indivisible intent to exchange one
+exact native HNS amount for one exact native BTC amount. It has no price
+reporter, source commitment, oracle, historical-rate, or third-party API
+dependency. A responder either accepts that particular signed intent or does
+not.
 
-The maker's long-term identity signs an offer ID, a distinct per-offer maker
-settlement key, the network binding, pair, offered and received asset IDs,
-exact amounts, sequence, creation time, and expiry. A cancellation is signed
-by that same long-term identity. A take binds that immutable offer ID to a
-nonzero swap-session ID and a distinct taker settlement key. All identifiers
-and signatures are domain-separated BLAKE2b-256/secp256k1 values and are
-recomputed during encoding and decoding; mutating signed or hashed fields
-fails closed.
+The offer setter's long-term identity signs the offer ID, a distinct
+offer-scoped settlement key, a nonzero session ID, the network binding, pair,
+offered and requested asset IDs, exact amounts, sequence, creation time, and
+expiry. That settlement key is precommitted for the setter's eventual role as
+the atomic-swap taker. A cancellation is signed by the same long-term
+identity. An acceptance binds the immutable offer and session IDs to the
+responder's distinct maker settlement key. All identifiers and signatures are
+domain-separated BLAKE2b-256/secp256k1 values and are recomputed during
+encoding and decoding; mutating signed or hashed fields fails closed.
 
 Wallets may present live active offers grouped by their exact reduced
 BTC-per-HNS ratio. That is a discovery display only: a grouped level cannot
 change the signed amounts, and funding always verifies one original offer and
-one corresponding take. There is no protocol price calculation, rate history,
+one corresponding acceptance. There is no protocol price calculation, rate history,
 average, feed, reporter, source, quorum, or remote policy to trust.
 
 ## HTLC sessions
 
-A maker whose offer is taken signs a complete `SwapSessionProposal`. The
-identified taker verifies it against the locally retained direct offer and
-their take, then signs the identical terms to produce a `SwapSessionHello`.
-The accepted hello binds both settlement authorities, exact amounts, SHA-256
-hashlock, each chain's lock-descriptor commitment, Unix-time refund deadline,
-and minimum confirmation depth. Funding validation requires this accepted
-hello; a proposal alone is never funding authority.
+The offer responder initializes the executable swap and signs a complete
+`SwapSessionProposal` as maker. The original offer setter verifies it against
+the locally retained offer and acceptance, then signs the identical terms as
+taker to produce a `SwapSessionHello`. The proposal expresses asset sides from
+the maker's perspective, so its offered side is the public offer's requested
+side and its received side is the public offer's offered side. The accepted
+hello binds both identities and settlement authorities, exact amounts,
+SHA-256 hashlock, each chain's lock-descriptor commitment, Unix-time refund
+deadline, and minimum confirmation depth. Funding validation requires this
+accepted hello; an offer, acceptance, or maker-only proposal is never funding
+authority.
 
-The maker funds the offered-asset chain first and that lock has the later
-deadline. The taker then funds the received-asset chain with the shorter
-deadline. Redemption authority is the opposite party for each chain and refund
-authority is its funder. Wallet policy must leave a safety margin for finality
-and fees. `verify_new_funding_at` closes with the signed funding window, while
+The responding maker funds first: it locks the asset requested by the public
+offer, using the later refund deadline. The offer setter, now the execution
+taker, funds the originally offered asset second with the shorter deadline.
+Redemption authority is the opposite party for each chain and refund authority
+is its funder. Wallet policy must leave a safety margin for finality and fees.
+`verify_new_funding_at` closes with the signed funding window, while
 authenticated reorg, redeem, refund, and recovery evidence may still be
 processed afterward. Third-party status signatures are rejected.
 
@@ -59,9 +65,13 @@ most 8 KiB, and typed Shakescape name-market and cross-chain payloads at most
 512 KiB. All decoders require complete input and reject noncanonical compact
 lengths, signatures, presence/state values, and invalid public keys.
 
-Cross-chain Shakescape protocol version 2 carries direct-offer inventory, offer
-request/response, cancellation, take, accepted session proposal/hello, and
-funding/redeem/refund status messages. An empty direct-offer inventory is a
-valid response meaning that no live offers are currently available. Requests
-for one or more particular offers remain nonempty, so an empty response cannot
-be confused with a malformed request.
+Cross-chain Shakescape protocol version 4 carries direct-offer inventory,
+offer request/response, cancellation, acceptance, session proposal/hello,
+receiver watch-readiness, and funding/redeem/refund status messages. Version 4
+also carries an explicit role-model tag and rejects legacy offer objects at the
+current transport boundary, preventing an older peer from silently assigning
+the settlement keys or first-funding duty to the opposite participants.
+Already-countersigned legacy sessions remain decodeable for local recovery.
+An empty direct-offer inventory is a valid response meaning that no live offers
+are currently available. Requests for one or more particular offers remain
+nonempty, so an empty response cannot be confused with a malformed request.

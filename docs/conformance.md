@@ -25,7 +25,7 @@ Current canonical protocol coverage:
 | owner-bound HNS Chat | `hns-chat-protocol`, `hns-hnsr-protocol`, `hns-conformance`, `fuzz/` | SHA-256-authenticated crate-local valid/invalid release vectors, checked-in source-package inventory, external-consumer public-API coverage, even/odd original owner parity, raw witness-program matching, stale/P2WSH/nonzero-version rejection, HNSA generation binding, exact opaque envelope/acknowledgement wire bounds, noncanonical/trailing/oversized parser negatives, duplicate IDs, complete route-chain admission, and parser mutation coverage |
 | HIP-0001/Shakedex v2 | `hns-swap` | exact proof, seller digest, presigned transaction, buyer fulfillment, recovery transfer, later FINALIZE transaction/witness, IDs, script, price, and locktime vectors |
 | signed name listings and native HNS HTLC | `hns-swap` | complete fixed listing/cancellation envelopes plus exact descriptor, script, address, funding, redeem, refund, sighash, TXID, and preimage vectors |
-| direct HNS/BTC offers, takes, cancellations, and swap sessions | `hns-marketplace-protocol` | exact signed terms, identity, timeout, status, replay, and malformed-envelope negatives; no oracle or rate policy |
+| direct HNS/BTC offer intents, acceptances, cancellations, and swap sessions | `hns-marketplace-protocol` | exact signed terms, responder-maker/offer-setter-taker identity, timeout, status, replay, and malformed-envelope negatives; no oracle or rate policy |
 | typed Shakescape name/cross-chain markets | `hns-marketplace-protocol`, `hns-conformance`, `fuzz/` | exact full envelopes plus bounded full-consumption production parsers |
 
 This is a living qualification index, not a claim that the wider ecosystem is

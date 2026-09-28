@@ -7,8 +7,8 @@ use hns_swap::{
 use crate::crypto;
 use crate::types::encode_fixed_versioned;
 use crate::{
-    AssetAmount, AssetId, ChainId, DirectOffer, DirectOfferTake, MarketplaceError, NetworkBinding,
-    Result, SignedObjectHeader,
+    AssetAmount, AssetId, ChainId, DirectOffer, DirectOfferAcceptance, DirectOfferRoleModel,
+    MarketplaceError, NetworkBinding, Result, SignedObjectHeader,
 };
 
 pub const MAX_SWAP_MESSAGE_SIZE: usize = 8 * 1024;
@@ -121,14 +121,15 @@ pub fn hns_refund_time_lock(deadline: SettlementDeadline) -> Result<HsdTimeLock>
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SwapSessionHello {
     pub header: SignedObjectHeader,
-    /// Exact maker offer accepted for this session. This is a direct signed
-    /// offer identifier; it never commits to a price feed or third party.
+    /// Exact public offer intent accepted for this session. This identifier
+    /// never commits to a price feed or third party.
     pub direct_offer_id: [u8; 32],
     pub swap_session_id: [u8; 32],
-    /// Independent per-session settlement authority delegated by the maker's
-    /// signed direct offer.
+    /// Independent per-session authority supplied by the responding maker's
+    /// signed acceptance.
     pub maker_settlement_public_key: [u8; 33],
-    /// Ephemeral settlement authority supplied by the offer taker.
+    /// Offer-scoped settlement authority precommitted by the offer setter,
+    /// who countersigns the executable swap as taker.
     pub taker_settlement_public_key: [u8; 33],
     pub offered_asset: AssetId,
     pub offered_amount: AssetAmount,
@@ -242,42 +243,59 @@ impl SwapSessionHello {
     pub fn verify_for_direct_offer(
         &self,
         offer: &DirectOffer,
-        take: &DirectOfferTake,
+        acceptance: &DirectOfferAcceptance,
         expected_network: NetworkBinding,
         now: u64,
     ) -> Result<()> {
         let expected_network =
-            self.verify_terms_for_direct_offer(offer, take, expected_network, now)?;
+            self.verify_terms_for_direct_offer(offer, acceptance, expected_network, now)?;
         self.verify_at(expected_network, now)
     }
 
     fn verify_terms_for_direct_offer(
         &self,
         offer: &DirectOffer,
-        take: &DirectOfferTake,
+        acceptance: &DirectOfferAcceptance,
         expected_network: NetworkBinding,
         now: u64,
     ) -> Result<NetworkBinding> {
         offer.verify_at(expected_network, now)?;
-        take.verify_for_offer(offer, expected_network, now)?;
-        if self.direct_offer_id != offer.offer_id
+        acceptance.verify_for_offer(offer, expected_network, now)?;
+        let role_binding_invalid = match offer.role_model {
+            DirectOfferRoleModel::LegacyOfferSetterMaker => {
+                self.header.signer_public_key != offer.header.signer_public_key
+                    || self.maker_settlement_public_key != offer.offer_setter_settlement_public_key
+                    || self.taker_settlement_public_key
+                        != acceptance.responding_maker_settlement_public_key
+                    || self.offered_asset != offer.offered_asset
+                    || self.received_asset != offer.received_asset
+                    || self.offered_amount != offer.offered_amount
+                    || self.received_amount != offer.received_amount
+                    || self.header.sequence <= offer.header.sequence
+            }
+            DirectOfferRoleModel::OfferSetterTaker => {
+                self.header.signer_public_key != acceptance.header.signer_public_key
+                    || self.maker_settlement_public_key
+                        != acceptance.responding_maker_settlement_public_key
+                    || self.taker_settlement_public_key != offer.offer_setter_settlement_public_key
+                    || self.offered_asset != offer.received_asset
+                    || self.received_asset != offer.offered_asset
+                    || self.offered_amount != offer.received_amount
+                    || self.received_amount != offer.offered_amount
+                    || self.header.sequence <= acceptance.header.sequence
+            }
+        };
+        if role_binding_invalid
+            || self.direct_offer_id != offer.offer_id
             || self.swap_session_id != offer.swap_session_id
-            || self.swap_session_id != take.swap_session_id
+            || self.swap_session_id != acceptance.swap_session_id
             || self.header.network != offer.header.network
             || self.header.pair != offer.header.pair
-            || self.header.signer_public_key != offer.header.signer_public_key
-            || self.maker_settlement_public_key != offer.maker_settlement_public_key
-            || self.taker_settlement_public_key != take.taker_settlement_public_key
-            || self.offered_asset != offer.offered_asset
-            || self.received_asset != offer.received_asset
-            || self.offered_amount != offer.offered_amount
-            || self.received_amount != offer.received_amount
-            || self.header.sequence <= offer.header.sequence
-            || self.header.created_at < take.header.created_at
-            || self.header.expires_at > take.header.expires_at
+            || self.header.created_at < acceptance.header.created_at
+            || self.header.expires_at > acceptance.header.expires_at
         {
             return Err(MarketplaceError::Invalid(
-                "swap session hello does not bind its direct offer take",
+                "swap session hello does not bind its direct-offer acceptance",
             ));
         }
         Ok(expected_network)
@@ -533,8 +551,9 @@ impl SwapSessionHello {
     }
 }
 
-/// Canonical maker-signed session terms sent to the direct-offer taker
-/// before a fully accepted [`SwapSessionHello`] exists.
+/// Canonical responder-maker-signed session terms sent to the original offer
+/// setter, now the execution taker, before a fully accepted
+/// [`SwapSessionHello`] exists.
 ///
 /// This distinct wire type closes the two-party signing round trip without
 /// weakening the funding boundary: a proposal cannot be used where a fully
@@ -568,13 +587,13 @@ impl SwapSessionProposal {
     pub fn verify_for_direct_offer(
         &self,
         offer: &DirectOffer,
-        take: &DirectOfferTake,
+        acceptance: &DirectOfferAcceptance,
         expected_network: NetworkBinding,
         now: u64,
     ) -> Result<()> {
         let expected_network =
             self.hello
-                .verify_terms_for_direct_offer(offer, take, expected_network, now)?;
+                .verify_terms_for_direct_offer(offer, acceptance, expected_network, now)?;
         self.verify_at(expected_network, now)
     }
 
@@ -1250,7 +1269,10 @@ mod tests {
     use hns_primitives::BlockHash;
 
     use super::*;
-    use crate::{CrossChainMessage, MARKETPLACE_PROTOCOL_VERSION, MarketPair};
+    use crate::{
+        CrossChainMessage, DirectOffer, DirectOfferAcceptance, MARKETPLACE_PROTOCOL_VERSION,
+        MarketPair,
+    };
 
     fn network() -> NetworkBinding {
         NetworkBinding {
@@ -1375,6 +1397,82 @@ mod tests {
         let mut trailing_proposal = encoded_proposal;
         trailing_proposal.push(0);
         assert!(SwapSessionProposal::decode(&trailing_proposal).is_err());
+    }
+
+    #[test]
+    fn current_offer_responder_is_maker_and_offer_setter_is_taker() {
+        let offer_setter_identity = [7; 32];
+        let offer_setter_settlement = [8; 32];
+        let responding_maker_identity = [10; 32];
+        let responding_maker_settlement = [9; 32];
+        let mut offer = DirectOffer {
+            role_model: DirectOfferRoleModel::OfferSetterTaker,
+            header: header(1),
+            offer_id: [0; 32],
+            swap_session_id: [4; 32],
+            offer_setter_settlement_public_key: crypto::public_key(&offer_setter_settlement)
+                .unwrap(),
+            offered_asset: AssetId::HNS,
+            offered_amount: AssetAmount::new(1_000_000),
+            received_asset: AssetId::BTC,
+            received_amount: AssetAmount::new(10_000),
+            signature: [0; 64],
+        };
+        offer.sign(&offer_setter_identity).unwrap();
+        let mut acceptance = DirectOfferAcceptance {
+            role_model: DirectOfferRoleModel::OfferSetterTaker,
+            header: header(2),
+            offer_id: offer.offer_id,
+            swap_session_id: offer.swap_session_id,
+            responding_maker_settlement_public_key: crypto::public_key(
+                &responding_maker_settlement,
+            )
+            .unwrap(),
+            signature: [0; 64],
+        };
+        acceptance.sign(&responding_maker_identity).unwrap();
+
+        let mut hello = unsigned_hello();
+        hello.header.signer_public_key = acceptance.header.signer_public_key;
+        hello.header.sequence = acceptance.header.sequence + 1;
+        hello.direct_offer_id = offer.offer_id;
+        hello.swap_session_id = offer.swap_session_id;
+        hello.maker_settlement_public_key = acceptance.responding_maker_settlement_public_key;
+        hello.taker_settlement_public_key = offer.offer_setter_settlement_public_key;
+        hello.offered_asset = offer.received_asset;
+        hello.offered_amount = offer.received_amount;
+        hello.received_asset = offer.offered_asset;
+        hello.received_amount = offer.offered_amount;
+        hello.first_funding_chain = ChainId::BITCOIN;
+        hello.sign_maker(&responding_maker_settlement).unwrap();
+        hello.accept_taker(&offer_setter_settlement).unwrap();
+        hello
+            .verify_for_direct_offer(&offer, &acceptance, network(), 150)
+            .unwrap();
+
+        let mut old_role_orientation = hello.clone();
+        old_role_orientation.header.signer_public_key = offer.header.signer_public_key;
+        old_role_orientation.maker_settlement_public_key = offer.offer_setter_settlement_public_key;
+        old_role_orientation.taker_settlement_public_key =
+            acceptance.responding_maker_settlement_public_key;
+        old_role_orientation.offered_asset = offer.offered_asset;
+        old_role_orientation.offered_amount = offer.offered_amount;
+        old_role_orientation.received_asset = offer.received_asset;
+        old_role_orientation.received_amount = offer.received_amount;
+        old_role_orientation.first_funding_chain = ChainId::HANDSHAKE;
+        old_role_orientation.maker_signature = [0; 64];
+        old_role_orientation.taker_signature = [0; 64];
+        old_role_orientation
+            .sign_maker(&offer_setter_settlement)
+            .unwrap();
+        old_role_orientation
+            .accept_taker(&responding_maker_settlement)
+            .unwrap();
+        assert!(
+            old_role_orientation
+                .verify_for_direct_offer(&offer, &acceptance, network(), 150)
+                .is_err()
+        );
     }
 
     #[test]

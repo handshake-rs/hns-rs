@@ -578,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "hns-marketplace-protocol"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "blake2",
  "hex",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "hns-p2p-experimental"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "hex",
  "hns-dns-relay-protocol",

@@ -6,18 +6,20 @@ market and bilateral direct fixed-terms HNS/BTC swaps.
 The crate contains no wallet, database, async runtime, network client, Bitcoin
 runtime, Ethereum runtime, browser API, or platform ABI. Every decoder bounds
 variable input and requires complete consumption. Money uses integer base units
-and exchange terms use the exact integer amounts signed by a maker; floating-
+and exchange terms use exact signed integer amounts; floating-
 point arithmetic is never used.
 
-Each direct offer delegates an independent per-offer maker settlement key from
-the long-term marketplace identity and signs the maker-selected swap session
-identifier alongside it. A signed offer take chooses that exact offer, repeats
-that immutable session identifier, and binds a taker settlement key. Session hellos bind both settlement
-authorities, the exact offer amounts, SHA-256 hashlock, descriptor commitments,
-and timeouts. A distinct maker-signed session proposal carries those exact
-terms to the designated taker, which verifies the proposal before adding its
-signature and producing the funding-capable session hello. Native HNS sides can
-be constructed and verified directly against `hns-swap::HnsHtlc`.
+Each direct offer delegates an independent offer-scoped settlement key from
+the setter's long-term marketplace identity and signs a nonzero session
+identifier alongside it. That key is precommitted for the setter's eventual
+taker role. A responder's signed acceptance repeats the immutable offer and
+session identifiers and binds the responder's maker settlement key. The
+responder then signs a proposal as execution maker; the original offer setter
+verifies and countersigns it as taker. Session hellos bind both settlement
+authorities, the exact offer amounts with their sides reversed into the
+maker's perspective, SHA-256 hashlock, descriptor commitments, and timeouts.
+Native HNS sides can be constructed and verified directly against
+`hns-swap::HnsHtlc`.
 New-funding admission is time-gated separately from historical status and
 reorganization validation.
 

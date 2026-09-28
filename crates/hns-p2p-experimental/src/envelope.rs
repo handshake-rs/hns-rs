@@ -18,17 +18,18 @@ pub const ATOMIC_MARKET_PROTOCOL_ID: u16 = 0x0001;
 pub const ATOMIC_MARKET_PROTOCOL_VERSION: u16 = 1;
 pub const ATOMIC_MARKET_MAX_PAYLOAD: usize = SHAKESCAPE_EXTENSION_MAX_NESTED_PAYLOAD;
 pub const CROSS_CHAIN_MARKET_PROTOCOL_ID: u16 = 0x0002;
-/// Version 3 adds receiver-signed durable watch readiness before first-chain
-/// funding. Version 2 peers fail negotiation cleanly instead of interpreting
-/// the new coordination gate as an unknown lifecycle message.
-pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 3;
+/// Version 4 makes the offer responder the atomic-swap maker and the original
+/// offer setter the taker. Older peers fail negotiation instead of silently
+/// assigning settlement keys and first-funding responsibility to the opposite
+/// participants. Version 3 added receiver-signed watch readiness.
+pub const CROSS_CHAIN_MARKET_PROTOCOL_VERSION: u16 = 4;
 pub const CROSS_CHAIN_MARKET_MAX_PAYLOAD: usize = 512 * 1024;
 
 pub const DIRECT_OFFER_INVENTORY_MESSAGE_TYPE: u16 = 1;
 pub const GET_DIRECT_OFFER_MESSAGE_TYPE: u16 = 2;
 pub const DIRECT_OFFER_MESSAGE_TYPE: u16 = 3;
 pub const CANCEL_DIRECT_OFFER_MESSAGE_TYPE: u16 = 4;
-pub const TAKE_DIRECT_OFFER_MESSAGE_TYPE: u16 = 5;
+pub const ACCEPT_DIRECT_OFFER_MESSAGE_TYPE: u16 = 5;
 pub const SWAP_SESSION_PROPOSAL_MESSAGE_TYPE: u16 = 6;
 pub const SWAP_SESSION_HELLO_MESSAGE_TYPE: u16 = 7;
 pub const SWAP_FUNDING_STATUS_MESSAGE_TYPE: u16 = 8;
@@ -238,8 +239,8 @@ impl ShakescapeExtensionEnvelope {
             (
                 SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
-                TAKE_DIRECT_OFFER_MESSAGE_TYPE,
-            ) => Some(KnownMessage::TakeDirectOffer),
+                ACCEPT_DIRECT_OFFER_MESSAGE_TYPE,
+            ) => Some(KnownMessage::AcceptDirectOffer),
             (
                 SHAKESCAPE_V1_REGISTRY_VERSION,
                 CROSS_CHAIN_MARKET_PROTOCOL_ID,
@@ -432,7 +433,7 @@ pub enum KnownMessage {
     GetDirectOffer,
     DirectOffer,
     CancelDirectOffer,
-    TakeDirectOffer,
+    AcceptDirectOffer,
     SwapSessionHello,
     SwapFundingStatus,
     SwapRedeemStatus,
@@ -678,8 +679,8 @@ mod tests {
                 KnownMessage::CancelDirectOffer,
             ),
             (
-                TAKE_DIRECT_OFFER_MESSAGE_TYPE,
-                KnownMessage::TakeDirectOffer,
+                ACCEPT_DIRECT_OFFER_MESSAGE_TYPE,
+                KnownMessage::AcceptDirectOffer,
             ),
             (
                 SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,

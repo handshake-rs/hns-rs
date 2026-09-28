@@ -1,19 +1,20 @@
 use hns_encoding::{Decoder, Encoder};
 use hns_p2p_experimental::{
-    ATOMIC_MARKET_PROTOCOL_ID, ATOMIC_MARKET_PROTOCOL_VERSION, CANCEL_DIRECT_OFFER_MESSAGE_TYPE,
-    CROSS_CHAIN_MARKET_MAX_PAYLOAD, CROSS_CHAIN_MARKET_PROTOCOL_ID,
+    ACCEPT_DIRECT_OFFER_MESSAGE_TYPE, ATOMIC_MARKET_PROTOCOL_ID, ATOMIC_MARKET_PROTOCOL_VERSION,
+    CANCEL_DIRECT_OFFER_MESSAGE_TYPE, CROSS_CHAIN_MARKET_MAX_PAYLOAD,
+    CROSS_CHAIN_MARKET_PROTOCOL_ID,
     CROSS_CHAIN_MARKET_PROTOCOL_VERSION as SHAKESCAPE_CROSS_CHAIN_MARKET_PROTOCOL_VERSION,
     DIRECT_OFFER_INVENTORY_MESSAGE_TYPE, DIRECT_OFFER_MESSAGE_TYPE, GET_DIRECT_OFFER_MESSAGE_TYPE,
     SHAKESCAPE_V1_REGISTRY_VERSION, SWAP_FUNDING_STATUS_MESSAGE_TYPE,
     SWAP_REDEEM_STATUS_MESSAGE_TYPE, SWAP_REFUND_STATUS_MESSAGE_TYPE,
     SWAP_SESSION_HELLO_MESSAGE_TYPE, SWAP_SESSION_PROPOSAL_MESSAGE_TYPE,
-    SWAP_WATCH_READY_MESSAGE_TYPE, ShakescapeExtensionEnvelope, TAKE_DIRECT_OFFER_MESSAGE_TYPE,
+    SWAP_WATCH_READY_MESSAGE_TYPE, ShakescapeExtensionEnvelope,
 };
 use hns_primitives::BlockHash;
 use hns_swap::{FixedPriceListing, ListingCancellation};
 
 use crate::{
-    DirectOffer, DirectOfferCancellation, DirectOfferTake, MarketplaceError, Result,
+    DirectOffer, DirectOfferAcceptance, DirectOfferCancellation, MarketplaceError, Result,
     SwapFundingStatus, SwapRedeemStatus, SwapRefundStatus, SwapSessionHello, SwapSessionProposal,
     SwapWatchReady, ensure_size,
 };
@@ -186,7 +187,7 @@ pub enum CrossChainMessage {
     GetDirectOffer([u8; 32]),
     DirectOffer(DirectOffer),
     CancelDirectOffer(DirectOfferCancellation),
-    TakeDirectOffer(DirectOfferTake),
+    AcceptDirectOffer(DirectOfferAcceptance),
     SwapSessionHello(SwapSessionHello),
     SwapFundingStatus(SwapFundingStatus),
     SwapRedeemStatus(SwapRedeemStatus),
@@ -238,11 +239,30 @@ impl CrossChainMessage {
             Self::GetDirectOffer(hash) => {
                 (GET_DIRECT_OFFER_MESSAGE_TYPE, encode_nonzero_hash(*hash)?)
             }
-            Self::DirectOffer(offer) => (DIRECT_OFFER_MESSAGE_TYPE, offer.encode()?),
-            Self::CancelDirectOffer(cancellation) => {
+            Self::DirectOffer(offer) if offer.role_model.is_current() => {
+                (DIRECT_OFFER_MESSAGE_TYPE, offer.encode()?)
+            }
+            Self::DirectOffer(_) => {
+                return Err(MarketplaceError::Invalid(
+                    "legacy direct offer cannot use the current transport",
+                ));
+            }
+            Self::CancelDirectOffer(cancellation) if cancellation.role_model.is_current() => {
                 (CANCEL_DIRECT_OFFER_MESSAGE_TYPE, cancellation.encode()?)
             }
-            Self::TakeDirectOffer(take) => (TAKE_DIRECT_OFFER_MESSAGE_TYPE, take.encode()?),
+            Self::CancelDirectOffer(_) => {
+                return Err(MarketplaceError::Invalid(
+                    "legacy direct-offer cancellation cannot use the current transport",
+                ));
+            }
+            Self::AcceptDirectOffer(acceptance) if acceptance.role_model.is_current() => {
+                (ACCEPT_DIRECT_OFFER_MESSAGE_TYPE, acceptance.encode()?)
+            }
+            Self::AcceptDirectOffer(_) => {
+                return Err(MarketplaceError::Invalid(
+                    "legacy direct-offer response cannot use the current transport",
+                ));
+            }
             Self::SwapSessionHello(hello) => (SWAP_SESSION_HELLO_MESSAGE_TYPE, hello.encode()?),
             Self::SwapFundingStatus(status) => (SWAP_FUNDING_STATUS_MESSAGE_TYPE, status.encode()?),
             Self::SwapRedeemStatus(status) => (SWAP_REDEEM_STATUS_MESSAGE_TYPE, status.encode()?),
@@ -272,12 +292,32 @@ impl CrossChainMessage {
             GET_DIRECT_OFFER_MESSAGE_TYPE => {
                 Ok(Self::GetDirectOffer(decode_nonzero_hash(payload)?))
             }
-            DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::DirectOffer(DirectOffer::decode(payload)?)),
-            CANCEL_DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::CancelDirectOffer(
-                DirectOfferCancellation::decode(payload)?,
-            )),
-            TAKE_DIRECT_OFFER_MESSAGE_TYPE => {
-                Ok(Self::TakeDirectOffer(DirectOfferTake::decode(payload)?))
+            DIRECT_OFFER_MESSAGE_TYPE => {
+                let offer = DirectOffer::decode(payload)?;
+                if !offer.role_model.is_current() {
+                    return Err(MarketplaceError::Invalid(
+                        "legacy direct offer on current transport",
+                    ));
+                }
+                Ok(Self::DirectOffer(offer))
+            }
+            CANCEL_DIRECT_OFFER_MESSAGE_TYPE => {
+                let cancellation = DirectOfferCancellation::decode(payload)?;
+                if !cancellation.role_model.is_current() {
+                    return Err(MarketplaceError::Invalid(
+                        "legacy direct-offer cancellation on current transport",
+                    ));
+                }
+                Ok(Self::CancelDirectOffer(cancellation))
+            }
+            ACCEPT_DIRECT_OFFER_MESSAGE_TYPE => {
+                let acceptance = DirectOfferAcceptance::decode(payload)?;
+                if !acceptance.role_model.is_current() {
+                    return Err(MarketplaceError::Invalid(
+                        "legacy direct-offer response on current transport",
+                    ));
+                }
+                Ok(Self::AcceptDirectOffer(acceptance))
             }
             SWAP_SESSION_HELLO_MESSAGE_TYPE => {
                 Ok(Self::SwapSessionHello(SwapSessionHello::decode(payload)?))
@@ -461,13 +501,13 @@ mod tests {
     }
 
     #[test]
-    fn inventories_are_sorted_unique_bounded_and_v3_only_for_cross_chain() {
+    fn inventories_are_sorted_unique_bounded_and_v4_only_for_cross_chain() {
         let message = CrossChainMessage::DirectOfferInventory(vec![[1; 32], [2; 32]]);
         let encoded = message.encode_envelope(7).unwrap();
         assert_eq!(
             hex::encode(&encoded),
             concat!(
-                "534b58310100020003000100000007000000000000004100000002",
+                "534b58310100020004000100000007000000000000004100000002",
                 "0101010101010101010101010101010101010101010101010101010101010101",
                 "0202020202020202020202020202020202020202020202020202020202020202"
             )
