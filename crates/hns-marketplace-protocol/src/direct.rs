@@ -15,44 +15,11 @@ use crate::{
 
 pub const MAX_DIRECT_OFFER_SIZE: usize = 8 * 1024;
 
-const LEGACY_OFFER_ID_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-ID-V1\0";
-const LEGACY_OFFER_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-SIGNATURE-V1\0";
-const LEGACY_OFFER_CANCEL_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-CANCEL-V1\0";
-const LEGACY_OFFER_TAKE_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-TAKE-V1\0";
 const OFFER_ID_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-ID-V2\0";
 const OFFER_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-SIGNATURE-V2\0";
 const OFFER_CANCEL_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-CANCEL-V2\0";
 const OFFER_ACCEPT_SIGNATURE_DOMAIN: &[u8] = b"HNS-DIRECT-OFFER-ACCEPT-V2\0";
-
-/// Explicit role semantics for a direct offer and its response.
-///
-/// Version 1 incorrectly treated the public offer setter as the atomic-swap
-/// maker. Version 2 keeps the public offer as a signed intent: the responding
-/// participant initializes the executable swap as maker, and the offer setter
-/// countersigns it as taker. The legacy value is decode-only compatibility for
-/// recovery of already-countersigned sessions; current cross-chain envelopes
-/// reject it.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[repr(u8)]
-pub enum DirectOfferRoleModel {
-    LegacyOfferSetterMaker = 1,
-    OfferSetterTaker = 2,
-}
-
-impl DirectOfferRoleModel {
-    fn decode_current(decoder: &mut Decoder<'_>) -> Result<Self> {
-        match decoder.read_u8()? {
-            2 => Ok(Self::OfferSetterTaker),
-            _ => Err(MarketplaceError::Invalid(
-                "unsupported direct-offer role model",
-            )),
-        }
-    }
-
-    pub const fn is_current(self) -> bool {
-        matches!(self, Self::OfferSetterTaker)
-    }
-}
+const DIRECT_OFFER_ROLE_MODEL: u8 = 2;
 
 /// An offer setter's exact, indivisible HNS/BTC exchange intent.
 ///
@@ -63,7 +30,6 @@ impl DirectOfferRoleModel {
 /// swap with the two asset sides reversed into the maker's perspective.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DirectOffer {
-    pub role_model: DirectOfferRoleModel,
     pub header: SignedObjectHeader,
     pub offer_id: [u8; 32],
     /// Offer-scoped session identity. The responding swap maker must repeat
@@ -80,7 +46,7 @@ pub struct DirectOffer {
 
 impl DirectOffer {
     pub fn refresh_id(&mut self) -> Result<()> {
-        self.offer_id = crypto::hash(self.id_domain(), &self.encode_unsigned()?);
+        self.offer_id = crypto::hash(OFFER_ID_DOMAIN, &self.encode_unsigned()?);
         Ok(())
     }
 
@@ -91,7 +57,7 @@ impl DirectOffer {
         bind_signer(&mut self.header, private_key)?;
         self.refresh_id()?;
         self.signature = crypto::sign(
-            self.signature_domain(),
+            OFFER_SIGNATURE_DOMAIN,
             &self.signature_bytes()?,
             &self.header.signer_public_key,
             private_key,
@@ -103,7 +69,7 @@ impl DirectOffer {
         self.header.validate_at(expected_network, now)?;
         self.verify_id()?;
         crypto::verify(
-            self.signature_domain(),
+            OFFER_SIGNATURE_DOMAIN,
             &self.signature_bytes()?,
             &self.signature,
             &self.header.signer_public_key,
@@ -113,7 +79,7 @@ impl DirectOffer {
     pub fn encode(&self) -> Result<Vec<u8>> {
         self.verify_id()?;
         crypto::verify(
-            self.signature_domain(),
+            OFFER_SIGNATURE_DOMAIN,
             &self.signature_bytes()?,
             &self.signature,
             &self.header.signer_public_key,
@@ -128,13 +94,9 @@ impl DirectOffer {
 
     pub fn decode(input: &[u8]) -> Result<Self> {
         check_input(input)?;
-        Self::decode_current(input).or_else(|_| Self::decode_legacy(input))
-    }
-
-    fn decode_current(input: &[u8]) -> Result<Self> {
         let mut decoder = Decoder::new(input);
+        decode_role_model(&mut decoder)?;
         let offer = Self {
-            role_model: DirectOfferRoleModel::decode_current(&mut decoder)?,
             header: SignedObjectHeader::decode_from(&mut decoder)?,
             swap_session_id: decoder.read_array()?,
             offer_setter_settlement_public_key: decoder.read_array()?,
@@ -149,33 +111,7 @@ impl DirectOffer {
         offer.validate_fields()?;
         offer.verify_id()?;
         crypto::verify(
-            offer.signature_domain(),
-            &offer.signature_bytes()?,
-            &offer.signature,
-            &offer.header.signer_public_key,
-        )?;
-        Ok(offer)
-    }
-
-    fn decode_legacy(input: &[u8]) -> Result<Self> {
-        let mut decoder = Decoder::new(input);
-        let offer = Self {
-            role_model: DirectOfferRoleModel::LegacyOfferSetterMaker,
-            header: SignedObjectHeader::decode_from(&mut decoder)?,
-            swap_session_id: decoder.read_array()?,
-            offer_setter_settlement_public_key: decoder.read_array()?,
-            offered_asset: AssetId::decode_from(&mut decoder)?,
-            offered_amount: AssetAmount::decode_from(&mut decoder)?,
-            received_asset: AssetId::decode_from(&mut decoder)?,
-            received_amount: AssetAmount::decode_from(&mut decoder)?,
-            offer_id: decoder.read_array()?,
-            signature: decoder.read_array()?,
-        };
-        decoder.finish()?;
-        offer.validate_fields()?;
-        offer.verify_id()?;
-        crypto::verify(
-            offer.signature_domain(),
+            OFFER_SIGNATURE_DOMAIN,
             &offer.signature_bytes()?,
             &offer.signature,
             &offer.header.signer_public_key,
@@ -202,7 +138,7 @@ impl DirectOffer {
 
     fn verify_id(&self) -> Result<()> {
         self.validate_fields()?;
-        let expected = crypto::hash(self.id_domain(), &self.encode_unsigned()?);
+        let expected = crypto::hash(OFFER_ID_DOMAIN, &self.encode_unsigned()?);
         if self.offer_id == expected && self.offer_id != [0; 32] {
             Ok(())
         } else {
@@ -220,9 +156,7 @@ impl DirectOffer {
     fn encode_unsigned(&self) -> Result<Vec<u8>> {
         self.validate_fields()?;
         encode_fixed_versioned(MAX_DIRECT_OFFER_SIZE - 96, |encoder| {
-            if self.role_model.is_current() {
-                encoder.put_u8(self.role_model as u8);
-            }
+            encoder.put_u8(DIRECT_OFFER_ROLE_MODEL);
             self.header.encode_to(encoder);
             encoder.put_bytes(&self.swap_session_id);
             encoder.put_bytes(&self.offer_setter_settlement_public_key);
@@ -233,26 +167,11 @@ impl DirectOffer {
             Ok(())
         })
     }
-
-    const fn id_domain(&self) -> &'static [u8] {
-        match self.role_model {
-            DirectOfferRoleModel::LegacyOfferSetterMaker => LEGACY_OFFER_ID_DOMAIN,
-            DirectOfferRoleModel::OfferSetterTaker => OFFER_ID_DOMAIN,
-        }
-    }
-
-    const fn signature_domain(&self) -> &'static [u8] {
-        match self.role_model {
-            DirectOfferRoleModel::LegacyOfferSetterMaker => LEGACY_OFFER_SIGNATURE_DOMAIN,
-            DirectOfferRoleModel::OfferSetterTaker => OFFER_SIGNATURE_DOMAIN,
-        }
-    }
 }
 
 /// A signed, monotonic withdrawal of an offer setter's live intent.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DirectOfferCancellation {
-    pub role_model: DirectOfferRoleModel,
     pub header: SignedObjectHeader,
     pub offer_id: [u8; 32],
     pub offer_sequence: u64,
@@ -263,7 +182,7 @@ impl DirectOfferCancellation {
     pub fn sign(&mut self, private_key: &[u8; 32]) -> Result<()> {
         bind_signer(&mut self.header, private_key)?;
         self.signature = crypto::sign(
-            self.signature_domain(),
+            OFFER_CANCEL_SIGNATURE_DOMAIN,
             &self.encode_unsigned()?,
             &self.header.signer_public_key,
             private_key,
@@ -280,8 +199,7 @@ impl DirectOfferCancellation {
         offer.verify_at(expected_network, now)?;
         self.header.validate_at(expected_network, now)?;
         self.verify_signature()?;
-        if self.role_model != offer.role_model
-            || self.offer_id != offer.offer_id
+        if self.offer_id != offer.offer_id
             || self.offer_sequence != offer.header.sequence
             || self.header.network != offer.header.network
             || self.header.pair != offer.header.pair
@@ -303,28 +221,9 @@ impl DirectOfferCancellation {
 
     pub fn decode(input: &[u8]) -> Result<Self> {
         check_input(input)?;
-        Self::decode_current(input).or_else(|_| Self::decode_legacy(input))
-    }
-
-    fn decode_current(input: &[u8]) -> Result<Self> {
         let mut decoder = Decoder::new(input);
+        decode_role_model(&mut decoder)?;
         let cancellation = Self {
-            role_model: DirectOfferRoleModel::decode_current(&mut decoder)?,
-            header: SignedObjectHeader::decode_from(&mut decoder)?,
-            offer_id: decoder.read_array()?,
-            offer_sequence: decoder.read_u64_le()?,
-            signature: decoder.read_array()?,
-        };
-        decoder.finish()?;
-        cancellation.validate_fields()?;
-        cancellation.verify_signature()?;
-        Ok(cancellation)
-    }
-
-    fn decode_legacy(input: &[u8]) -> Result<Self> {
-        let mut decoder = Decoder::new(input);
-        let cancellation = Self {
-            role_model: DirectOfferRoleModel::LegacyOfferSetterMaker,
             header: SignedObjectHeader::decode_from(&mut decoder)?,
             offer_id: decoder.read_array()?,
             offer_sequence: decoder.read_u64_le()?,
@@ -349,7 +248,7 @@ impl DirectOfferCancellation {
 
     fn verify_signature(&self) -> Result<()> {
         crypto::verify(
-            self.signature_domain(),
+            OFFER_CANCEL_SIGNATURE_DOMAIN,
             &self.encode_unsigned()?,
             &self.signature,
             &self.header.signer_public_key,
@@ -359,21 +258,12 @@ impl DirectOfferCancellation {
     fn encode_unsigned(&self) -> Result<Vec<u8>> {
         self.validate_fields()?;
         encode_fixed_versioned(MAX_DIRECT_OFFER_SIZE - 64, |encoder| {
-            if self.role_model.is_current() {
-                encoder.put_u8(self.role_model as u8);
-            }
+            encoder.put_u8(DIRECT_OFFER_ROLE_MODEL);
             self.header.encode_to(encoder);
             encoder.put_bytes(&self.offer_id);
             encoder.put_u64_le(self.offer_sequence);
             Ok(())
         })
-    }
-
-    const fn signature_domain(&self) -> &'static [u8] {
-        match self.role_model {
-            DirectOfferRoleModel::LegacyOfferSetterMaker => LEGACY_OFFER_CANCEL_SIGNATURE_DOMAIN,
-            DirectOfferRoleModel::OfferSetterTaker => OFFER_CANCEL_SIGNATURE_DOMAIN,
-        }
     }
 }
 
@@ -385,7 +275,6 @@ impl DirectOfferCancellation {
 /// and countersigns that proposal as taker.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DirectOfferAcceptance {
-    pub role_model: DirectOfferRoleModel,
     pub header: SignedObjectHeader,
     pub offer_id: [u8; 32],
     pub swap_session_id: [u8; 32],
@@ -397,7 +286,7 @@ impl DirectOfferAcceptance {
     pub fn sign(&mut self, private_key: &[u8; 32]) -> Result<()> {
         bind_signer(&mut self.header, private_key)?;
         self.signature = crypto::sign(
-            self.signature_domain(),
+            OFFER_ACCEPT_SIGNATURE_DOMAIN,
             &self.encode_unsigned()?,
             &self.header.signer_public_key,
             private_key,
@@ -414,8 +303,7 @@ impl DirectOfferAcceptance {
         offer.verify_at(expected_network, now)?;
         self.header.validate_at(expected_network, now)?;
         self.verify_signature()?;
-        if self.role_model != offer.role_model
-            || self.offer_id != offer.offer_id
+        if self.offer_id != offer.offer_id
             || self.swap_session_id != offer.swap_session_id
             || self.header.network != offer.header.network
             || self.header.pair != offer.header.pair
@@ -441,29 +329,9 @@ impl DirectOfferAcceptance {
 
     pub fn decode(input: &[u8]) -> Result<Self> {
         check_input(input)?;
-        Self::decode_current(input).or_else(|_| Self::decode_legacy(input))
-    }
-
-    fn decode_current(input: &[u8]) -> Result<Self> {
         let mut decoder = Decoder::new(input);
+        decode_role_model(&mut decoder)?;
         let acceptance = Self {
-            role_model: DirectOfferRoleModel::decode_current(&mut decoder)?,
-            header: SignedObjectHeader::decode_from(&mut decoder)?,
-            offer_id: decoder.read_array()?,
-            swap_session_id: decoder.read_array()?,
-            responding_maker_settlement_public_key: decoder.read_array()?,
-            signature: decoder.read_array()?,
-        };
-        decoder.finish()?;
-        acceptance.validate_fields()?;
-        acceptance.verify_signature()?;
-        Ok(acceptance)
-    }
-
-    fn decode_legacy(input: &[u8]) -> Result<Self> {
-        let mut decoder = Decoder::new(input);
-        let acceptance = Self {
-            role_model: DirectOfferRoleModel::LegacyOfferSetterMaker,
             header: SignedObjectHeader::decode_from(&mut decoder)?,
             offer_id: decoder.read_array()?,
             swap_session_id: decoder.read_array()?,
@@ -492,7 +360,7 @@ impl DirectOfferAcceptance {
 
     fn verify_signature(&self) -> Result<()> {
         crypto::verify(
-            self.signature_domain(),
+            OFFER_ACCEPT_SIGNATURE_DOMAIN,
             &self.encode_unsigned()?,
             &self.signature,
             &self.header.signer_public_key,
@@ -502,9 +370,7 @@ impl DirectOfferAcceptance {
     fn encode_unsigned(&self) -> Result<Vec<u8>> {
         self.validate_fields()?;
         encode_fixed_versioned(MAX_DIRECT_OFFER_SIZE - 64, |encoder| {
-            if self.role_model.is_current() {
-                encoder.put_u8(self.role_model as u8);
-            }
+            encoder.put_u8(DIRECT_OFFER_ROLE_MODEL);
             self.header.encode_to(encoder);
             encoder.put_bytes(&self.offer_id);
             encoder.put_bytes(&self.swap_session_id);
@@ -512,12 +378,15 @@ impl DirectOfferAcceptance {
             Ok(())
         })
     }
+}
 
-    const fn signature_domain(&self) -> &'static [u8] {
-        match self.role_model {
-            DirectOfferRoleModel::LegacyOfferSetterMaker => LEGACY_OFFER_TAKE_SIGNATURE_DOMAIN,
-            DirectOfferRoleModel::OfferSetterTaker => OFFER_ACCEPT_SIGNATURE_DOMAIN,
-        }
+fn decode_role_model(decoder: &mut Decoder<'_>) -> Result<()> {
+    if decoder.read_u8()? == DIRECT_OFFER_ROLE_MODEL {
+        Ok(())
+    } else {
+        Err(MarketplaceError::Invalid(
+            "unsupported direct-offer role model",
+        ))
     }
 }
 
@@ -554,7 +423,7 @@ mod tests {
     use hns_primitives::BlockHash;
 
     use super::*;
-    use crate::{ChainId, CrossChainMessage};
+    use crate::ChainId;
 
     fn network() -> NetworkBinding {
         NetworkBinding {
@@ -580,7 +449,6 @@ mod tests {
 
     fn offer() -> DirectOffer {
         let mut offer = DirectOffer {
-            role_model: DirectOfferRoleModel::OfferSetterTaker,
             header: header(1),
             offer_id: [0; 32],
             swap_session_id: [3; 32],
@@ -605,7 +473,6 @@ mod tests {
         offer.verify_at(network(), 150).unwrap();
 
         let mut acceptance = DirectOfferAcceptance {
-            role_model: DirectOfferRoleModel::OfferSetterTaker,
             header: header(2),
             offer_id: offer.offer_id,
             swap_session_id: offer.swap_session_id,
@@ -628,7 +495,6 @@ mod tests {
         );
 
         let mut cancellation = DirectOfferCancellation {
-            role_model: DirectOfferRoleModel::OfferSetterTaker,
             header: header(3),
             offer_id: offer.offer_id,
             offer_sequence: offer.header.sequence,
@@ -645,33 +511,9 @@ mod tests {
     }
 
     #[test]
-    fn legacy_role_bytes_decode_only_as_legacy_and_use_distinct_domains() {
-        let current = offer();
-        let current_bytes = current.encode().unwrap();
-
-        let mut legacy = current.clone();
-        legacy.role_model = DirectOfferRoleModel::LegacyOfferSetterMaker;
-        legacy.header.signer_public_key = [0; 33];
-        legacy.offer_id = [0; 32];
-        legacy.signature = [0; 64];
-        legacy.sign(&[7; 32]).unwrap();
-        let legacy_bytes = legacy.encode().unwrap();
-
-        assert_ne!(legacy.offer_id, current.offer_id);
-        assert_ne!(legacy.signature, current.signature);
-        assert_ne!(legacy_bytes, current_bytes);
-        assert_eq!(
-            DirectOffer::decode(&legacy_bytes).unwrap().role_model,
-            DirectOfferRoleModel::LegacyOfferSetterMaker
-        );
-        assert_eq!(
-            DirectOffer::decode(&current_bytes).unwrap().role_model,
-            DirectOfferRoleModel::OfferSetterTaker
-        );
-        assert!(
-            CrossChainMessage::DirectOffer(legacy)
-                .encode_envelope(1)
-                .is_err()
-        );
+    fn unsupported_role_model_is_rejected() {
+        let mut bytes = offer().encode().unwrap();
+        bytes[0] = 1;
+        assert!(DirectOffer::decode(&bytes).is_err());
     }
 }

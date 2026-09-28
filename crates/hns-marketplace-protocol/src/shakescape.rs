@@ -239,29 +239,12 @@ impl CrossChainMessage {
             Self::GetDirectOffer(hash) => {
                 (GET_DIRECT_OFFER_MESSAGE_TYPE, encode_nonzero_hash(*hash)?)
             }
-            Self::DirectOffer(offer) if offer.role_model.is_current() => {
-                (DIRECT_OFFER_MESSAGE_TYPE, offer.encode()?)
-            }
-            Self::DirectOffer(_) => {
-                return Err(MarketplaceError::Invalid(
-                    "legacy direct offer cannot use the current transport",
-                ));
-            }
-            Self::CancelDirectOffer(cancellation) if cancellation.role_model.is_current() => {
+            Self::DirectOffer(offer) => (DIRECT_OFFER_MESSAGE_TYPE, offer.encode()?),
+            Self::CancelDirectOffer(cancellation) => {
                 (CANCEL_DIRECT_OFFER_MESSAGE_TYPE, cancellation.encode()?)
             }
-            Self::CancelDirectOffer(_) => {
-                return Err(MarketplaceError::Invalid(
-                    "legacy direct-offer cancellation cannot use the current transport",
-                ));
-            }
-            Self::AcceptDirectOffer(acceptance) if acceptance.role_model.is_current() => {
+            Self::AcceptDirectOffer(acceptance) => {
                 (ACCEPT_DIRECT_OFFER_MESSAGE_TYPE, acceptance.encode()?)
-            }
-            Self::AcceptDirectOffer(_) => {
-                return Err(MarketplaceError::Invalid(
-                    "legacy direct-offer response cannot use the current transport",
-                ));
             }
             Self::SwapSessionHello(hello) => (SWAP_SESSION_HELLO_MESSAGE_TYPE, hello.encode()?),
             Self::SwapFundingStatus(status) => (SWAP_FUNDING_STATUS_MESSAGE_TYPE, status.encode()?),
@@ -292,33 +275,13 @@ impl CrossChainMessage {
             GET_DIRECT_OFFER_MESSAGE_TYPE => {
                 Ok(Self::GetDirectOffer(decode_nonzero_hash(payload)?))
             }
-            DIRECT_OFFER_MESSAGE_TYPE => {
-                let offer = DirectOffer::decode(payload)?;
-                if !offer.role_model.is_current() {
-                    return Err(MarketplaceError::Invalid(
-                        "legacy direct offer on current transport",
-                    ));
-                }
-                Ok(Self::DirectOffer(offer))
-            }
-            CANCEL_DIRECT_OFFER_MESSAGE_TYPE => {
-                let cancellation = DirectOfferCancellation::decode(payload)?;
-                if !cancellation.role_model.is_current() {
-                    return Err(MarketplaceError::Invalid(
-                        "legacy direct-offer cancellation on current transport",
-                    ));
-                }
-                Ok(Self::CancelDirectOffer(cancellation))
-            }
-            ACCEPT_DIRECT_OFFER_MESSAGE_TYPE => {
-                let acceptance = DirectOfferAcceptance::decode(payload)?;
-                if !acceptance.role_model.is_current() {
-                    return Err(MarketplaceError::Invalid(
-                        "legacy direct-offer response on current transport",
-                    ));
-                }
-                Ok(Self::AcceptDirectOffer(acceptance))
-            }
+            DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::DirectOffer(DirectOffer::decode(payload)?)),
+            CANCEL_DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::CancelDirectOffer(
+                DirectOfferCancellation::decode(payload)?,
+            )),
+            ACCEPT_DIRECT_OFFER_MESSAGE_TYPE => Ok(Self::AcceptDirectOffer(
+                DirectOfferAcceptance::decode(payload)?,
+            )),
             SWAP_SESSION_HELLO_MESSAGE_TYPE => {
                 Ok(Self::SwapSessionHello(SwapSessionHello::decode(payload)?))
             }

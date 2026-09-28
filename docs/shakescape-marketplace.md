@@ -52,7 +52,6 @@ redemption, preimage, refund, and reorganization state must come from
 independently verified local chain evidence. New funding requires the fully
 accepted hello; later signed status may still be verified for recovery.
 
-Version 4 is a deliberate negotiation boundary for this role correction.
-Current transport rejects legacy role objects so version 3 peers cannot apply
-the opposite key assignment or funding order. Wallets may decode retained
-legacy objects only to recover sessions that were already countersigned.
+Version 4 is the sole supported cross-chain role model. Its role tag prevents
+an incompatible peer from silently applying the opposite key assignment or
+funding order; any other tag or protocol version is rejected.

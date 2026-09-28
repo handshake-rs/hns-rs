@@ -68,10 +68,9 @@ lengths, signatures, presence/state values, and invalid public keys.
 Cross-chain Shakescape protocol version 4 carries direct-offer inventory,
 offer request/response, cancellation, acceptance, session proposal/hello,
 receiver watch-readiness, and funding/redeem/refund status messages. Version 4
-also carries an explicit role-model tag and rejects legacy offer objects at the
-current transport boundary, preventing an older peer from silently assigning
-the settlement keys or first-funding duty to the opposite participants.
-Already-countersigned legacy sessions remain decodeable for local recovery.
+carries the sole supported role-model tag, preventing an incompatible peer
+from silently assigning the settlement keys or first-funding duty to the
+opposite participants. Other role tags and protocol versions are rejected.
 An empty direct-offer inventory is a valid response meaning that no live offers
 are currently available. Requests for one or more particular offers remain
 nonempty, so an empty response cannot be confused with a malformed request.

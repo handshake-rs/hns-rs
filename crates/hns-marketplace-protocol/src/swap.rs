@@ -7,8 +7,8 @@ use hns_swap::{
 use crate::crypto;
 use crate::types::encode_fixed_versioned;
 use crate::{
-    AssetAmount, AssetId, ChainId, DirectOffer, DirectOfferAcceptance, DirectOfferRoleModel,
-    MarketplaceError, NetworkBinding, Result, SignedObjectHeader,
+    AssetAmount, AssetId, ChainId, DirectOffer, DirectOfferAcceptance, MarketplaceError,
+    NetworkBinding, Result, SignedObjectHeader,
 };
 
 pub const MAX_SWAP_MESSAGE_SIZE: usize = 8 * 1024;
@@ -261,30 +261,16 @@ impl SwapSessionHello {
     ) -> Result<NetworkBinding> {
         offer.verify_at(expected_network, now)?;
         acceptance.verify_for_offer(offer, expected_network, now)?;
-        let role_binding_invalid = match offer.role_model {
-            DirectOfferRoleModel::LegacyOfferSetterMaker => {
-                self.header.signer_public_key != offer.header.signer_public_key
-                    || self.maker_settlement_public_key != offer.offer_setter_settlement_public_key
-                    || self.taker_settlement_public_key
-                        != acceptance.responding_maker_settlement_public_key
-                    || self.offered_asset != offer.offered_asset
-                    || self.received_asset != offer.received_asset
-                    || self.offered_amount != offer.offered_amount
-                    || self.received_amount != offer.received_amount
-                    || self.header.sequence <= offer.header.sequence
-            }
-            DirectOfferRoleModel::OfferSetterTaker => {
-                self.header.signer_public_key != acceptance.header.signer_public_key
-                    || self.maker_settlement_public_key
-                        != acceptance.responding_maker_settlement_public_key
-                    || self.taker_settlement_public_key != offer.offer_setter_settlement_public_key
-                    || self.offered_asset != offer.received_asset
-                    || self.received_asset != offer.offered_asset
-                    || self.offered_amount != offer.received_amount
-                    || self.received_amount != offer.offered_amount
-                    || self.header.sequence <= acceptance.header.sequence
-            }
-        };
+        let role_binding_invalid = self.header.signer_public_key
+            != acceptance.header.signer_public_key
+            || self.maker_settlement_public_key
+                != acceptance.responding_maker_settlement_public_key
+            || self.taker_settlement_public_key != offer.offer_setter_settlement_public_key
+            || self.offered_asset != offer.received_asset
+            || self.received_asset != offer.offered_asset
+            || self.offered_amount != offer.received_amount
+            || self.received_amount != offer.offered_amount
+            || self.header.sequence <= acceptance.header.sequence;
         if role_binding_invalid
             || self.direct_offer_id != offer.offer_id
             || self.swap_session_id != offer.swap_session_id
@@ -1406,7 +1392,6 @@ mod tests {
         let responding_maker_identity = [10; 32];
         let responding_maker_settlement = [9; 32];
         let mut offer = DirectOffer {
-            role_model: DirectOfferRoleModel::OfferSetterTaker,
             header: header(1),
             offer_id: [0; 32],
             swap_session_id: [4; 32],
@@ -1420,7 +1405,6 @@ mod tests {
         };
         offer.sign(&offer_setter_identity).unwrap();
         let mut acceptance = DirectOfferAcceptance {
-            role_model: DirectOfferRoleModel::OfferSetterTaker,
             header: header(2),
             offer_id: offer.offer_id,
             swap_session_id: offer.swap_session_id,
