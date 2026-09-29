@@ -127,16 +127,12 @@ python3 scripts/verify-release.py --toolchain 1.89.0
 
 See `docs/releasing.md` before any package dry-run or irreversible publication.
 
-The current coherent release is `0.4.1`. All 19 public crates were published
-non-yanked from exact source commit
-`73611a0d83778e157b35f28ca2197d068e83fc61`; annotated tag `v0.4.1` peels
-directly to that commit. This release replaces the temporary mixed
-`0.3.1`/`0.4.0` dependency graph with one Shakescape Experimental Registry V1
-type graph and includes the bilateral direct-offer session, signed watch
-readiness, authenticated relay receipts, and current HNSA/HNSR profile. The
-release record is retained in `docs/releasing.md`; downstream consumers pin
-the registry archive checksums they admit. Any later source commit must repeat
-the documented release gates before publication.
+This source tree prepares the coherent `0.5.0` nineteen-crate cohort. It
+updates the direct-offer responder and maker roles across the marketplace and
+experimental peer protocols. `docs/releasing.md` records the release procedure
+and earlier published cohorts. Downstream consumers should pin the exact
+registry versions and archive checksums admitted by their own release gates;
+source version numbers alone do not establish publication.
 
 The HNSR service state machines are an embeddable protocol boundary, not a
 durable daemon or network transport. Persistence, restart recovery, peer

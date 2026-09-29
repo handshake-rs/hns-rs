@@ -166,6 +166,14 @@ retains a historical resource-expiration bit. The correction is in
 wallet, swap, P2P, and marketplace packages cannot resolve duplicate protocol
 types from different patch versions.
 
+## 0.5.0 release source
+
+Version `0.5.0` changes direct-offer maker and responder roles across the
+marketplace and experimental peer protocols. The shared nineteen-crate cohort
+advances together so consumers cannot assemble incompatible protocol types or
+wire messages from different generations. Wallet `0.3.0` and mobile builds
+must use this exact published cohort after its crates.io archives are verified.
+
 ## Private packages
 
 The following development packages must retain `publish = false`:
@@ -253,7 +261,7 @@ published.
    upload. The confirmation version must equal the workspace version:
 
    ```bash
-   ./scripts/publish.sh --execute --confirm-publish 0.4.2
+   ./scripts/publish.sh --execute --confirm-publish 0.5.0
    ```
 
 The execution mode is restartable, but it never skips solely because an API
@@ -275,7 +283,7 @@ communicates a different limit:
 ```bash
 PUBLISH_NEW_INTERVAL_SECONDS=605 \
 PUBLISH_UPDATE_INTERVAL_SECONDS=65 \
-  ./scripts/publish.sh --execute --confirm-publish 0.4.2
+  ./scripts/publish.sh --execute --confirm-publish 0.5.0
 ```
 
 After the cooldown, the script downloads the newly uploaded archive and
