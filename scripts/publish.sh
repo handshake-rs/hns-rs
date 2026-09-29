@@ -468,7 +468,15 @@ verify_source_package() {
 package_and_verify_source_package() {
     package=$1
     package_operation=archive-check
-    dry_run_with_local_dependencies "$package"
+    if [ "$mode" = "--execute" ]
+    then
+        # Cargo publishes a registry-backed Cargo.lock once upstream crates
+        # exist. Reconstruct that exact archive for readback after an interrupted
+        # release; a local path patch changes the archive checksum.
+        dry_run_package "$package"
+    else
+        dry_run_with_local_dependencies "$package"
+    fi
     package_operation=publish-dry-run
     verify_source_package "$package"
 }
