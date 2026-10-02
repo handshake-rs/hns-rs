@@ -44,7 +44,7 @@ it. Capturing preloaded bytes or results, a previously started request/future,
 or validation performed before the call defeats the ordering contract and is
 not a conforming integration.
 
-An owned `CommittedNamedService` is durable historical evidence at its
+An owned `CommittedNamedService` is durable inspection evidence at its
 recorded revision, not a reusable current-authority capability. Immediately
 before an operational use, bind it through
 `ReconfirmedNamedServiceAuthorityState::bind_current_at(committed,
@@ -103,11 +103,6 @@ Application profile identifiers, flags, capabilities, and detached constraint
 hashes are supplied by a separately reviewed application profile through a
 trusted policy object. This crate does not invent a web, payment, wallet,
 username, or other application profile assignment.
-
-The crate root retains the earlier experimental `hsa1` TXT parser, fixed
-service authorization, and legacy endpoint delegation for explicitly selected
-compatibility code. Those legacy objects are wire- and type-distinct from the
-`hrm` module and are never an implicit fallback.
 
 HNSA service names contain only lowercase ASCII letters, digits,
 and hyphens; periods are rejected. Dotted labels such as `hns.chat` belong to

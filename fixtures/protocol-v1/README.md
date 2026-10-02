@@ -1,7 +1,7 @@
 # Exact protocol V1 fixtures
 
-This document describes the retained source-independent settlement oracle from
-the 0.2 release line.
+These source-independent settlement fixtures authenticate the canonical
+settlement encodings.
 
 - `hns-swap-v1.txt` covers the complete signed fixed-price listing and listing
   cancellation envelopes, Shakedex proof and seller presign, canonical buyer
@@ -12,8 +12,5 @@ the 0.2 release line.
 Each line after the comments is `name=lowercase_hex`. Tests parse these files
 directly. The adjacent `.sha256` authenticates the complete document bytes.
 
-The retained fixture freezes the legacy fixed-price listing and cancellation
-compatibility boundary. The `0.3.1` direct-offer protocol deliberately removes
-the oracle-priced marketplace message family and its obsolete vector document;
-the direct offer, take, cancellation, bilateral-session, retired-registry, and relay
-acceptance encodings are exercised by their bounded Rust protocol tests.
+Fixed-term offer, take, cancellation, bilateral-session, registry-retirement,
+and relay-acceptance encodings are covered by bounded Rust protocol tests.

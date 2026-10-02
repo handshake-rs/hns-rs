@@ -45,7 +45,7 @@ The crate provides:
 - versioned BLAKE2b-256-checksummed requester and relay snapshots that preserve
   exact settings and counters while revoking, rather than resurrecting, every
   snapshotted live circuit under a mandatory fresh process session;
-- explicitly isolated legacy version-2 HNSA named routes plus HRM/HNSA-backed
+- HRM/HNSA-backed
   version-3/type-2 named routes with stable service-derived keys,
   profile-aware relay tickets, full-current committed-authority verification,
   bounded rendezvous admission, independent endpoint/route product counters,

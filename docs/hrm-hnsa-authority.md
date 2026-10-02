@@ -1,31 +1,24 @@
-# HRM-backed HNSA migration
+# HRM-backed HNSA authority
 
-Status: implementation design for draft protocols; not a wire assignment or a
-production enablement statement.
+Status: current source boundary for draft protocols; not a public wire
+assignment or production enablement statement.
 
-This document fixes the compatibility and repository boundaries for the draft
+This document defines the authority and repository boundaries for the draft
 Handshake Resource Manifests (HRM), HRM-backed Named Service Authority (HNSA),
 and the HRM/HNSA profile for Handshake P2P Rendezvous (HNSR). It is based on
 the draft documents named `HIP-xxxx-HRM.md`, `HIP-xxxx-HNSA.md`, and
 `HIP-xxxx-HNSA-HNSR.md`.
 
-The drafts replace the earlier experimental HNSA authority model. The existing
-`hsa1` TXT record, fixed `ServiceAuthorizationV1`, legacy endpoint delegation,
-and `NamedRouteRecordV2` are not HRM objects. They must not be reinterpreted,
-implicitly converted, used as fallback, or allowed to share an application or
-browser origin with the HRM-backed model.
+## Route authority
 
-## Compatibility boundary
-
-The implementation keeps three route formats distinct:
+Current route selection keeps node and named-service authority distinct:
 
 | Route | Version | Authority type | Authority model | Policy |
 | --- | ---: | ---: | --- | --- |
 | Unnamed HNS node | 1 | 0 | HNSR endpoint self-authorization | Remains wire compatible |
-| Legacy named experiment | 2 | 1 | `hsa1` and `ServiceAuthorizationV1` | Explicit compatibility mode only |
 | HRM-backed named service | 3 | 2 | Current HRM and HNSA delegation | Draft opt-in; no public application profile assigned |
 
-The stable named-route key formula is unchanged. A version-3 record is a
+Named-route keys use the canonical formula. A version-3 record is a
 compact, internally verifiable route object, not an HRM proof. Every consuming
 client must validate current authenticated HNS state and the complete current
 HRM/HNSA chain before accepting application data. A relay does not become an
@@ -34,7 +27,7 @@ must never present those checks as name authorization.
 
 ## Repository ownership
 
-The implementation is deliberately split rather than added to consensus:
+Repository responsibilities are:
 
 - `hns-rs` owns canonical HRM objects, deterministic encoding, signatures,
   profile validation, HRM-backed HNSA objects, and HNSR version-3 wire types.
@@ -51,9 +44,9 @@ The implementation is deliberately split rather than added to consensus:
   from their native boundary. A URL, TLS session, relay, gateway, downloaded
   script, or extension package is never an HRM trust root.
 
-## HRM Core tranche
+## HRM Core requirements
 
-The core crate must provide all of the following before HNSA migration:
+The core crate provides these requirements for HNSA authority:
 
 1. An `hrm1` TXT commitment parser and selector that preserves HNS TXT
    character-string boundaries. It validates canonical decimal sequences,
@@ -87,12 +80,12 @@ smaller value: 1 MiB per envelope, 1,024 resources, 4,096 delegations, four
 locators per object, parent depth 16 (always no more than 32), 64 fetched
 objects, and 8 MiB fetched bytes per decision.
 
-## HNSA tranche
+## HNSA requirements
 
 HNSA consumes a verified HRM result. It does not duplicate or weaken HRM
 validation.
 
-The new implementation validates the deterministic-CBOR named-service
+The implementation validates the deterministic-CBOR named-service
 identifier and SHA-256 resource ID for profile `hns.named-service/v1`. It
 accepts only the profile's HNS-local origin and exactly one current `operate`
 delegation with the canonical rights array, same-subject/same-resource mapping,
@@ -104,8 +97,7 @@ The HRM-backed endpoint object is a distinct type and encoding. It binds the
 service resource ID, service delegation ID, service generation, endpoint key
 and sequence, validity, capabilities, and constraints. It uses the draft's
 `HNS-HRM-HNSA-ENDPOINT-DELEGATION-V1\0` signature domain, SHA-256 complete-object
-ID, strict DER low-S signature, and 320-byte bound. Legacy endpoint bytes are
-not accepted by this decoder.
+ID, strict DER low-S signature, and 320-byte bound. Only the canonical bounded endpoint encoding is accepted.
 
 The pilot applies two fail-closed interpretations while the draft remains
 ambiguous. Every delegation in the complete current snapshot that names the
@@ -254,19 +246,7 @@ resource, delegation, or endpoint authority intervals: an otherwise contained
 endpoint may outlive the cached decision, but it cannot be used through that
 decision at or after `cache_until` without current HRM/HNSA revalidation.
 
-Legacy version-2 and HRM-backed version-3 records use separate storage and
-replacement namespaces even though their stable lookup key formula is the
-same. Once two cryptographically valid records in one namespace have the same
-replacement sequence and different canonical bytes, that endpoint scope is
-marked ambiguous and no prior first-seen record remains usable. Invalid input
-does not poison an otherwise valid scope.
-
 ## Browser, mobile, and wallet safety
-
-The stable security origin is the exact tuple `(network_magic, name_hash,
-canonical_service_name, application_profile_id)`. Controller, endpoint,
-provider, relay, URI, and route rotation never merge or change that origin.
-Legacy and HRM-backed services use separate origin model/version state.
 
 Read-only browser and mobile clients need not advertise a role, accept inbound
 circuits, publish routes, mine, or store records for others. Verification

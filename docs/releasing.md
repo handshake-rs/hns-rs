@@ -45,134 +45,14 @@ required files are present and no dependency path survives normalization. A
 separate, explicitly requested release preflight performs Cargo's real publish
 dry-run for all 19 packages.
 
-## 0.1.0 publication record
-
-The original 14 allowlisted crates were published to crates.io on 2026-07-29
-and are non-yanked. Every published package embeds release-source commit
-`0ea5994c336642ea7d01c51c0e22df2008985426` in its Cargo VCS metadata.
-
-`hns-service-authority`, `hns-marketplace-protocol`, and `hns-chat-protocol`
-were added after that publication and have no 0.1.0 publication record in this
-repository.
-
-The annotated local and `origin` `v0.1.0` tag object
-`354b286ff623424d24376f20885fb05407561d70` points to the follow-up publication
-record commit `f6f46e1ecf9b31ca6592a6350c254a6effb9c9d0`, whose parent is the release
-source above. The published archives therefore identify the parent release
-source, not the tag target. The remote tag-object identity was confirmed with
-`git ls-remote --tags origin v0.1.0` on 2026-08-02.
-
-## 0.2.0 publication record
-
-The marketplace protocol source advances the shared workspace and every
-internal dependency requirement to `0.2.0`. This is necessary because the new
-marketplace crate consumes `hns-swap` and `hns-p2p-experimental` APIs that do
-not exist in their permanent crates.io `0.1.0` packages. Local publication
-patches are verification aids only and must never be used to present the old
-version as satisfying those dependencies.
-
-At feature head `b33b346780c8f6a9bb18a54390019486cdab0221`, CI run
-`31369025777` passed the
-complete locked `scripts/check.sh` gate, including both lockfile metadata
-graphs, cargo-deny, strict Clippy, all tests/targets/features, the release
-workspace build, and all 17 normalized package dry-runs; its RustSec job also
-passed. The immediately preceding undated release-preparation commit
-`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` subsequently passed the full
-locked gate in CI run `31385655990` and all 17 real Cargo package dry-runs in
-the manually dispatched release preflight run `31386373480`. Its CodeQL run
-`31385656053` completed Python, Rust, and Actions analysis successfully, but
-JavaScript/TypeScript analysis remained queued; that run therefore is not a
-complete CodeQL qualification.
-
-Those results remain historical evidence for `abf11ff`. Dated source commit
-`b24b66c382de53330ec21dd3137e056a2bea3e2d` subsequently passed the complete
-locked gate and RustSec in exact-head CI run `31398600728`, all four configured
-CodeQL analyses (Python, JavaScript/TypeScript, Rust, and Actions) in run
-`31398598588`, and all 17 real Cargo package dry-runs in manually dispatched
-release preflight run `31399004538`.
-
-On 2026-08-14 UTC, the 17 packages were published to crates.io from 05:45:02
-through 07:37:56. All are non-yanked. Every downloaded archive matched its
-registry checksum and its `.cargo_vcs_info.json` identifies exact source commit
-`b24b66c382de53330ec21dd3137e056a2bea3e2d` and the correct package path. The
-verified archive hashes are retained in `release/0.2.0-crates.sha256`.
-`hns-hrm` did not exist in the 0.2.0 source and has no 0.2.0 package. No remote
-`v0.2.0` tag was created; `v0.1.0` remained the latest tagged release until
-`v0.3.0`.
-
-These results and artifacts qualify only the exact published protocol
-packages. Any later source commit requires its own successful CI, complete
-CodeQL, and explicit release preflight. Publication does not qualify a live
-relay, mailbox, wallet, marketplace, node, or other downstream product.
-
-The canonical feature inventory is in `CHANGELOG.md`; it is not duplicated
-here. The protocol source includes HNSA/HNSR, HNS Chat, name-market and
-cross-chain marketplace values. HRM Core and the HRM-backed HNSA/HNSR v3 work
-are part of the 0.3.0 release recorded below.
-
-## 0.3.0 publication record
-
-Dated release-source commit
-`d0cde9ded6f8f93f96f16daafc094849c6d484bf` passed the complete locked CI
-gate and RustSec in run `31863271873`, all four configured CodeQL analyses in
-run `31863271863`, and all 19 Cargo publication dry-runs in release-preflight
-run `31863520941`.
-
-On 2026-08-15 UTC, the 19 packages were published to crates.io from 04:09:36
-through 04:32:59. All exact-version API records are visible and non-yanked.
-Every independently downloaded archive matched both its normalized local
-source archive and crates.io API checksum. Every local and downloaded
-`.cargo_vcs_info.json` identifies exact source commit
-`d0cde9ded6f8f93f96f16daafc094849c6d484bf`, the corresponding
-`crates/<package>` path, and omits `dirty`, Cargo's clean-source
-representation. The verified hashes are retained in
-`release/0.3.0-crates.sha256`. `hns-rollback-journal` and `hns-hrm` were
-published for the first time in this release.
-
-The remote annotated tag object
-`593b137ef36816d0780642a8b676c0972152c88e` is named `v0.3.0` and peels
-directly to the published release-source commit. The GitHub release uses that
-tag. Publication qualifies only these protocol packages; every live relay,
-mailbox, wallet, marketplace, node, browser, or other downstream product needs
-its own integration and release qualification.
-
-## 0.3.1 and 0.4.1 publication record
-
-The clean-break Shakescape Experimental Registry V1 transition was published
-as the nineteen-package `0.3.1` cohort from exact source commit
-`0e99addca59778b7b7c6fc56291333a97c4c8815`. Annotated tag object
-`9f78c0f5a71f36ad70bc836bde0e412d539e82d3` is named `v0.3.1` and peels to
-that source. It introduced the current registry identity, bilateral session
-handshake, and signed watch-readiness boundary without a compatibility alias
-for the discarded experimental identities.
-
-The subsequent direct-offer, relay-receipt, swap-profile, and registry changes
-temporarily left downstream source on a mixed `0.3.1`/`0.4.0` graph. Release
-`0.4.1` reunified all nineteen packages on one version and type graph. The
-published source is
-`73611a0d83778e157b35f28ca2197d068e83fc61`; annotated tag object
-`d4237086aa0284ad77d6dda653994345aa037a60` is named `v0.4.1` and peels
-directly to that commit. Current engine, wallet, and mobile lockfiles resolve
-the registry artifacts from this cohort. As with every earlier record, those
-artifacts qualify protocol packages only, not a downstream product or live
-value path.
-
-## 0.4.2 release source
-
-Version `0.4.2` reissues the coherent nineteen-crate type graph with the
-FINALIZE correction for a currently active transfer whose HSD name state
-retains a historical resource-expiration bit. The correction is in
-`hns-transaction`, but the shared cohort advances together so downstream
-wallet, swap, P2P, and marketplace packages cannot resolve duplicate protocol
-types from different patch versions.
-
 ## 0.5.0 release source
 
 Version `0.5.0` changes direct-offer maker and responder roles across the
 marketplace and experimental peer protocols. The shared nineteen-crate cohort
 advances together so consumers cannot assemble incompatible protocol types or
-wire messages from different generations. Wallet `0.3.0` and mobile builds
-must use this exact published cohort after its crates.io archives are verified.
+wire messages from different generations. Wallet and browser products consume
+the exact protocol versions and archive checksums selected by their release
+source guards.
 
 ## Private packages
 

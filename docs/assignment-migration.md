@@ -16,4 +16,3 @@ If official Handshake assignments become available:
 `Auto` may select an official profile only when the implementation knows its
 complete assignment map and the peer negotiates it. Unknown official versions
 fail closed.
-

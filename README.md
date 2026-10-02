@@ -46,10 +46,9 @@ The implemented protocol layer contains:
   protection boundaries;
 - semantic wire-assignment profiles;
 - the versioned Shakescape extension envelope and registry negotiation messages;
-- HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, HIP PR
-  #79 legacy HNSA compatibility objects, the HRM-backed
-  `hns.named-service/v1` profile and endpoint authority, and explicitly
-  separated HNSA/HNSR named-route versions 2 and 3;
+- HIP #76 DNS relay, HIP #77 ODoH/HPKE, HIP #78 HNSR protocol values, the
+  HRM-backed `hns.named-service/v1` profile and endpoint authority, and
+  authenticated HNSA/HNSR version-3 named routes;
 - bounded in-process HNSR reservation, renewal, confirmation, withdrawal,
   named-route publication, and lookup state machines for composition by an
   authenticated transport owner;
@@ -127,12 +126,11 @@ python3 scripts/verify-release.py --toolchain 1.89.0
 
 See `docs/releasing.md` before any package dry-run or irreversible publication.
 
-The coherent `0.5.0` nineteen-crate cohort was published from
+The current `0.5.0` nineteen-crate protocol cohort is pinned to
 [`v0.5.0`](https://github.com/handshake-rs/hns-rs/tree/v0.5.0) at
-`60eb912d615243a6bfb9741b17f16833c5a9181a`. It updates the direct-offer
+`60eb912d615243a6bfb9741b17f16833c5a9181a`. It provides direct-offer
 responder and maker roles across the marketplace and experimental peer
-protocols. `docs/releasing.md` records the release procedure and earlier
-cohorts. Downstream consumers should pin the exact registry versions and
+protocols. `docs/releasing.md` defines the current release procedure. Downstream consumers should pin the exact registry versions and
 archive checksums admitted by their own release gates.
 
 The HNSR service state machines are an embeddable protocol boundary, not a

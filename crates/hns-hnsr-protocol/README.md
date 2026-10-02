@@ -5,10 +5,6 @@ Runtime-independent wire types for draft HIP #78 HNSR.
 This crate provides bounded rendezvous records, routing state, authenticated
 relay tickets, message envelopes, and the versioned HNSA named-service route
 adapter. Unnamed `HNS_NODE_V1` records retain their version-1/type-0 encoding.
-The superseded `hsa1`-backed version-2/type-1 named experiment remains
-available only through explicit compatibility APIs and is disabled by default
-for publication in the rendezvous runtime. Ordinary wire lookup never returns
-V2; an embedding must invoke the explicitly named legacy lookup API.
 HRM/HNSA-backed named services use the distinct version-3/type-2 record,
 validate its complete endpoint delegation, relay
 tickets, duplicated bindings, and endpoint signature for storage admission,
@@ -17,7 +13,7 @@ Its synchronous service types execute reservation, renewal, confirmation,
 withdrawal, route publication, and route lookup against bounded in-memory
 state so an embedding node can own transport, persistence, clocks, and peer
 policy without duplicating protocol validation.
-Unnamed and legacy route admission applies storage-capacity checks before
+Unnamed route admission applies storage-capacity checks before
 signature verification. V3 admission charges bounded global and per-source
 verification windows, canonically decodes the record, and applies a cheap
 structural sequence/capacity matrix before expensive cryptography. A candidate
@@ -33,8 +29,7 @@ endpoint-greater/route-stale candidates must be fully verified because the
 non-stale dimension can still advance. Only valid input may extend durable
 retention or mutate either dimension before returning `StaleSequence` or
 `ConflictingSequence`.
-HRM-backed and legacy named routes occupy separate replacement/conflict
-namespaces and are never sampled. The V3 adapter defines one logical endpoint
+HRM-backed named routes use a dedicated replacement/conflict namespace. The V3 adapter defines one logical endpoint
 as the exact endpoint public key; a different endpoint key is a concurrent new
 identity, not a rotation of the old one. Within each exact
 `(route_key, endpoint_key)` scope, endpoint-delegation sequence/ID and route
@@ -130,7 +125,7 @@ newly received bytes before advertising them.
 flags (required must be an allowed subset), endpoint capabilities, constraint
 hashes, and route lifetime. The hidden
 `NamedRouteRecordV3::verify_current_uncommitted` and
-`select_named_route_v3_uncommitted` primitives produce point-in-time historical
+`select_named_route_v3_uncommitted` primitives produce point-in-time inspection
 evidence only; a bare `VerifiedNamedService` or `VerifiedNamedRouteV3` is not a
 production authority capability. A verified route's cache deadline is the
 minimum of the current HRM/HNSA cache decision, endpoint, route, and ticket
@@ -178,7 +173,7 @@ ordering. The composite leases remain held through actual session
 establishment or a broker-owned fence-tagged atomic promotion; merely queueing
 work to another context does not complete the protected operation.
 Low-level `NamedRouteRecordV3::sign_current_uncommitted` reserves neither
-counter and returns only historical inspection evidence. Before calling it, a
+counter and returns only point-in-time inspection evidence. Before calling it, a
 production publisher must atomically reserve and durably persist fresh nonzero
 endpoint-delegation and route counters for their respective exact scopes. Crash
 gaps are safe; reuse is not. The wallet-backed durable publisher workflow

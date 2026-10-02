@@ -65,19 +65,3 @@ these exact pinned files before calling the HSD oracle:
   `1d8840bc6b8b6b4c78fa2e73337f3665b5b65329d650c44589b4a8a67a44a60e`;
 - `lib/protocol/consensus.js` SHA-256
   `9342ee033ca27fe1539b6047fbd3529bb912ae2cdbe456adf7828798fb5cc8a2`.
-
-This tranche initially had static source, fixture, and sidecar review only.
-Converged feature head `b33b346780c8f6a9bb18a54390019486cdab0221`
-subsequently passed the complete locked gate in CI run `31369025777`, and
-undated release-preparation commit
-`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` passed locked CI run
-`31385655990` plus the manual 17-package release preflight run `31386373480`.
-Its CodeQL run `31385656053` remained incomplete because the
-JavaScript/TypeScript job did not leave the queue. Dated source commit
-`b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
-and RustSec run `31398600728`, all four configured CodeQL analyses in run
-`31398598588`, and the manual 17-package release preflight run `31399004538`.
-The non-yanked `0.2.0` package was subsequently verified against that exact
-source commit as recorded in `docs/releasing.md`. Any later source commit
-requires its own gates; this package record does not qualify a downstream
-wallet, node, or other product.

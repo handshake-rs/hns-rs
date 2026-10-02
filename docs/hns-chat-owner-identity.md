@@ -19,10 +19,8 @@ SHA-256 sidecar. The release preflight inspects Cargo's normalized `.crate`,
 requires every boundary file, rejects any surviving path dependency, and
 authenticates the packaged vector bytes. A focused preflight is available as
 `./scripts/publish.sh --dry-run hns-chat-protocol`; it neither publishes nor
-tags. Version `0.2.0` is now published from the exact qualified source commit;
-the archive/VCS verification record is in `docs/releasing.md`. Downstream
-release source may use that registry package or an immutable repository
-revision, never a sibling path.
+tags. Downstream release source consumes the manifest-selected registry
+package or an immutable repository revision, never a sibling path.
 
 ## Identity and resource binding
 
@@ -32,8 +30,7 @@ The canonical authenticated resource text is:
 hnschat=v1;key=owner;pk=<64-lowercase-hex>;generation=<nonzero-u32>
 ```
 
-The parser accepts the initial compatibility form without `generation` and
-interprets it as generation 1. The encoder always emits the explicit field.
+The encoder emits the explicit generation field.
 Parsing is ASCII-only, whitespace-free, fixed-order, duplicate-free, and
 unknown-field-free. The key is a valid 32-byte x-only secp256k1 coordinate; it
 is not an `hs1...` witness-program address or a 33-byte SEC1 key. More than one
@@ -118,7 +115,7 @@ The design creates no additional recovery secret or long-term chat key. For
 HD-derived software keys, the existing wallet mnemonic controls both name
 ownership and the chat identity. This also means cross-protocol use of the
 owner key, increased impact from a wallet chat-cryptography compromise, no
-forward secrecy for historical messages under one identity key, and identity
+forward secrecy for stored messages under one identity key, and identity
 rotation whenever the current name-owner key changes.
 
 Version 1 explicitly does not support P2WSH/script-controlled owners,
@@ -130,36 +127,13 @@ No API in this crate authorizes mainnet use, performs registry publication,
 exposes a private key, creates a NIP-06 identity, or introduces a transport
 beside HIP-78.
 
-## Qualification status
+## Qualification procedure
 
-The focused external-consumer integration target passed at exact source commit
-`87c26b21e971d45de47d08cb0a154ac28ec83d00`:
+Run the focused external-consumer integration target on the exact candidate:
 
-```text
-CARGO_TARGET_DIR=/home/den/.codex/targets/hns-rs-chat-aug3 TMPDIR=/home/den/.codex/tmp/hns-rs-chat-aug3 cargo +1.89.0 test --locked --offline -p hns-chat-protocol --test release_source -- --test-threads=1
+```sh
+cargo test --locked -p hns-chat-protocol --test release_source
 ```
 
-Result: 4 passed; 0 failed, ignored, measured, or filtered. This proves only
-the checked-in public-API resource/parser, owner-parity/false-authority, exact
-wire-bound/rejection, and fixture-sidecar cases in `tests/release_source.rs`.
-The crate's other unit tests were not selected by that command.
-
-The later converged feature head
-`b33b346780c8f6a9bb18a54390019486cdab0221` passed the normalized archive
-checks, repository full locked gate, dependency policy, and RustSec jobs in CI
-run `31369025777`. Undated release-preparation commit
-`abf11ff3b16920c08f3c0b6d32d2e1af7cbe37b2` then passed locked CI run
-`31385655990` and the manual 17-package Cargo preflight run `31386373480`. Its
-CodeQL run `31385656053` was incomplete because JavaScript/TypeScript analysis
-remained queued. Dated source commit
-`b24b66c382de53330ec21dd3137e056a2bea3e2d` then passed exact-head locked CI
-and RustSec run `31398600728`, all four configured CodeQL analyses in run
-`31398598588`, and the manual 17-package Cargo preflight run `31399004538`.
-The non-yanked `0.2.0` package was subsequently verified against that exact
-source commit as recorded in `docs/releasing.md`; no `v0.2.0` tag was created.
-Any later source commit requires its own gates. A deployed mailbox is not
-qualified by the protocol package; downstream persistence and restart,
-canonical-chain and reorg handling, authenticated transport, abuse,
-installed-client, adversarial,
-performance, and independent security qualification remain product
-responsibilities.
+This validates the public owner-binding boundary. Installed-device, full Nostr,
+regtest, and downstream release qualification remain separate product gates.

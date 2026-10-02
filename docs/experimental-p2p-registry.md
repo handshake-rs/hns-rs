@@ -73,12 +73,6 @@ including request ID, status, and length fields, are 4,106 and 65,546 bytes
 respectively. Code that bounds complete packet payloads must use the complete
 payload constants from `hns-dns-relay-protocol`, not the registry body fields.
 
-The pre-organization-migration checkpoint used fingerprint
-`c6f99e2403d5a9a2b257b995eca35082b51c75fa903a7fd3e354a1567529f1ff`.
-The fingerprint changed because canonical source URLs are encoded registry
-metadata and now name `handshake-rs/hns-rs`; no numeric assignment, message
-meaning, payload bound, or consent default changed in that migration.
-
 ## Required negotiation
 
 On public networks, private packets `0xf0..=0xf3` are interpreted only after the
@@ -94,12 +88,8 @@ correlation ID. A completed negotiation must include protocol `0x0000` version
 1 even when a peer advertises a wider forward-compatible version range.
 Peers advertise the Shakescape Registry V1 fingerprint and may negotiate
 protocol `0x0002`. The bounded `Auto` profile selector resolves to that one
-supported Shakescape profile. Disabled-role and controlled-network legacy
-selections remain unchanged; unknown official profiles continue to fail closed.
-
-Legacy draft compatibility has no registry negotiation and is restricted to
-regtest or an explicitly controlled network. It is reported as `Legacy Draft
-Compatibility`, never as a successful Shakescape negotiation.
+supported Shakescape profile. Disabled roles and unknown official profiles
+fail closed.
 
 ## Security status
 

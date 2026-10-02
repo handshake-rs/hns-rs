@@ -9,15 +9,3 @@ for every public crate are maintained in the repository-level
 See the canonical workspace changelog for the complete shared release notes,
 publication procedure, and qualification scope. A source archive alone is not
 evidence that every shared package or any downstream product has been released.
-
-## 0.4.2 - 2026-09-23
-
-See the canonical workspace changelog for the complete shared release notes,
-publication procedure, and qualification scope. A source archive alone is not
-evidence that every shared package or any downstream product has been released.
-
-## 0.4.1 - 2026-09-01
-
-See the canonical workspace changelog for the complete shared release notes,
-publication procedure, and qualification scope. A source archive alone is not
-evidence that every shared package or any downstream product has been released.

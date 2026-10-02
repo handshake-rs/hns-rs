@@ -4,7 +4,7 @@ Consensus-visible behavior follows current compatible HSD behavior, its tests,
 and reproducible fixtures before prose or architectural inference.
 
 Published and workspace-defined protocol behavior follows, in order, the exact
-proposal and implementation commits recorded by the integration audit, their
+proposal and implementation commits pinned in [provenance](provenance.md), their
 deterministic fixtures, the independent Rust implementation, and the applicable
 Shakescape Experimental Registry V1 authority. "Experimental" identifies the
 private Shakescape assignment namespace, not the implementation quality or support
@@ -40,15 +40,15 @@ unknown record tags, truncation, or oversize input.
 The canonical marketplace and native-HNS settlement boundary is versioned by
 `fixtures/protocol-v1/`. Its source-independent generator implements the wire
 encoding and RFC6979 signatures without calling Rust code, and cross-checks its
-signer against the pre-existing fixed-price listing and cancellation
-signatures before emitting artifacts. The listing/cancellation envelopes are
+signer against fixed-price listing and cancellation signatures before emitting
+artifacts. The listing/cancellation envelopes are
 hns-rs-defined values and therefore have source-independent rather than
 third-party differential vectors. Static FINALIZE vectors cover exact HSD wire
 and witness-program behavior but do not replace live-chain maturity, renewal
 ancestry, relay-policy, or reorg qualification.
 
 The HRM and HRM-backed HNSA/HNSR boundaries are workspace implementations of
-the dated local draft HIPs, pinned by `fixtures/hrm-v1/` and
+draft HIPs authenticated by `fixtures/hrm-v1/` and
 `fixtures/hnsa-hnsr-v3/`. Their standard-library generators do not call Rust
 and pin canonical CBOR, hash and signature domains, resource/delegation IDs,
 endpoint and route bytes, strict failure vectors, and canonical durable
@@ -57,6 +57,5 @@ subject-wide HRM/HNSA and permanent requester snapshots to complete exact
 authenticated CAS before releasing a result; the fixture checksum alone is not
 that authentication. Those fixtures establish cross-implementation bytes;
 they do not allocate a public application profile, make draft wire values
-official, or qualify a mainnet deployment. The earlier `hsa1`/route-v2
-authority remains a separate legacy model and is never a fallback for
-HRM-backed identity.
+official, or qualify a mainnet deployment. HRM-backed identity requires the
+canonical authenticated authority path.

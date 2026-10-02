@@ -20,7 +20,7 @@ authorities, the exact offer amounts with their sides reversed into the
 maker's perspective, SHA-256 hashlock, descriptor commitments, and timeouts.
 Native HNS sides can be constructed and verified directly against
 `hns-swap::HnsHtlc`.
-New-funding admission is time-gated separately from historical status and
+New-funding admission is time-gated separately from existing settlement status and
 reorganization validation.
 
 An empty `OfferInventory` is the canonical response when a name-market board

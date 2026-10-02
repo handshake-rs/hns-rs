@@ -44,9 +44,7 @@ Direction-aware peer admission preserves that boundary:
   local service and registry advertisement, backend readiness, and peer
   registry negotiation.
 
-The compatibility `admit_packet` API treats `getdnsrelay` as outbound and
-`dnsrelay` as inbound, matching its historical remote-provider check. It is not
-authoritative for inbound HIP-76 requests. Response correlation, request
+Response correlation, request
 generation, deadlines, and DNS question matching belong to the live session
 layer, which must use `RequestTracker` and current policy generations.
 
@@ -54,5 +52,5 @@ layer, which must use `RequestTracker` and current policy generations.
 `OpaqueRelayRoles::default()` enables only the ODoH proxy, while
 `OutputRoles::default()` enables no output. HNSR requester/client and opaque
 relay roles retain independent default-on settings inside `HnsrPolicy`; its
-endpoint/output role remains off. The legacy mixed `ProviderRoles` value exists
-only to migrate old configuration and is not accepted by admission APIs.
+endpoint/output role remains off. Admission APIs require separate requester,
+opaque-forwarding, and output policies.
