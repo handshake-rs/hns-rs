@@ -2,6 +2,8 @@
 
 mod htlc;
 mod listing;
+#[cfg(feature = "shakedex-json")]
+pub mod shakedex_json;
 
 pub use htlc::{
     HNS_HTLC_HASHLOCK_SIZE, HNS_HTLC_PREIMAGE_SIZE, HNS_HTLC_SIGHASH, HNS_HTLC_VERSION, HnsHtlc,

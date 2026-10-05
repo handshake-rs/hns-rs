@@ -45,6 +45,11 @@ assert_same_file fixtures/protocol-v1/hns-swap-v1.txt \
   crates/hns-swap/fixtures/protocol-v1/hns-swap-v1.txt
 assert_same_file fixtures/protocol-v1/hns-swap-v1.txt.sha256 \
   crates/hns-swap/fixtures/protocol-v1/hns-swap-v1.txt.sha256
+for fixture in proof_cooljobs.json proof_dexreviews.json
+do
+  assert_same_file "fixtures/shakedex-json/$fixture" \
+    "crates/hns-swap/fixtures/shakedex-json/$fixture"
+done
 assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt \
   crates/hns-chat-protocol/fixtures/chat-v1/hns-chat-resource-v1.txt
 assert_same_file fixtures/chat-v1/hns-chat-resource-v1.txt.sha256 \

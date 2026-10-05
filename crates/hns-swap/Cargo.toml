@@ -23,6 +23,17 @@ k256.workspace = true
 sha2.workspace = true
 sha3.workspace = true
 thiserror.workspace = true
+bech32 = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+default = []
+# Shakedex v2 auction JSON, the format LearnHNS Market, Bob Wallet and the
+# shakedex CLI exchange. Off by default so the core primitives stay free of
+# serde and bech32.
+shakedex-json = ["dep:bech32", "dep:hex", "dep:serde", "dep:serde_json"]
 
 [dev-dependencies]
 hex.workspace = true
