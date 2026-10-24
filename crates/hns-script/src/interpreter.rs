@@ -387,7 +387,7 @@ impl SignatureVerifier for K256SignatureVerifier {
     fn validate_compact_signature(&self, signature: &[u8; 64]) -> Result<(), ScriptError> {
         let signature =
             Signature::from_slice(signature).map_err(|_| ScriptError::SignatureEncoding)?;
-        if signature.normalize_s().is_some() {
+        if signature != signature.normalize_s() {
             return Err(ScriptError::SignatureEncoding);
         }
         Ok(())

@@ -440,7 +440,7 @@ impl SwapProof {
     }
 
     pub fn sign(&mut self, locking_coin: &Coin, signing_key: &SigningKey) -> Result<(), SwapError> {
-        let public_key = signing_key.verifying_key().to_encoded_point(true);
+        let public_key = signing_key.verifying_key().to_sec1_point(true);
         if public_key.as_bytes() != self.seller_public_key {
             return Err(SwapError::SigningKeyMismatch);
         }
@@ -457,7 +457,7 @@ impl SwapProof {
         let signature: Signature = signing_key
             .sign_prehash(&digest)
             .map_err(|_| SwapError::SignatureFailure)?;
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         let mut encoded = [0_u8; COMPACT_SIGNATURE_SIZE];
         encoded[..64].copy_from_slice(&signature.to_bytes());
         encoded[64] = HIP1_SELLER_SIGHASH as u8;
@@ -471,7 +471,7 @@ impl SwapProof {
         let encoded_signature = self.signature.ok_or(SwapError::UnsignedProof)?;
         let signature = Signature::from_slice(&encoded_signature[..64])
             .map_err(|_| SwapError::InvalidSignature)?;
-        if signature.normalize_s().is_some() {
+        if signature != signature.normalize_s() {
             return Err(SwapError::HighSignature);
         }
         let transaction = self.presigned_transaction(locking_coin)?;
@@ -1062,7 +1062,7 @@ fn verify_seller_signature(
     let encoded_signature = proof.signature.ok_or(SwapError::UnsignedProof)?;
     let signature =
         Signature::from_slice(&encoded_signature[..64]).map_err(|_| SwapError::InvalidSignature)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(SwapError::HighSignature);
     }
     let public_key = VerifyingKey::from_sec1_bytes(&proof.seller_public_key)
@@ -1087,7 +1087,7 @@ fn validate_shakedex_signature(
     }
     let signature =
         Signature::from_slice(&encoded[..64]).map_err(|_| SwapError::InvalidSignature)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(SwapError::HighSignature);
     }
     Ok(signature)
@@ -1375,7 +1375,7 @@ mod tests {
     }
 
     fn unsigned_proof(signing_key: &SigningKey) -> SwapProof {
-        let public_key = signing_key.verifying_key().to_encoded_point(true);
+        let public_key = signing_key.verifying_key().to_sec1_point(true);
         SwapProof {
             network: NetworkBinding {
                 magic: 0x5b6e_c393,

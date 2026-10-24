@@ -22,7 +22,7 @@ pub(crate) fn hash(domain: &[u8], bytes: &[u8]) -> [u8; 32] {
 pub(crate) fn public_key(private_key: &[u8; 32]) -> Result<[u8; 33]> {
     let key = signing_key(private_key)?;
     key.verifying_key()
-        .to_encoded_point(true)
+        .to_sec1_point(true)
         .as_bytes()
         .try_into()
         .map_err(|_| MarketplaceError::InvalidSignature)
@@ -41,7 +41,7 @@ pub(crate) fn sign(
     private_key: &[u8; 32],
 ) -> Result<[u8; COMPACT_SIGNATURE_SIZE]> {
     let key = signing_key(private_key)?;
-    let actual = key.verifying_key().to_encoded_point(true);
+    let actual = key.verifying_key().to_sec1_point(true);
     if actual.as_bytes() != expected_public_key {
         return Err(MarketplaceError::SigningKeyMismatch);
     }
@@ -49,7 +49,7 @@ pub(crate) fn sign(
     let signature: Signature = key
         .sign_prehash(&digest)
         .map_err(|_| MarketplaceError::InvalidSignature)?;
-    let signature = signature.normalize_s().unwrap_or(signature);
+    let signature = signature.normalize_s();
     Ok(signature.to_bytes().into())
 }
 
@@ -63,7 +63,7 @@ pub(crate) fn verify(
         .map_err(|_| MarketplaceError::InvalidSignature)?;
     let signature =
         Signature::from_slice(signature).map_err(|_| MarketplaceError::InvalidSignature)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(MarketplaceError::InvalidSignature);
     }
     key.verify_prehash(&hash(domain, bytes), &signature)

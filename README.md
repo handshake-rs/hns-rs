@@ -126,11 +126,11 @@ python3 scripts/verify-release.py --toolchain 1.89.0
 
 See `docs/releasing.md` before any package dry-run or irreversible publication.
 
-The current `0.5.0` nineteen-crate protocol cohort is pinned to
-[`v0.5.0`](https://github.com/handshake-rs/hns-rs/tree/v0.5.0) at
-`60eb912d615243a6bfb9741b17f16833c5a9181a`. It provides direct-offer
-responder and maker roles across the marketplace and experimental peer
-protocols. `docs/releasing.md` defines the current release procedure. Downstream consumers should pin the exact registry versions and
+The current `0.5.1` nineteen-crate protocol cohort is pinned to
+[`v0.5.1`](https://github.com/handshake-rs/hns-rs/tree/v0.5.1). It preserves
+direct-offer responder and maker roles while migrating ECDSA to the patched
+crypto dependency graph. `docs/releasing.md` defines the current release
+procedure. Downstream consumers should pin the exact registry versions and
 archive checksums admitted by their own release gates.
 
 The HNSR service state machines are an embeddable protocol boundary, not a

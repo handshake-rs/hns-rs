@@ -460,7 +460,7 @@ pub fn select_endpoint_delegation<'a>(
 pub fn public_key(private_key: &[u8; 32]) -> Result<[u8; 33], AuthorityError> {
     let key = signing_key(private_key)?;
     key.verifying_key()
-        .to_encoded_point(true)
+        .to_sec1_point(true)
         .as_bytes()
         .try_into()
         .map_err(|_| AuthorityError::Cryptography)
@@ -537,7 +537,7 @@ fn sign(domain: &[u8], message: &[u8], private_key: &[u8; 32]) -> Result<Vec<u8>
     let signature: Signature = signing_key(private_key)?
         .sign_prehash(&digest)
         .map_err(|_| AuthorityError::Cryptography)?;
-    let signature = signature.normalize_s().unwrap_or(signature);
+    let signature = signature.normalize_s();
     Ok(signature.to_der().as_bytes().to_vec())
 }
 
@@ -552,7 +552,7 @@ fn verify(
         return Err(AuthorityError::Invalid("invalid signature length"));
     }
     let signature = Signature::from_der(signature).map_err(|_| AuthorityError::Cryptography)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(AuthorityError::Cryptography);
     }
     let digest = blake2b_256(&[domain, message]);

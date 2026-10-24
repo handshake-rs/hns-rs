@@ -241,7 +241,7 @@ pub fn sign_shakescape_publication_acceptance(
     let private = Zeroizing::new(*endpoint_private_key);
     let key = SigningKey::from_bytes((&*private).into())
         .map_err(|_| MarketplaceError::InvalidSignature)?;
-    if key.verifying_key().to_encoded_point(true).as_bytes() != policy.hnsa.endpoint_public_key {
+    if key.verifying_key().to_sec1_point(true).as_bytes() != policy.hnsa.endpoint_public_key {
         return Err(MarketplaceError::SigningKeyMismatch);
     }
     let mut parsed = ParsedAcceptance {
@@ -255,7 +255,7 @@ pub fn sign_shakescape_publication_acceptance(
     let signature: Signature = key
         .sign_prehash(&acceptance_digest(&body))
         .map_err(|_| MarketplaceError::InvalidSignature)?;
-    let signature = signature.normalize_s().unwrap_or(signature).to_der();
+    let signature = signature.normalize_s().to_der();
     parsed.signature = signature.as_bytes().to_vec();
     let mut receipt = body;
     put_u16(
@@ -412,7 +412,7 @@ fn parse_and_verify(receipt_bytes: &[u8]) -> Result<ParsedAcceptance> {
     }
     let signature =
         Signature::from_der(&parsed.signature).map_err(|_| MarketplaceError::InvalidSignature)?;
-    if signature.normalize_s().is_some() || signature.to_der().as_bytes() != parsed.signature {
+    if signature != signature.normalize_s() || signature.to_der().as_bytes() != parsed.signature {
         return Err(MarketplaceError::InvalidSignature);
     }
     let key = VerifyingKey::from_sec1_bytes(&parsed.policy.hnsa.endpoint_public_key)
@@ -591,7 +591,7 @@ mod tests {
         let signing_key = SigningKey::from_bytes((&private_key).into()).expect("signing key");
         let endpoint_public_key = signing_key
             .verifying_key()
-            .to_encoded_point(true)
+            .to_sec1_point(true)
             .as_bytes()
             .try_into()
             .expect("compressed key");

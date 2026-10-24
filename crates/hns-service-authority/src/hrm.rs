@@ -991,10 +991,7 @@ impl EndpointDelegationV1 {
         service_private_key: &[u8; 32],
     ) -> Result<(), HnsaError> {
         let signing_key = signing_key(service_private_key)?;
-        if signing_key
-            .verifying_key()
-            .to_encoded_point(true)
-            .as_bytes()
+        if signing_key.verifying_key().to_sec1_point(true).as_bytes()
             != service.service_controller_key
         {
             return Err(HnsaError::Invalid(
@@ -1007,7 +1004,7 @@ impl EndpointDelegationV1 {
         let signature: Signature = signing_key
             .sign_prehash(&digest)
             .map_err(|_| HnsaError::Cryptography)?;
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         self.service_signature = signature.to_der().as_bytes().to_vec();
         self.verify_uncommitted(service, now, 0)?;
         Ok(())
@@ -1448,7 +1445,7 @@ fn validate_signature(signature: &[u8]) -> Result<Signature, HnsaError> {
     }
     let parsed = Signature::from_der(signature)
         .map_err(|_| HnsaError::Invalid("invalid DER endpoint signature"))?;
-    if parsed.normalize_s().is_some() || parsed.to_der().as_bytes() != signature {
+    if parsed != parsed.normalize_s() || parsed.to_der().as_bytes() != signature {
         return Err(HnsaError::Invalid("noncanonical endpoint signature"));
     }
     Ok(parsed)
@@ -1629,7 +1626,7 @@ mod tests {
             .expect("test signing key")
             .sign_prehash(&digest)
             .expect("test signature");
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         endpoint.service_signature = signature.to_der().as_bytes().to_vec();
     }
 

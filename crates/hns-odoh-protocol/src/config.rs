@@ -271,7 +271,7 @@ impl TargetConfigRecord {
         let configurations = decode_config_list(&configuration_bytes)?;
         let signature = Signature::from_der(&signature_bytes)
             .map_err(|_| OdohProtocolError::InvalidSignature)?;
-        if signature.normalize_s().is_some() {
+        if signature != signature.normalize_s() {
             return Err(OdohProtocolError::InvalidSignature);
         }
         let digest = blake2b_256(&[TARGET_CONFIG_TAG, &input[..unsigned_length]]);

@@ -577,7 +577,7 @@ fn validate_der_low_s(signature_bytes: &[u8]) -> Result<(), HnsrProtocolError> {
     }
     let signature = k256::ecdsa::Signature::from_der(signature_bytes)
         .map_err(|_| HnsrProtocolError::Cryptography)?;
-    if signature.normalize_s().is_some() || signature.to_der().as_bytes() != signature_bytes {
+    if signature != signature.normalize_s() || signature.to_der().as_bytes() != signature_bytes {
         return Err(HnsrProtocolError::Cryptography);
     }
     Ok(())

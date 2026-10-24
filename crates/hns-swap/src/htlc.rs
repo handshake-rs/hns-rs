@@ -381,7 +381,7 @@ fn validate_htlc_signature(signature: &[u8; 65]) -> Result<(), SwapError> {
     }
     let signature =
         Signature::from_slice(&signature[..64]).map_err(|_| SwapError::InvalidHtlcSignature)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(SwapError::HighHtlcSignature);
     }
     Ok(())
@@ -437,8 +437,8 @@ mod tests {
     fn htlc_fixture() -> (HnsHtlc, [u8; 32], SigningKey, SigningKey) {
         let receiver_key = SigningKey::from_slice(&[0x41; 32]).expect("receiver key");
         let refund_key = SigningKey::from_slice(&[0x42; 32]).expect("refund key");
-        let receiver_public_key = receiver_key.verifying_key().to_encoded_point(true);
-        let refund_public_key = refund_key.verifying_key().to_encoded_point(true);
+        let receiver_public_key = receiver_key.verifying_key().to_sec1_point(true);
+        let refund_public_key = refund_key.verifying_key().to_sec1_point(true);
         let preimage = [0x55; HNS_HTLC_PREIMAGE_SIZE];
         (
             HnsHtlc {
@@ -519,7 +519,7 @@ mod tests {
             .signature_hash(transaction, 0, coin)
             .expect("HTLC signature hash");
         let signature: Signature = key.sign_prehash(&digest).expect("HTLC signature");
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         let mut compact = [0_u8; 65];
         compact[..64].copy_from_slice(&signature.to_bytes());
         compact[64] = HNS_HTLC_SIGHASH;

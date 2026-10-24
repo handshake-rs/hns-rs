@@ -636,7 +636,7 @@ impl Envelope {
     ) -> Result<Self, HrmModelError> {
         payload.validate()?;
         let signing_key = signing_key(private_key)?;
-        let public_key = signing_key.verifying_key().to_encoded_point(true);
+        let public_key = signing_key.verifying_key().to_sec1_point(true);
         if public_key.as_bytes() != payload.controller.public_key {
             return Err(HrmModelError::Invalid(
                 "private key does not match the HRM controller",
@@ -647,7 +647,7 @@ impl Envelope {
         let signature: Signature = signing_key
             .sign_prehash(&digest)
             .map_err(|_| HrmModelError::Cryptography)?;
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         let envelope = Self {
             payload,
             signatures: vec![SignatureObject {
@@ -732,7 +732,7 @@ impl Envelope {
                 continue;
             }
             let parsed = match Signature::from_der(&signature.signature) {
-                Ok(parsed) if parsed.normalize_s().is_none() => parsed,
+                Ok(parsed) if parsed == parsed.normalize_s() => parsed,
                 _ => continue,
             };
             if verifier.verify_prehash(&digest, &parsed).is_ok() {
@@ -771,7 +771,7 @@ pub fn public_key(private_key: &[u8; 32]) -> Result<[u8; 33], HrmModelError> {
     let signing_key = signing_key(private_key)?;
     signing_key
         .verifying_key()
-        .to_encoded_point(true)
+        .to_sec1_point(true)
         .as_bytes()
         .try_into()
         .map_err(|_| HrmModelError::Cryptography)
@@ -803,7 +803,7 @@ fn validate_der_low_s(signature: &[u8]) -> Result<(), HrmModelError> {
     }
     let parsed = Signature::from_der(signature)
         .map_err(|_| HrmModelError::Invalid("invalid DER secp256k1 signature"))?;
-    if parsed.normalize_s().is_some() || parsed.to_der().as_bytes() != signature {
+    if parsed != parsed.normalize_s() || parsed.to_der().as_bytes() != signature {
         return Err(HrmModelError::Invalid("noncanonical secp256k1 signature"));
     }
     Ok(())

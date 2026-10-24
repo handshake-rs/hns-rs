@@ -392,7 +392,7 @@ fn validate_der_low_s(signature: &[u8]) -> Result<(), HnsrProtocolError> {
         ));
     }
     let signature = Signature::from_der(signature).map_err(|_| HnsrProtocolError::Cryptography)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(HnsrProtocolError::Cryptography);
     }
     Ok(())

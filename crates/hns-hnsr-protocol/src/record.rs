@@ -26,7 +26,7 @@ const RESERVE_UNSIGNED_SIZE: usize = 65;
 
 pub fn public_key(private_key: &[u8; 32]) -> Result<[u8; 33], HnsrProtocolError> {
     let signing_key = signing_key(private_key)?;
-    let encoded = signing_key.verifying_key().to_encoded_point(true);
+    let encoded = signing_key.verifying_key().to_sec1_point(true);
     encoded
         .as_bytes()
         .try_into()
@@ -777,7 +777,7 @@ pub(crate) fn sign(
     let signature: Signature = key
         .sign_prehash(&digest)
         .map_err(|_| HnsrProtocolError::Cryptography)?;
-    let signature = signature.normalize_s().unwrap_or(signature);
+    let signature = signature.normalize_s();
     Ok(signature.to_der().as_bytes().to_vec())
 }
 
@@ -792,7 +792,7 @@ pub(crate) fn verify(
         return Err(HnsrProtocolError::Invalid("invalid HNSR signature length"));
     }
     let signature = Signature::from_der(signature).map_err(|_| HnsrProtocolError::Cryptography)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(HnsrProtocolError::Cryptography);
     }
     let mut digest_parts = Vec::with_capacity(parts.len() + 1);

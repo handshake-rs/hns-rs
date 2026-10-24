@@ -81,7 +81,7 @@ impl FixedPriceListing {
     }
 
     pub fn sign(&mut self, signing_key: &SigningKey) -> Result<(), SwapError> {
-        let public_key = signing_key.verifying_key().to_encoded_point(true);
+        let public_key = signing_key.verifying_key().to_sec1_point(true);
         if public_key.as_bytes() != self.proof.seller_public_key {
             return Err(SwapError::SigningKeyMismatch);
         }
@@ -91,7 +91,7 @@ impl FixedPriceListing {
         let signature: Signature = signing_key
             .sign_prehash(&digest)
             .map_err(|_| SwapError::SignatureFailure)?;
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         self.signature = Some(signature.to_bytes().into());
         self.verify()
     }
@@ -277,7 +277,7 @@ impl ListingCancellation {
     }
 
     pub fn sign(&mut self, signing_key: &SigningKey) -> Result<(), SwapError> {
-        let public_key = signing_key.verifying_key().to_encoded_point(true);
+        let public_key = signing_key.verifying_key().to_sec1_point(true);
         if public_key.as_bytes() != self.seller_public_key {
             return Err(SwapError::SigningKeyMismatch);
         }
@@ -287,7 +287,7 @@ impl ListingCancellation {
         let signature: Signature = signing_key
             .sign_prehash(&digest)
             .map_err(|_| SwapError::SignatureFailure)?;
-        let signature = signature.normalize_s().unwrap_or(signature);
+        let signature = signature.normalize_s();
         self.signature = Some(signature.to_bytes().into());
         self.verify()
     }
@@ -440,7 +440,7 @@ fn validate_marketplace_signature(
     encoded: &[u8; MARKETPLACE_SIGNATURE_SIZE],
 ) -> Result<Signature, SwapError> {
     let signature = Signature::from_slice(encoded).map_err(|_| SwapError::InvalidSignature)?;
-    if signature.normalize_s().is_some() {
+    if signature != signature.normalize_s() {
         return Err(SwapError::HighMarketplaceSignature);
     }
     Ok(signature)
@@ -475,7 +475,7 @@ mod tests {
 
     fn listing_fixture() -> (FixedPriceListing, Coin, SigningKey) {
         let signing_key = SigningKey::from_slice(&[0x31; 32]).expect("seller key");
-        let seller_public_key = signing_key.verifying_key().to_encoded_point(true);
+        let seller_public_key = signing_key.verifying_key().to_sec1_point(true);
         let seller_public_key = seller_public_key
             .as_bytes()
             .try_into()

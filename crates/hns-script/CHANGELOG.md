@@ -2,7 +2,11 @@
 
 This crate uses the shared `hns-rs` workspace version. Complete release notes
 for every public crate are maintained in the repository-level
-[`CHANGELOG.md`](https://github.com/handshake-rs/hns-rs/blob/v0.5.0/CHANGELOG.md).
+[`CHANGELOG.md`](https://github.com/handshake-rs/hns-rs/blob/v0.5.1/CHANGELOG.md).
+
+## 0.5.1 - 2026-10-24
+
+See the canonical workspace changelog for the security dependency migration and validation scope.
 
 ## 0.5.0 - 2026-09-28
 

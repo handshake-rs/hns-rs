@@ -45,6 +45,12 @@ required files are present and no dependency path survives normalization. A
 separate, explicitly requested release preflight performs Cargo's real publish
 dry-run for all 19 packages.
 
+## 0.5.1 release source
+
+Version `0.5.1` migrates the ECDSA dependency graph to patched crypto-bigint
+and preserves existing signature validation rules. The full nineteen-crate cohort
+advances together for consistent resolution.
+
 ## 0.5.0 release source
 
 Version `0.5.0` changes direct-offer maker and responder roles across the
@@ -141,7 +147,7 @@ published.
    upload. The confirmation version must equal the workspace version:
 
    ```bash
-   ./scripts/publish.sh --execute --confirm-publish 0.5.0
+   ./scripts/publish.sh --execute --confirm-publish 0.5.1
    ```
 
 The execution mode is restartable, but it never skips solely because an API
@@ -163,7 +169,7 @@ communicates a different limit:
 ```bash
 PUBLISH_NEW_INTERVAL_SECONDS=605 \
 PUBLISH_UPDATE_INTERVAL_SECONDS=65 \
-  ./scripts/publish.sh --execute --confirm-publish 0.5.0
+  ./scripts/publish.sh --execute --confirm-publish 0.5.1
 ```
 
 After the cooldown, the script downloads the newly uploaded archive and
